@@ -24,6 +24,7 @@ import {
     isPixelPvpMatch,
     clampPvpProgress,
     createSeededPvpBoardState,
+    resolvePvpBoardFallbackSeed,
     createDemoPvpBattle,
     isPvpRouteReason,
     resolvePvpBoardTimeline,
@@ -57,6 +58,19 @@ const PVP_THUMBNAIL_DRAW_WIDTH = 164;
 const PVP_THUMBNAIL_DRAW_HEIGHT = 238;
 const PVP_BATTLE_UTILITY_CENTER_TOP = 50.5;
 const PVP_BATTLE_ARTWORK_OPTICAL_TOP_OFFSET = -5;
+
+function pvpErrorMessage(error: unknown, fallback: string = '服务异常'): string {
+    if (error instanceof Error && error.message) return error.message;
+    if (error && typeof error === 'object') {
+        const value = error as Record<string, unknown>;
+        for (const key of ['errorMessage', 'errMsg', 'message']) {
+            if (typeof value[key] === 'string' && value[key]) return value[key] as string;
+        }
+        const code = value.errCode ?? value.errorCode ?? value.code;
+        if (typeof code === 'string' || typeof code === 'number') return `${fallback}（${code}）`;
+    }
+    return typeof error === 'string' && error ? error : fallback;
+}
 
 function ensureTransform(node: Node, width: number, height: number): UITransform {
     const transform = node.getComponent(UITransform) || node.addComponent(UITransform);
@@ -363,12 +377,13 @@ function collectBoardCells(runtime: any): PvpLockedCell[] {
 
 function opponentBoardStateAt(runtime: any, context: PvpBattleContext, elapsedMs: number, progress: number): { available: boolean; cells: PvpLockedCell[]; revision: string } {
     const timeline = Array.isArray(context.opponentBoardTimeline) ? context.opponentBoardTimeline : [];
-    if (timeline.length > 0 || context.replayProtocol === HUMAN_REPLAY_PROTOCOL) {
+    if (timeline.length > 0) {
         const cells = resolvePvpBoardTimeline(timeline, elapsedMs);
         return { available: true, cells, revision: `replay:${cells.length}` };
     }
-    if (context.opponentBoardSeed) {
-        const cells = createSeededPvpBoardState(collectBoardCells(runtime), context.opponentBoardSeed, progress);
+    const fallbackSeed = resolvePvpBoardFallbackSeed(context);
+    if (fallbackSeed) {
+        const cells = createSeededPvpBoardState(collectBoardCells(runtime), fallbackSeed, progress);
         return { available: true, cells, revision: `seeded:${cells.length}` };
     }
     return { available: false, cells: [], revision: 'unavailable' };
@@ -452,6 +467,59 @@ function createPvpEconomyModal(parent: Node, name: string, title: string, height
         onClose();
     });
     return { root, card };
+}
+
+function createPvpMatchmakingOverlay(parent: Node): {
+    root: Node;
+    setStatus: (message: string) => void;
+    fail: (message: string) => void;
+} {
+    parent.getChildByName('PvpMatchmakingOverlay')?.destroy();
+    const root = new Node('PvpMatchmakingOverlay');
+    root.layer = Layers.Enum.UI_2D;
+    parent.addChild(root);
+    ensureTransform(root, 720, 1280);
+    root.addComponent(BlockInputEvents);
+    const background = root.addComponent(Graphics);
+    background.fillColor = new Color(78, 111, 224, 255);
+    background.rect(-360, -640, 720, 1280);
+    background.fill();
+    background.fillColor = new Color(242, 92, 107, 255);
+    background.moveTo(-360, -640);
+    background.lineTo(360, -640);
+    background.lineTo(360, 390);
+    background.lineTo(-360, -210);
+    background.close();
+    background.fill();
+    addLabel(root, 'Title', '排位匹配', 0, 455, 48, COLORS.white);
+    const versus = new Node('MatchmakingVersus');
+    versus.layer = Layers.Enum.UI_2D;
+    root.addChild(versus);
+    versus.setPosition(0, 95, 0);
+    const versusGraphics = drawPixelPanel(versus, 270, 240, COLORS.violetDark, 28);
+    versusGraphics.strokeColor = COLORS.gold;
+    versusGraphics.lineWidth = 5;
+    versusGraphics.stroke();
+    addLabel(versus, 'Versus', 'VS', 0, 18, 72, COLORS.gold);
+    addLabel(versus, 'Caption', '寻找对手成绩', 0, -62, 22, COLORS.white);
+    const status = addBoundedLabel(root, 'MatchmakingStatus', '正在同步体力与门票', 0, -130, 25, COLORS.white, 600);
+    addBoundedLabel(root, 'FairRule', '同一关卡 · 同一规则 · 异步挑战', 0, -188, 19, COLORS.gold, 600);
+    return {
+        root,
+        setStatus: (message: string) => {
+            if (status.node.isValid) status.string = message;
+        },
+        fail: (message: string) => {
+            if (!root.isValid) return;
+            status.string = message;
+            status.color = COLORS.white;
+            addBoundedLabel(root, 'FailureHint', '返回后可重试；若云端已创建对局，下次会自动恢复', 0, -242, 17, COLORS.white, 620);
+            const back = addButton(root, 'ReturnToLobby', '返回大厅', 0, -340, 300, 68, COLORS.violetDark, () => {
+                if (root.isValid) root.destroy();
+            });
+            styleLobbyButton(back, COLORS.gold);
+        },
+    };
 }
 
 export function installPvpModeModule(target: any): void {
@@ -578,6 +646,7 @@ export function installPvpModeModule(target: any): void {
             };
             this.schedule?.(refreshDailyTickets, 1);
             overlay.on(Node.EventType.NODE_DESTROYED, () => this.unschedule?.(refreshDailyTickets));
+
             if (PvpServiceMgr.inst.isLocalPreview()) {
                 rankLabel.string = '永恒钻石 III';
                 divisionLabel.string = 'III';
@@ -608,6 +677,8 @@ export function installPvpModeModule(target: any): void {
                 this._pvpMatchStarting = true;
                 AudioMgr.inst.play('button');
                 if (activeMatchId) {
+                    const matching = createPvpMatchmakingOverlay(overlay);
+                    matching.setStatus('正在恢复未完成对局');
                     status.string = '正在核对云端对局…';
                     void PvpServiceMgr.inst.getActiveMatch().then((match) => {
                         this._pvpMatchStarting = false;
@@ -617,6 +688,7 @@ export function installPvpModeModule(target: any): void {
                             PvpServiceMgr.inst.clearPersistedBattle();
                             startLabel.string = '开始排位';
                             status.string = '上局已结束或过期，可以开始新排位';
+                            matching.fail('未找到可恢复的对局');
                             return;
                         }
                         const context = PvpServiceMgr.inst.toBattleContext(match);
@@ -627,10 +699,12 @@ export function installPvpModeModule(target: any): void {
                         context.startedAtMs = Date.now() - (context.resumeElapsedMs || 0);
                         PvpServiceMgr.inst.persistBattle(context);
                         AppRoot.inst.session.setPvpBattleContext(context);
+                        if (matching.root.isValid) matching.root.destroy();
                         this.showPvpOpponentReveal(overlay, context);
                     }).catch((error) => {
                         this._pvpMatchStarting = false;
                         if (overlay.isValid) status.string = pvpPlayerNotice(error, '对局待同步，请稍后再试');
+                        matching.fail(pvpPlayerNotice(error, '对局待同步，请稍后再试'));
                     });
                     return;
                 }
@@ -652,27 +726,34 @@ export function installPvpModeModule(target: any): void {
                     this.showNoLivesAdModal({ source: 'pvp_start', onResult: () => { void refreshEconomy(); } });
                     return;
                 }
+                const matching = createPvpMatchmakingOverlay(overlay);
                 status.string = '匹配中… 正在寻找实力相近的对手';
                 void PvpServiceMgr.inst.syncInventory(this).then(async () => {
-                    if (PvpServiceMgr.inst.isLocalPreview()) return PvpServiceMgr.inst.matchmake(levelId, chapterLevelData);
+                    if (PvpServiceMgr.inst.isLocalPreview()) {
+                        matching.setStatus('正在准备本地模拟对手');
+                        return PvpServiceMgr.inst.matchmake(levelId, chapterLevelData);
+                    }
+                    matching.setStatus('正在分配排位关卡');
                     const offer = await PvpServiceMgr.inst.getRankedLevel();
+                    matching.setStatus('正在加载同一关卡');
                     const data = await new Promise<any>((resolve, reject) => this.loadLevelData(offer.levelId, (value: any) => {
                         if (!value) reject(new Error('排位关卡加载失败'));
                         else resolve(value);
                     }, 'zt_level_'));
                     if (pixelLevelHash(data) !== offer.levelHash) throw new Error('排位关卡版本不一致，请更新资源');
+                    matching.setStatus('正在锁定对手成绩');
                     return PvpServiceMgr.inst.matchmake(offer.levelId, data, offer.poolVersion);
                 }).then((context) => {
-                    if (context.demo) {
-                        if (!this.costVigorForLevel(levelId, 'theme')) throw new Error('体力不足');
-                    } else this.applyPvpEconomySnapshot(context.entryInventory);
+                    if (!context.demo) this.applyPvpEconomySnapshot(context.entryInventory);
                     this._pvpMatchStarting = false;
                     if (!overlay?.isValid) return;
                     AppRoot.ensure('Home').session.setPvpBattleContext(context);
+                    if (matching.root.isValid) matching.root.destroy();
                     this.showPvpOpponentReveal(overlay, context);
                 }).catch((error) => {
                     this._pvpMatchStarting = false;
                     if (overlay?.isValid) status.string = pvpPlayerNotice(error, '暂时无法匹配，请稍后再试');
+                        matching.fail(pvpPlayerNotice(error, '暂时无法匹配，请稍后再试'));
                     void refreshEconomy();
                 });
             });
@@ -1141,6 +1222,48 @@ export function installPvpModeModule(target: any): void {
             }, 1.5);
         },
 
+        confirmPvpMatchEntry(context: PvpBattleContext): void {
+            if (context.matchType === 'friend' || context.entryConfirmed) return;
+            const overlayRoot = this.requireCanvasUiRoot('OverlayRoot');
+            overlayRoot.getChildByName('PvpEntryConfirmation')?.destroy();
+            const blocker = new Node('PvpEntryConfirmation');
+            blocker.layer = Layers.Enum.UI_2D;
+            overlayRoot.addChild(blocker);
+            ensureTransform(blocker, 720, 1280);
+            blocker.addComponent(BlockInputEvents);
+            drawPanel(blocker, 720, 1280, new Color(26, 23, 61, 205), 0);
+            const status = addBoundedLabel(blocker, 'Status', '正在确认进入排位…', 0, 24, 28, COLORS.white, 620);
+            const retry = addButton(blocker, 'Retry', '重试进入', 0, -92, 300, 68, COLORS.violet, () => { void confirm(); });
+            retry.active = false;
+            const back = addButton(blocker, 'Back', '返回大厅', 0, -180, 300, 60, COLORS.white, () => {
+                PvpServiceMgr.inst.clearPersistedBattle();
+                AppRoot.tryGet()?.session.clearPvpBattleContext();
+                void this.requestHomeRoute('pvp-entry-confirm-failed', 'none');
+            });
+            back.active = false;
+            let confirming = false;
+            const confirm = async () => {
+                if (confirming || !blocker.isValid) return;
+                confirming = true;
+                retry.active = false;
+                back.active = false;
+                status.string = '正在确认进入排位…';
+                try {
+                    if (context.demo && !this.costVigorForLevel(context.levelId, 'theme')) throw new Error('体力不足');
+                    const inventory = await PvpServiceMgr.inst.confirmMatchEntry(context);
+                    if (inventory) this.applyPvpEconomySnapshot(inventory);
+                    if (blocker.isValid) blocker.destroy();
+                } catch (error) {
+                    confirming = false;
+                    if (!blocker.isValid) return;
+                    status.string = `进入确认失败：${pvpErrorMessage(error)}\n未扣除门票和体力`;
+                    retry.active = true;
+                    back.active = true;
+                }
+            };
+            void confirm();
+        },
+
         mountPvpBattleHud(): void {
             if (!this.isRankedPvpMode()) return;
             const context = getPvpContext();
@@ -1149,6 +1272,7 @@ export function installPvpModeModule(target: any): void {
             if (context.levelHash && pixelLevelHash(this.levelData) !== context.levelHash) throw new Error('[PvpMode] replay level version mismatch');
             this._pvpReplayResumeState = context.resumeReplay ? replayHumanEvents(this.levelData, context.resumeReplay) : null;
             if (this._pvpReplayResumeState) this.boardModel = this._pvpReplayResumeState.board;
+            this.confirmPvpMatchEntry(context);
             const topBar = this.getGameplayFixedGroup('TopBarGroup');
             if (topBar.parent?.isValid) topBar.setSiblingIndex(topBar.parent.children.length - 1);
             topBar.getChildByName('LevelTitle')!.active = false;

@@ -9,7 +9,7 @@ const gameAssetsRoot = path.join(projectDir, 'assets', 'GameAssetsBundle');
 const levelDataRoot = path.join(projectDir, 'assets', 'LevelData');
 const bootstrapRoot = path.join(projectDir, 'assets', 'BootstrapBundle');
 const bootstrapLevelIds = [1];
-const beanAtlasFrames = Array.from({ length: 21 }, (_, index) => {
+const beanAtlasFrames = Array.from({ length: 20 }, (_, index) => {
     const color = String(index + 1).padStart(3, '0');
     return [1, 2, 4].map((variant) => `b${color}_${variant}`);
 }).flat();

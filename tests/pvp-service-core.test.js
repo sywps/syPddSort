@@ -71,7 +71,7 @@ assert.throws(() => core.normalizeBoardTimeline([
 
 const source = fs.readFileSync(path.join(__dirname, '../cloudfunctions/pvpService/index.js'), 'utf8');
 const deploymentManifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../cloudfunctions/pvpService/deployment-manifest.json'), 'utf8'));
-for (const action of ['matchmake', 'createFriendChallenge', 'joinFriendChallenge', 'getMatch', 'getActiveMatch', 'saveCheckpoint', 'getOpponentState', 'cancelMatch', 'submitResult', 'getLeaderboard', 'getHistory']) {
+for (const action of ['matchmake', 'confirmMatchEntry', 'createFriendChallenge', 'joinFriendChallenge', 'getMatch', 'getActiveMatch', 'saveCheckpoint', 'getOpponentState', 'cancelMatch', 'submitResult', 'getLeaderboard', 'getHistory']) {
   assert(source.includes(`case '${action}'`), `missing cloud action ${action}`);
 }
 for (const action of ['maintenance', 'seedDevelopmentData']) {
@@ -84,11 +84,21 @@ assert(source.includes('publicSettlement'), 'settlement response must use public
 assert(source.includes('`${matchId}_${opponentOpenid}`'), 'friend settlement must write both participant ledgers');
 assert(source.includes("(rated ? 1 : 0)"), 'friend matches must not increment ranked game totals');
 assert(source.includes('const replay = await findHistoricalReplay'), 'ranked matchmaking must search human replays first');
+assert(source.includes("entryCost: { tickets: 1, vigor: 1, chargedAt: 0 }"), 'matchmaking must create an uncharged entry reservation');
+assert(source.includes('async function confirmRankedMatchEntry(event, openid)'), 'ranked entry charge must have an explicit confirmation action');
+assert(source.includes("if (int(match.entryCost?.chargedAt) > 0)"), 'entry confirmation must be idempotent');
+assert(source.includes("ranked match entry is not confirmed"), 'unconfirmed ranked matches must not accept gameplay state or settlement');
 assert(source.includes('if (activeMatch) return activeMatch;'), 'ranked matchmaking must resume the authoritative active match instead of dead-ending');
+assert(source.includes("where({ playerAOpenid: openid, status: command.in(statuses) })"), 'active match lookup must use the deployed player A/status/updatedAt index');
+assert(source.includes("where({ playerBOpenid: openid, status: command.in(statuses) })"), 'active match lookup must use the deployed player B/status/updatedAt index');
+assert(source.includes(".filter((row) => row.levelPrefix === LEVEL_PREFIX && row.rulesVersion === RULES_VERSION)"), 'active match namespace and rules must remain server-filtered');
 assert(!source.includes("async function createRankedMatch(event, openid, profile) {\n  if (await getActiveMatch(openid)) throw new Error('active match already exists');"), 'ranked matchmaking must not reject a recoverable active match');
-const matcherSource = fs.readFileSync(path.join(__dirname, '../cloudfunctions/pvpService/matchmaking.js'), 'utf8');
+const matcherSource = fs.readFileSync(path.join(__dirname, '../cloudfunctions/pvpService/matchmaking.js'), 'utf8').replace(/\r\n/g, '\n');
 assert(matcherSource.includes('HUMAN_REPLAY_VERIFICATION') && matcherSource.includes('row.completeRun === true'), 'historical candidates must require complete rule-verified replays');
+assert(matcherSource.includes("where({ levelId, rulesVersion: RULES_VERSION,\n      verified: true, eligibleForMatchmaking: true })"), 'replay lookup must use the deployed level/rules/verified/eligible/createdAt index');
+assert(!matcherSource.includes('ratingBucket: db.command.in'), 'replay lookup must not require an undeployed rating-bucket index before bot fallback');
 assert(source.indexOf("matchType = 'human_replay'") < source.indexOf("matchType = 'bot'"), 'bot fallback must remain after the human replay branch');
+assert(source.includes('opponentRun.boardSeed = botSeed'), 'bot matches must freeze a deterministic thumbnail fallback seed');
 assert(source.includes("const publicMatchType = match.matchType === 'friend' ? 'friend' : 'ranked'"), 'client match projection must conceal ranked opponent source');
 assert(!source.includes('matchType: match.matchType,'), 'client response must not expose internal bot or replay match type');
 assert(source.includes('terminalType: opponentRun.terminalType'), 'client opponent run must use an explicit public projection');
@@ -150,7 +160,14 @@ for (const forbiddenUi of ['AI 对手', 'AiBadge', 'RobotFace']) {
 }
 assert(uiSource.includes('opponentProgressAt(context, elapsedMs)'), 'opponent UI must consume replay timeline progress');
 assert(pvpServiceSource.includes('UserStateSyncMgr.inst.canUseCloud()'), 'ranked inventory sync must reject a session whose authoritative asset cloud has been disabled');
+assert(uiSource.includes('this.confirmPvpMatchEntry(context);'), 'ticket charging must start only after the PVP gameplay HUD has mounted');
+assert(uiSource.includes('未扣除门票和体力'), 'entry confirmation failure must state that no economy was consumed');
+assert(pvpServiceSource.includes("this.call<{ match: PvpCloudMatch }>('confirmMatchEntry'"), 'client entry confirmation must use the authoritative cloud action');
 assert(uiSource.includes('resolvePvpBoardTimeline(timeline, elapsedMs)'), 'historical board thumbnail must consume recorded board timeline');
+assert(uiSource.includes('if (timeline.length > 0)'), 'an empty replay timeline must not be mistaken for an available opponent board');
+assert(uiSource.includes('const fallbackSeed = resolvePvpBoardFallbackSeed(context);'), 'old cloud matches must derive a stable thumbnail seed from the match');
+assert(uiSource.includes('createSeededPvpBoardState(collectBoardCells(runtime), fallbackSeed, progress)'), 'bot thumbnail must advance deterministically from its frozen seed and replay progress');
+assert(pvpServiceSource.includes('context.opponentBoardSeed = run.replayId'), 'local bot preview must retain a stable thumbnail seed');
 assert(!uiSource.includes('index < visibleCount'), 'opponent thumbnail must not infer cells from an overall percentage');
 assert(!uiSource.includes('pollPvpFriendState'), 'asynchronous friend battles must not poll a live opponent');
 assert(!uiSource.includes('对手刚刚同步'), 'asynchronous battle UI must not imply live synchronization');
@@ -166,6 +183,13 @@ assert(uiSource.includes("startLabel.string = match ? '恢复对局' : '开始�
 assert(/openPvpLobby\(\): void \{\s*this\._pvpMatchStarting = false;/.test(uiSource), 'opening the PVP lobby must clear any stale matchmaking guard');
 assert(/getRankedLevel\(\)[\s\S]*?matchmake\(offer.levelId, data, offer.poolVersion\)[\s\S]*?this\._pvpMatchStarting = false;[\s\S]*?this\.showPvpOpponentReveal/.test(uiSource), 'ranked matchmaking must load the server level before revealing the opponent');
 assert(/getActiveMatch\(\)\.then\(\(match\) => \{\s*this\._pvpMatchStarting = false;/.test(uiSource), 'successful match recovery must release the start guard before entering battle');
+assert(uiSource.includes("new Node('PvpMatchmakingOverlay')"), 'ranked start must have a dedicated immediate matchmaking page');
+assert(/createPvpMatchmakingOverlay\(overlay\);[\s\S]*?PvpServiceMgr\.inst\.syncInventory/.test(uiSource), 'matchmaking page must mount before the first asynchronous ranked-start operation');
+for (const stage of ['正在同步体力与门票', '正在分配排位关卡', '正在加载同一关卡', '正在锁定对手成绩']) {
+  assert(uiSource.includes(stage), `matchmaking page is missing truthful stage copy: ${stage}`);
+}
+assert(uiSource.includes('若云端已创建对局，下次会自动恢复'), 'matchmaking failure must explain the authoritative recovery path');
+assert(uiSource.includes('pvpErrorMessage(error)'), 'matchmaking failure must preserve WeChat errMsg/errorCode diagnostics');
 assert(uiSource.includes('进入对战失败：'), 'battle scene routing failures must be visible and retryable');
 assert(uiSource.includes("'[PvpMode] opponent HUD failed to mount'"), 'opponent HUD must fail visibly when required nodes are missing');
 assert(uiSource.includes("topBar.setSiblingIndex(topBar.parent.children.length - 1)"), 'ranked HUD layer must stay above board and conveyor groups');
@@ -192,9 +216,10 @@ assert(uiSource.includes('getLaunchChallengeCode()'), 'friend battle panel must 
 assert(uiSource.includes('joinFriendChallenge(launchCode)'), 'friend battle join path must call the authoritative cloud service');
 assert(uiSource.includes('createFriendChallenge(levelId)'), 'friend battle create path must call the authoritative cloud service');
 assert(uiSource.includes('new Color(238, 241, 255, 255)'), 'ranked lobby must use an opaque high-contrast background');
-assert(uiSource.includes("addButton(overlay, 'PvpLeaderboard', '排行榜', -210, -542"), 'lobby secondary actions must share one aligned row');
-assert(uiSource.includes("addButton(overlay, 'History', '对战记录', 0, -542"), 'battle history must remain in the aligned secondary row');
-assert(uiSource.includes("addButton(overlay, 'Rules', '玩法规则', 210, -542"), 'rules must remain in the aligned secondary row');
+assert(uiSource.includes("addLobbySurface(overlay, 'RankedCard', 0, -411, 620, 344"), 'ranked card must enclose its secondary actions');
+assert(uiSource.includes("addButton(rankedCard, 'PvpLeaderboard', '排行榜', -210, -131"), 'leaderboard must stay inside the aligned ranked-card row');
+assert(uiSource.includes("addButton(rankedCard, 'History', '对战记录', 0, -131"), 'battle history must stay inside the aligned ranked-card row');
+assert(uiSource.includes("addButton(rankedCard, 'Rules', '玩法规则', 210, -131"), 'rules must stay inside the aligned ranked-card row');
 assert(uiSource.includes("'ChapterTitle', '闯关模式'"), 'unified lobby must expose chapter mode');
 assert(uiSource.includes('this.startThemeLevel(chapterLevelId, { suppressFailureToast: true })'), 'chapter entry must retain theme gameplay and vigor checks');
 assert(uiSource.includes('persistedBattle?.matchId === match.matchId'), 'resume must not merge elapsed time from another match');

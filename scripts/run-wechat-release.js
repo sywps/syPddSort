@@ -390,6 +390,10 @@ async function main(args = process.argv.slice(2)) {
             WECHAT_OPEN_DEVTOOLS: '0',
             WECHAT_WARM_COCOS_ASSETDB: '0',
         });
+        run(process.execPath, [path.join(workerDir, 'tests/coop-package.test.js')], {
+            cwd: workerDir,
+            label: '合作玩法微信产物回归',
+        });
     } catch (error) {
         primaryError = error;
     }

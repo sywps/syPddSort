@@ -2,21 +2,24 @@
 
 const crypto = require('crypto');
 const { PvpHumanReplay } = require('./runtime/PvpHumanReplay');
-const { pixelLevelHash } = require('./runtime/PvpBotReplay');
-const { coopHalfLevel, COOP_MAX_ELAPSED_MS, COOP_RULES_VERSION } = require('./runtime/CoopModeConfig');
+const { coopHalfLevel, coopLevelHash, COOP_MAX_ELAPSED_MS, COOP_RULES_VERSION, COOP_LEGACY_RULES_VERSION } = require('./runtime/CoopModeConfig');
 const manifest = require('./levels/manifest.json');
 const entries = new Map(manifest.levels.map(level => [level.levelId, level]));
+const legacyManifest = require('./legacy-levels/manifest.json');
+const legacyEntries = new Map(legacyManifest.levels.map(level => [1000 + level.levelId, level]));
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const runId = (post, user) => hash(`${post}:${user}`).slice(0, 40);
 const userId = user => hash(user).slice(0, 40);
 const blankUser = () => ({ activeCreated: null, activeJoined: null, unlocked: {} });
-const postView = post => ({ id: post.id, levelId: post.levelId, creatorName: post.creatorName,
-    levelHash: pixelLevelHash(fullLevel(post.levelId)), creatorDone: post.creatorDone, published: post.published, completedCount: post.completedCount });
+const postLevelId = post => post.rulesVersion === COOP_RULES_VERSION ? post.levelId : 1000 + post.levelId;
+const viewPost = post => ({ id: post.id, levelId: postLevelId(post), creatorName: post.creatorName,
+    levelHash: coopLevelHash(fullLevel(postLevelId(post))), creatorDone: post.creatorDone, published: post.published, completedCount: post.completedCount });
 const runView = run => run && ({ id: run.id, postId: run.postId, role: run.role, version: run.version,
     status: run.status, elapsedMs: run.status === 'complete' ? run.elapsedMs : 0, completedAt: run.completedAt, displayName: run.displayName,
     lastRequestId: run.lastRequestId || '' });
 function requireValue(condition, message) { if (!condition) throw new Error(message); }
 function fullLevel(id) {
+    if (legacyEntries.has(id)) return require(`./legacy-levels/coop_level_${id - 1000}.json`);
     requireValue(entries.has(id), '合作关卡不存在');
     return require(`./levels/coop_level_${id}.json`);
 }
@@ -40,13 +43,22 @@ async function readRun(tx, id) {
 function createCoopService(store, now = Date.now) {
     return async function execute(owner, event) {
         requireValue(typeof owner === 'string' && owner.length > 0, '登录身份不可用');
-        requireValue(event.rulesVersion === COOP_RULES_VERSION, '合作玩法版本不一致，请更新游戏');
+        requireValue([COOP_RULES_VERSION, COOP_LEGACY_RULES_VERSION].includes(event.rulesVersion), '合作玩法版本不一致，请更新游戏');
+        const legacyClient = event.rulesVersion === COOP_LEGACY_RULES_VERSION;
+        const levelId = legacyClient ? 1000 + event.levelId : event.levelId;
+        const supported = id => !legacyClient || legacyEntries.has(id);
+        const postView = post => { const result = viewPost(post); if (legacyClient) result.levelId -= 1000; return result; };
         const uid = userId(owner);
         const name = String(event.displayName || '像素玩家').slice(0, 24);
         const id = String(event.postId || '');
         const cursor = String(event.cursor || '');
         requireValue(!cursor || /^[a-f0-9]{24,40}$/.test(cursor), '分页位置无效');
-        if (event.action === 'catalog') return { levels: manifest.levels.map(({ levelId, name, beanCount, collectionId, file }) => ({ levelId, name, beanCount, collectionId, file })) };
+        if (event.action === 'catalog') return { levels: (legacyClient ? legacyManifest : manifest).levels.map(({ levelId, name, beanCount, collectionId, file }) => ({ levelId, name, beanCount, collectionId, file })) };
+        if (event.action === 'level') {
+            requireValue(supported(levelId), '新合作区域需要更新游戏');
+            const level = fullLevel(levelId);
+            return { level, levelHash: coopLevelHash(level) };
+        }
         if (event.action === 'overview') return { overview: await store.get('users', uid) || blankUser() };
         if (event.action === 'history') {
             const runs = await store.list('runs', { owner }, cursor, 21);
@@ -55,19 +67,21 @@ function createCoopService(store, now = Date.now) {
         }
         if (event.action === 'square') {
             const posts = await store.list('posts', { published: true, creatorDone: true }, cursor, 21);
-            return { posts: posts.slice(0, 20).map(postView), next: posts.length > 20 ? posts[19].id : '' };
+            return { posts: posts.slice(0, 20).filter(post => supported(postLevelId(post))).map(postView), next: posts.length > 20 ? posts[19].id : '' };
         }
         if (event.action === 'create') {
-            fullLevel(event.levelId);
+            fullLevel(levelId);
+            requireValue(supported(levelId), '新合作区域需要更新游戏');
             return store.transaction(async tx => {
                 const user = await tx.get('users', uid) || blankUser();
                 if (user.activeCreated) {
                     const post = await tx.get('posts', user.activeCreated);
-                    requireValue(post && post.levelId === event.levelId, '请先完成正在发起的合作');
+                    requireValue(post && postLevelId(post) === levelId, '请先完成正在发起的合作');
                     return { post: postView(post), run: runView(await readRun(tx, runId(post.id, owner))) };
                 }
                 const createdAt = now();
                 const post = { id: crypto.randomBytes(12).toString('hex'), levelId: event.levelId,
+                    rulesVersion: event.rulesVersion,
                     creator: owner, creatorName: name, creatorDone: false, published: false, completedCount: 0, createdAt };
                 const run = newRun(post, owner, 'creator', name, createdAt);
                 user.activeCreated = post.id;
@@ -86,6 +100,7 @@ function createCoopService(store, now = Date.now) {
         return store.transaction(async tx => {
             const post = await tx.get('posts', id);
             requireValue(post, '合作分享不存在');
+            requireValue(supported(postLevelId(post)), '新合作区域需要更新游戏');
             const rid = runId(id, owner);
             let run = await readRun(tx, rid);
             const user = await tx.get('users', uid) || blankUser();
@@ -118,7 +133,7 @@ function createCoopService(store, now = Date.now) {
             }
             if (run.status === 'complete') return { run: runView(run), post: postView(post), overview: user };
             requireValue(run.version === event.version, '完成记录已变化，请重新打开');
-            const half = coopHalfLevel(fullLevel(post.levelId), run.role);
+            const half = coopHalfLevel(fullLevel(postLevelId(post)), run.role);
             const replay = new PvpHumanReplay(half, COOP_MAX_ELAPSED_MS, true);
             for (const command of event.events) replay.apply(command);
             requireValue(replay.board.isAllLocked(), '尚未完成，不保存中途进度');
@@ -131,7 +146,7 @@ function createCoopService(store, now = Date.now) {
                 if (run.role === 'creator') post.creatorDone = true;
                 else {
                     requireValue(post.creatorDone, '发起者尚未完成');
-                    const key = entries.get(post.levelId).collectionId;
+                    const key = (entries.get(postLevelId(post)) || legacyEntries.get(postLevelId(post))).collectionId;
                     user.unlocked[key] = user.unlocked[key] || now();
                     if (user.activeJoined === id) user.activeJoined = null;
                     const creatorUid = userId(post.creator);

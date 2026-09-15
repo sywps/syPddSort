@@ -673,7 +673,7 @@ td strong { color: #31486e; }
         <div class="hero-top">
             <div class="hero-title">
                 <h1>拼豆豆数据日报看板</h1>
-                <p>将完整日报诊断转成会议可读看板，统一查看前三关传送带玩法里程碑（PCH）、引导结果、复活广告、前20关、关卡净价值和数据质量。</p>
+                <p>统一查看主线、像素拼图、合作与 PvP 的独立分析，以及引导、广告、关卡表现和数据质量。各玩法口径分开，不混算通关与胜负。</p>
             </div>
             <div class="hero-controls">
                 <select id="dateSelect"></select>
@@ -681,6 +681,8 @@ td strong { color: #31486e; }
                 <button id="loadBtn" type="button">加载日报</button>
                 <button id="latestBtn" class="secondary" type="button">最新一天</button>
                 <a id="retentionLink" class="secondary" href="cloudbase-retention-report.html">查看留存</a>
+                <a class="secondary" href="#coop-analysis">合作玩法</a>
+                <a class="secondary" href="#pvp-analysis">PvP玩法</a>
             </div>
         </div>
         <div class="hero-meta">
@@ -697,6 +699,7 @@ td strong { color: #31486e; }
     </div>
 </div>
 
+<script src="cloudbase-social-report.js"></script>
 <script>
 const REPORT_ROOT = '../artifacts/cloudbase-daily-report';
 
@@ -705,6 +708,8 @@ const state = {
     latestDate: '',
     currentDate: '',
     summary: null,
+    social: null,
+    loadVersion: 0,
     trendSummaries: [],
     showFunnelLatency: false,
     showAllLevelNetValue: false,
@@ -2668,6 +2673,8 @@ function renderContent(summary, trendSummaries) {
             </div>
         </section>
 
+        ${renderSocialAnalysis()}
+
         <section class="card span-12">
             <div class="card-header">
                 <div class="card-title">最近 7 天趋势</div>
@@ -2873,7 +2880,9 @@ function renderContent(summary, trendSummaries) {
 async function fetchJson(url) {
     const response = await fetch(url, { cache: 'no-store' });
     if (!response.ok) {
-        throw new Error(`请求失败: ${response.status} ${response.statusText}`);
+        const error = new Error(`请求失败: ${response.status} ${response.statusText}`);
+        error.status = response.status;
+        throw error;
     }
     return await response.json();
 }
@@ -2979,22 +2988,45 @@ async function loadReport(date) {
         renderError('先选择一个日报日期。');
         return;
     }
+    const version = ++state.loadVersion;
     state.currentDate = date;
+    state.summary = null;
+    state.social = null;
     populateDateControls();
     setParamDate(date);
     renderLoading(`正在加载 ${date} 的 combined_summary.json ...`);
 
     const summaryUrl = `${REPORT_ROOT}/${date}/combined_summary.json`;
+    const [base, social] = await Promise.all([
+        fetchJson(summaryUrl).then(value => ({ value }), error => ({ error })),
+        CloudbaseSocialReport.load(`${REPORT_ROOT}/${date}/social_summary.json`, date),
+    ]);
+    if (version !== state.loadVersion) return;
+    state.social = social;
+    if (base.error) {
+        qs('heroDate').textContent = `日期：${date}`;
+        qs('heroEnv').textContent = `环境：${social.environment || '数据不可得'}`;
+        const reason = base.error.status === 404 ? '尚未生成' : '读取失败';
+        qs('content').innerHTML = `<section class="card span-12"><div class="card-body">主线/普通像素拼图完整日报${reason}，未将缺失指标显示为零。合作与 PvP 独立结果如下。</div></section>${renderSocialAnalysis()}`;
+        bindRenderedTableScrollSync();
+        return;
+    }
     try {
-        const summary = await fetchJson(summaryUrl);
+        const summary = base.value;
         const trendSummaries = await loadTrendSummaries(date, summary);
         await enrichAdFallbackFromBehavior(summary);
+        if (version !== state.loadVersion) return;
         state.summary = summary;
         state.trendSummaries = trendSummaries;
         renderContent(summary, trendSummaries);
     } catch (error) {
+        if (version !== state.loadVersion) return;
         renderError(`没找到 ${date} 的完整日报。请先执行 \`npm run analytics:daily -- --date ${date}\`，然后刷新页面。`);
     }
+}
+
+function renderSocialAnalysis() {
+    return CloudbaseSocialReport.render(state.social, { escapeHtml, renderMetricCard, renderTable, renderBulletList });
 }
 
 function bindEvents() {

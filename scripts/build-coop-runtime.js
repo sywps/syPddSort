@@ -47,4 +47,4 @@ for (const name of ['CoopModeConfig', 'CoopServiceMgr', 'GameCtrlModules/CoopMod
     if (fs.existsSync(file)) meta(file, 'typescript');
 }
 require('./build-coop-browser-runtime');
-console.log(`COOP_RUNTIME_${check ? 'CHECKED' : 'GENERATED'}: 10 levels, 7 rule modules`);
+console.log(`COOP_RUNTIME_${check ? 'CHECKED' : 'GENERATED'}: ${manifest.levels.length} levels, 7 rule modules`);

@@ -57,6 +57,7 @@ export interface PvpBattleContext {
     startedAtMs: number;
     resumeElapsedMs?: number;
     demo: boolean;
+    entryConfirmed?: boolean;
     entryInventory?: Partial<import('./UserStateSyncMgr').CloudGameState>;
 }
 
@@ -150,6 +151,10 @@ export function createSeededPvpBoardState(
         return left.row - right.row || left.col - right.col;
     });
     return ordered.slice(0, Math.floor(ordered.length * clampPvpProgress(progress)));
+}
+
+export function resolvePvpBoardFallbackSeed(context: Pick<PvpBattleContext, 'opponentBoardSeed' | 'opponentReplayId' | 'matchId'>): string {
+    return String(context.opponentBoardSeed || context.opponentReplayId || context.matchId || '');
 }
 
 export function createDemoPvpBattle(levelId: number, nowMs: number = Date.now()): PvpBattleContext {

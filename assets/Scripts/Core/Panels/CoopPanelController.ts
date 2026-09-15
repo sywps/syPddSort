@@ -1,7 +1,7 @@
 import { BlockInputEvents, Button, Color, Graphics, Label, Layers, Mask, Node, ScrollView, UITransform, view } from 'cc';
 import { AppRoot } from '../AppRoot';
 import { CoopServiceMgr } from '../CoopServiceMgr';
-import { COOP_ROUTE_REASON, type CoopLevelEntry, type CoopPost, type CoopRun } from '../CoopModeConfig';
+import { COOP_ROUTE_REASON, coopRegionGrid, type CoopLevelData, type CoopLevelEntry, type CoopPost, type CoopRun } from '../CoopModeConfig';
 import { renderPixelPosterPreview, releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 
 const ink = '#44345E', purple = '#8064D9', pale = '#F3F0FF';
@@ -50,7 +50,7 @@ export class CoopPanelController {
                 if (id) void this.detail(id);
                 else if (this.status) this.status.string = '先完成半图并点击分享，再切换玩家打开邀请';
             }, 300);
-        } else coopText(root, '我拼一半，另一半交给你', 0, 501, 23);
+        } else coopText(root, '各拼一部分，一起完成整张图', 0, 501, 23);
         coopButton(root, '返回', -268, 554, () => { if (!this.busy) this.close(); }, 130);
         coopButton(root, '参与记录', 258, 554, () => { if (!this.busy) void this.history(); }, 150);
         for (const [i, item] of (['mine', 'square'] as const).entries()) {
@@ -87,6 +87,12 @@ export class CoopPanelController {
         const level = await CoopServiceMgr.inst.fullLevel(this.runtime, levelId);
         if (!parent.isValid || !this.root?.isValid) return;
         const holder = coopNode(parent, `Picture${levelId}`, x, y, width, height);
+        if (halfDone && (level as CoopLevelData).coopRegions) {
+            for (const role of ['creator', 'collaborator'] as const) renderPixelPosterPreview(holder,
+                coopRegionGrid(level, role), { name: role, maxW: width, maxH: height,
+                    cropToContent: false, grayscale: role === 'collaborator', flatCells: true, cellGap: 0 });
+            return;
+        }
         if (halfDone) {
             for (let side = 0; side < 2; side++) renderPixelPosterPreview(holder,
                 level.correctColorArr.map(row => row.slice(side * 32, side * 32 + 32)), {
@@ -154,7 +160,7 @@ export class CoopPanelController {
                     return { items: result.posts, next: result.next };
                 }, async (row, post) => {
                     await this.picture(row, post.levelId, -225, 0, 135, 125, false, true);
-                    coopText(row, `${post.creatorName} 已拼好一半`, 75, 26, 23, 420);
+                    coopText(row, `${post.creatorName} 已完成自己的部分`, 75, 26, 23, 420);
                     coopButton(row, '帮他完成', 80, -34, () => void this.detail(post.id), 260);
                 }, '还没有半成品，先发起一张吧');
                 return;
@@ -165,7 +171,7 @@ export class CoopPanelController {
                 coopText(this.body!, '自己最多发起 1 张，同时协助 1 张', 0, 350, 21);
                 if (overview.activeCreated) coopButton(this.body!, '继续我的合作', -165, 295, () => void this.detail(overview.activeCreated!), 300);
                 if (overview.activeJoined) coopButton(this.body!, '继续帮忙拼图', 165, 295, () => void this.detail(overview.activeJoined!), 300);
-            } else coopText(this.body!, `已收藏 ${catalog.filter(e => overview.unlocked[e.collectionId]).length} / 10`, 0, 350, 25);
+            } else coopText(this.body!, `已收藏 ${catalog.filter(e => overview.unlocked[e.collectionId]).length} / ${catalog.length}`, 0, 350, 25);
             await this.scrollList<CoopLevelEntry>(250, 740, 2, 280, async cursor => {
                 const offset = Number(cursor) || 0, end = offset + 6;
                 return { items: catalog.slice(offset, end), next: end < catalog.length ? String(end) : '' };
@@ -190,7 +196,7 @@ export class CoopPanelController {
             const { post, run, isCreator } = result;
             await this.picture(this.body!, post.levelId, 0, 165, 500, 340, false, !run || run.status !== 'complete' || isCreator && !post.completedCount);
             coopText(this.body!, `${post.creatorName} 的合作图案`, 0, -45, 28);
-            coopText(this.body!, run?.status === 'complete' ? (isCreator && !post.completedCount ? '你的半区已完成，等待伙伴解锁图鉴' : '已完成') : '各拼一半，完成后获得完整图鉴', 0, -101, 22);
+            coopText(this.body!, run?.status === 'complete' ? (isCreator && !post.completedCount ? '你的部分已完成，等待伙伴解锁图鉴' : '已完成') : '各拼一部分，完成后获得完整图鉴', 0, -101, 22);
             if (!run || run.status === 'playing') coopButton(this.body!, run ? '开始拼图' : '开始帮忙', 0, -177, () => {
                 void this.perform(async () => {
                     const joined = run ? { post, run } : await mgr.call<{ post: CoopPost; run: CoopRun }>('join', { postId });
@@ -212,7 +218,7 @@ export class CoopPanelController {
                 coopButton(this.body!, '查看完成 / 未完成人员', 0, -255, () => void this.participants(postId), 450);
             }
             if (run?.status === 'complete') coopText(this.body!, `完成用时 ${Math.floor(run.elapsedMs / 1000)} 秒\n完成于 ${new Date(run.completedAt!).toLocaleString()}`, 0, -345, 20);
-            else coopText(this.body!, '中途退出后需重新开始这一半', 0, -345, 20);
+            else coopText(this.body!, '中途退出后需重新开始自己的部分', 0, -345, 20);
         });
     }
 

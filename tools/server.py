@@ -125,7 +125,7 @@ def build_formal_level_fingerprint_index():
     return index
 
 
-LEVEL_FILENAME_RE = re.compile(r'^(level|lv|daily|zt_level)_(\d+)\.json$')
+LEVEL_FILENAME_RE = re.compile(r'^(level|lv|daily|zt_level|coop_level)_(\d+)\.json$')
 REPORT_DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 JSONP_CALLBACK_RE = re.compile(r'^[A-Za-z_$][0-9A-Za-z_$]*$')
 
@@ -153,6 +153,8 @@ def normalize_level_kind(kind_value=None):
     kind = str(kind_value or 'main').strip().lower()
     if kind in ('theme', 'zt', 'zt_level'):
         return 'theme'
+    if kind in ('coop', 'cooperation', 'coop_level'):
+        return 'coop'
     return 'main'
 
 
@@ -160,6 +162,8 @@ def level_filename_matches_kind(prefix, kind='main'):
     kind = normalize_level_kind(kind)
     if kind == 'theme':
         return prefix == 'zt_level'
+    if kind == 'coop':
+        return prefix == 'coop_level'
     return prefix in ('level', 'lv', 'daily')
 
 
@@ -497,8 +501,11 @@ def build_level_path(level_dir, level_id):
 
 
 def build_level_filename_candidates(level_id, kind='main'):
-    if normalize_level_kind(kind) == 'theme':
+    normalized_kind = normalize_level_kind(kind)
+    if normalized_kind == 'theme':
         return (f'zt_level_{level_id}.json',)
+    if normalized_kind == 'coop':
+        return (f'coop_level_{level_id}.json',)
     return (
         f'level_{level_id}.json',
         f'lv_{level_id}.json',
@@ -596,8 +603,11 @@ def list_level_entries(level_dir, kind='main'):
 
 def build_level_dir_label(rel_dir, kind='main'):
     game_rel = path_to_project_rel(GAME_LEVEL_DATA_DIR)
-    if rel_dir == game_rel and normalize_level_kind(kind) == 'theme':
+    normalized_kind = normalize_level_kind(kind)
+    if rel_dir == game_rel and normalized_kind == 'theme':
         return '主题关卡'
+    if rel_dir == game_rel and normalized_kind == 'coop':
+        return '双人合作关卡'
     if rel_dir == game_rel:
         return '正式关卡'
     parts = rel_dir.split('/')
@@ -635,14 +645,15 @@ def discover_level_dirs():
                 name for name in child_dirs
                 if not name.startswith('.') and name not in ('__pycache__', 'node_modules')
             ]
-            level_ids_by_kind = {'main': [], 'theme': []}
+            level_ids_by_kind = {'main': [], 'theme': [], 'coop': []}
             for name in files:
                 match = LEVEL_FILENAME_RE.match(name)
                 if not match:
                     continue
-                kind = 'theme' if match.group(1) == 'zt_level' else 'main'
+                prefix = match.group(1)
+                kind = 'theme' if prefix == 'zt_level' else ('coop' if prefix == 'coop_level' else 'main')
                 level_ids_by_kind[kind].append(int(match.group(2)))
-            if not level_ids_by_kind['main'] and not level_ids_by_kind['theme']:
+            if not any(level_ids_by_kind.values()):
                 continue
             rel_dir = path_to_project_rel(current)
 
@@ -667,6 +678,7 @@ def discover_level_dirs():
 
     dirs.sort(key=lambda item: (
         0 if item['isDefault'] else 1,
+        0 if item['dir'] == game_rel and item.get('kind') == 'coop' else 1,
         0 if item['dir'] == game_rel and item.get('kind') == 'theme' else 1,
         0 if item['dir'].startswith('tools/competitors/') and item['dir'].endswith('/levels/main') else 1,
         0 if item['dir'].startswith('tools/competitors/') and item['dir'].endswith('/levels/daily') else 1,

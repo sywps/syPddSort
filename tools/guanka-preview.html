@@ -182,6 +182,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             <select id="dirPreset">
                 <option value="">常用目录</option>
                 <option value="assets/LevelData::main">正式关卡</option>
+                <option value="assets/LevelData::coop">双人合作关卡</option>
                 <option value="tools/historical/formal-1643-20260825::main">历史正式关卡-1643关</option>
                 <option value="tools/competitors/拼成彩虹-新版1478关/levels/main::main">拼成彩虹-新版1478关</option>
                 <option value="tools/competitors/拼豆解解压/levels/main::main">拼豆解解压 主线</option>
@@ -318,6 +319,7 @@ const DEFAULT_LEVEL_KIND = 'main';
 const PRESET_LEVEL_DIR_ITEMS = [
     { label: '正式关卡', dir: DEFAULT_LEVEL_DIR, kind: 'main' },
     { label: '拼成彩虹-新版1478关', dir: 'tools/competitors/拼成彩虹-新版1478关/levels/main', kind: 'main' },
+    { label: '双人合作关卡', dir: DEFAULT_LEVEL_DIR, kind: 'coop' },
     { label: '拼豆解解压 主线', dir: 'tools/competitors/拼豆解解压/levels/main', kind: 'main' },
     { label: '快乐拼拼豆 主线', dir: 'tools/competitors/快乐拼拼豆/levels/main', kind: 'main' },
     { label: '主题关卡', dir: DEFAULT_LEVEL_DIR, kind: 'theme' },
@@ -342,10 +344,11 @@ const LEVEL_DIR_LABEL = LEVEL_DIR || DEFAULT_LEVEL_DIR;
 const LEVEL_DIR_KEY = makeLevelDirKey(LEVEL_DIR, LEVEL_KIND);
 const IS_FORMAL_MAIN_DIR = LEVEL_DIR === DEFAULT_LEVEL_DIR && LEVEL_KIND === 'main';
 const IS_THEME_LEVEL_DIR = LEVEL_DIR === DEFAULT_LEVEL_DIR && LEVEL_KIND === 'theme';
+const IS_COOP_LEVEL_DIR = LEVEL_DIR === DEFAULT_LEVEL_DIR && LEVEL_KIND === 'coop';
 const IS_DEFAULT_LEVEL_DIR = IS_FORMAL_MAIN_DIR;
-const CAN_IMPORT_TO_OFFICIAL = !IS_FORMAL_MAIN_DIR && !IS_THEME_LEVEL_DIR && LEVEL_KIND === 'main';
+const CAN_IMPORT_TO_OFFICIAL = !IS_FORMAL_MAIN_DIR && !IS_THEME_LEVEL_DIR && !IS_COOP_LEVEL_DIR && LEVEL_KIND === 'main';
 const CAN_SWAP_LEVELS = IS_FORMAL_MAIN_DIR || IS_THEME_LEVEL_DIR;
-const SHOW_ONLINE_ACTION = !CAN_IMPORT_TO_OFFICIAL && !CAN_SWAP_LEVELS;
+const SHOW_ONLINE_ACTION = !IS_COOP_LEVEL_DIR && !CAN_IMPORT_TO_OFFICIAL && !CAN_SWAP_LEVELS;
 const GAME_PREVIEW_URL = 'http://localhost:7456/';
 
 function normalizeLevelDir(value) {
@@ -361,7 +364,9 @@ function normalizeLevelDir(value) {
 
 function normalizeLevelKind(value) {
     const kind = String(value || DEFAULT_LEVEL_KIND).trim().toLowerCase();
-    return ['theme', 'zt', 'zt_level'].includes(kind) ? 'theme' : 'main';
+    if (['theme', 'zt', 'zt_level'].includes(kind)) return 'theme';
+    if (['coop', 'cooperation', 'coop_level'].includes(kind)) return 'coop';
+    return 'main';
 }
 
 function normalizeCardFilter(value) {
@@ -411,6 +416,7 @@ function getLevelDirDisplayName(dir = LEVEL_DIR, kind = LEVEL_KIND) {
     );
     if (preset) return preset.label;
     if (normalized === DEFAULT_LEVEL_DIR && normalizedKind === 'theme') return '主题关卡';
+    if (normalized === DEFAULT_LEVEL_DIR && normalizedKind === 'coop') return '双人合作关卡';
     if (normalized.startsWith('tools/competitors/')) {
         const parts = normalized.split('/').filter(Boolean);
         const gameName = parts[2] || '竞品';
@@ -525,6 +531,8 @@ function mergeLevelDirChoices(scannedDirs = []) {
     return Array.from(byKey.values()).sort((a, b) => {
         if (a.dir === DEFAULT_LEVEL_DIR && a.kind === 'main') return -1;
         if (b.dir === DEFAULT_LEVEL_DIR && b.kind === 'main') return 1;
+        if (a.dir === DEFAULT_LEVEL_DIR && a.kind === 'coop') return -1;
+        if (b.dir === DEFAULT_LEVEL_DIR && b.kind === 'coop') return 1;
         if (a.dir === DEFAULT_LEVEL_DIR && a.kind === 'theme') return -1;
         if (b.dir === DEFAULT_LEVEL_DIR && b.kind === 'theme') return 1;
         if (a.dir.startsWith('tools/competitors/') && a.dir.endsWith('/levels/main')) return -1;
@@ -1313,7 +1321,11 @@ function normalizeTimeRegs(rawTimeRegs) {
 
 function getSpecialMeta(data) {
     const sourceFields = data?.sourceFields || {};
-    const regionMap = normalizeRegionMap(firstNonEmptyArray(data?.regionMap, sourceFields.regionMap));
+    const coopRegions = Array.isArray(data?.coopRegions) ? data.coopRegions.flat() : [];
+    const implicitCoopRegions = LEVEL_KIND === 'coop' && !coopRegions.length && Array.isArray(data?.correctColorArr)
+        ? data.correctColorArr.flatMap(row => row.map((value, col) => value > 0 ? (col < data.boardWidth / 2 ? 1 : 2) : -1))
+        : [];
+    const regionMap = normalizeRegionMap(firstNonEmptyArray(data?.regionMap, sourceFields.regionMap, coopRegions, implicitCoopRegions));
     const timeRegs = normalizeTimeRegs(firstNonEmptyArray(data?.timeRegs, sourceFields.timeRegs));
     const hasRegionMap = regionMap.some(value => Number.isFinite(value) && value >= 0);
     const hasTimeRegs = timeRegs.length > 0;
@@ -1541,7 +1553,7 @@ function getLevelName(data) {
 }
 
 function getLevelTitleHtml(data) {
-    const base = `第 ${data.levelId} 关`;
+    const base = LEVEL_KIND === 'coop' ? `双人合作第 ${data.levelId} 关` : `第 ${data.levelId} 关`;
     const name = getLevelName(data);
     return name ? `${base} · ${escapeHtml(name)}` : base;
 }

@@ -186,6 +186,7 @@ function matchResponse(match, openid) {
     } : null,
     challengeCode: match.challengeCode || '',
     expiresAt: match.expiresAt,
+    entryConfirmed: match.matchType === 'friend' || int(match.entryCost?.chargedAt) > 0,
     settlement: publicSettlement((selfIndex === 0 ? match.settlements?.a : match.settlements?.b) || match.settlement),
   };
 }
@@ -238,6 +239,7 @@ async function createRankedMatch(event, openid, profile) {
     const botSeed = `${openid}:${now}`;
     opponentRun = createBotRun({ seed: botSeed, rating: profile.rating, levelId,
       gamesPlayed: profile.gamesPlayed, lossStreak: profile.lossStreak });
+    opponentRun.boardSeed = botSeed;
     opponent = publicProfile({ displayName: simulatedPlayerName(botSeed), rating: opponentRun.rating, gamesPlayed: 12 }, 'bot');
   }
   const matchId = crypto.randomBytes(16).toString('hex');
@@ -255,7 +257,7 @@ async function createRankedMatch(event, openid, profile) {
   const wallet = ticketWallet(current, now);
   if (wallet.tickets < 1) throw new Error('门票不足，请先补充门票');
   if (event.economyRevision !== Math.max(0, int(currentInventory.pvpEconomyRevision))) throw new Error('资产已变化，请刷新后重试');
-  const inventoryPatch = spendVigor(currentInventory, now);
+  spendVigor(currentInventory, now);
   const match = {
     _id: matchId,
     matchType,
@@ -277,7 +279,7 @@ async function createRankedMatch(event, openid, profile) {
     poolVersion: event.poolVersion || 'direct-level',
     opponentRun,
     submissions: {},
-    entryCost: { tickets: 1, vigor: 1, chargedAt: now },
+    entryCost: { tickets: 1, vigor: 1, chargedAt: 0 },
     createdAt: now,
     updatedAt: now,
     expiresAt: now + MATCH_EXPIRE_MS,
@@ -288,12 +290,41 @@ async function createRankedMatch(event, openid, profile) {
     if (!frozen || !eligibleReplay(frozen, openid, levelId, current, now)) throw new Error('对手记录已更新，请重试匹配');
     await transaction.collection(COLLECTIONS.replays).doc(replay._id).update({ data: { useCount: command.inc(1), lastUsedAt: now } });
   }
-  await transaction.collection('user_profile').doc(inventory._id).update({ data: inventoryPatch });
-  await transaction.collection(COLLECTIONS.profiles).doc(openid).update({ data: { ...wallet, tickets: wallet.tickets - 1, activeRankedMatchId: matchId,
+  await transaction.collection(COLLECTIONS.profiles).doc(openid).update({ data: { ...wallet, activeRankedMatchId: matchId,
     recentOpponents: [...(current.recentOpponents || []), { replayId: replay?._id || '', ownerOpenid: replay?.ownerOpenid || '', levelId }].slice(-10),
     [replay ? 'humanReplayMatches' : 'botMatches']: command.inc(1) } });
   await transaction.collection(COLLECTIONS.matches).doc(matchId).set({ data: matchData });
-  return { ...matchResponse(match, openid), entryInventory: inventorySnapshot({ ...currentInventory, ...inventoryPatch }) };
+  return { ...matchResponse(match, openid), entryInventory: inventorySnapshot(currentInventory) };
+  });
+}
+
+async function confirmRankedMatchEntry(event, openid) {
+  const matchId = cleanString(event.matchId, 128);
+  if (!matchId) throw new Error('missing match id');
+  const inventory = await economyService.findInventory(openid);
+  const now = Date.now();
+  return db.runTransaction(async transaction => {
+    const match = await readDoc(COLLECTIONS.matches, matchId, transaction);
+    if (!match) throw new Error('match not found');
+    requirePixelMatch(match);
+    if (match.playerAOpenid !== openid || match.matchType === 'friend') throw new Error('not a ranked match owner');
+    if (match.status !== 'PLAYING' || int(match.expiresAt) <= now) throw new Error('match is not active');
+    const currentInventory = await readDoc('user_profile', inventory._id, transaction);
+    if (currentInventory?.openid !== openid) throw new Error('玩家资产归属不符');
+    if (int(match.entryCost?.chargedAt) > 0) {
+      return { ...matchResponse(match, openid), entryInventory: inventorySnapshot(currentInventory) };
+    }
+    const current = await readDoc(COLLECTIONS.profiles, openid, transaction);
+    if (!current) throw new Error('排位档案不存在');
+    const wallet = ticketWallet(current, now);
+    if (wallet.tickets < 1) throw new Error('门票不足，请先补充门票');
+    if (event.economyRevision !== Math.max(0, int(currentInventory.pvpEconomyRevision))) throw new Error('资产已变化，请刷新后重试');
+    const inventoryPatch = spendVigor(currentInventory, now);
+    const entryCost = { tickets: 1, vigor: 1, chargedAt: now };
+    await transaction.collection('user_profile').doc(inventory._id).update({ data: inventoryPatch });
+    await transaction.collection(COLLECTIONS.profiles).doc(openid).update({ data: { ...wallet, tickets: wallet.tickets - 1 } });
+    await transaction.collection(COLLECTIONS.matches).doc(matchId).update({ data: { entryCost, updatedAt: now } });
+    return { ...matchResponse({ ...match, entryCost, updatedAt: now }, openid), entryInventory: inventorySnapshot({ ...currentInventory, ...inventoryPatch }) };
   });
 }
 
@@ -513,10 +544,11 @@ function isParticipant(match, openid) {
 async function getActiveMatch(openid) {
   const statuses = ['PLAYING', 'PLAYING_CREATOR', 'PLAYING_CHALLENGER', 'WAITING_RESULT'];
   const [asA, asB] = await Promise.all([
-    db.collection(COLLECTIONS.matches).where({ playerAOpenid: openid, levelPrefix: LEVEL_PREFIX, rulesVersion: RULES_VERSION, status: command.in(statuses) }).orderBy('updatedAt', 'desc').limit(3).get(),
-    db.collection(COLLECTIONS.matches).where({ playerBOpenid: openid, levelPrefix: LEVEL_PREFIX, rulesVersion: RULES_VERSION, status: command.in(statuses) }).orderBy('updatedAt', 'desc').limit(3).get(),
+    db.collection(COLLECTIONS.matches).where({ playerAOpenid: openid, status: command.in(statuses) }).orderBy('updatedAt', 'desc').limit(20).get(),
+    db.collection(COLLECTIONS.matches).where({ playerBOpenid: openid, status: command.in(statuses) }).orderBy('updatedAt', 'desc').limit(20).get(),
   ]);
   const match = [...(asA.data || []), ...(asB.data || [])]
+    .filter((row) => row.levelPrefix === LEVEL_PREFIX && row.rulesVersion === RULES_VERSION)
     .filter((row) => int(row.expiresAt) > Date.now())
     .filter((row) => row.status === 'PLAYING'
       || (row.status === 'PLAYING_CREATOR' && row.playerAOpenid === openid && !row.submissions?.a)
@@ -557,6 +589,7 @@ async function saveCheckpoint(event, openid) {
   if (!match) throw new Error('match not found');
   requirePixelMatch(match);
   if (!isParticipant(match, openid)) throw new Error('not a participant');
+  if (match.matchType !== 'friend' && int(match.entryCost?.chargedAt) <= 0) throw new Error('ranked match entry is not confirmed');
   if (!['PLAYING', 'PLAYING_CREATOR', 'PLAYING_CHALLENGER', 'WAITING_RESULT'].includes(match.status)) throw new Error('match is not active');
   if (int(match.expiresAt) <= Date.now()) throw new Error('match expired');
   const checkpoint = normalizeCheckpoint(match.replayProtocol === HUMAN_REPLAY_PROTOCOL ? { ...event, boardTimeline: [] } : event);
@@ -698,6 +731,7 @@ exports.main = async (event = {}) => {
       case 'claimTicketReward': return { ok: true, ...(await economyService.claimTicketReward(openid, event)) };
       case 'claimRankReward': return { ok: true, ...(await economyService.claimRankReward(openid, event)) };
       case 'matchmake': return { ok: true, match: await createRankedMatch(event, openid, profile) };
+      case 'confirmMatchEntry': return { ok: true, match: await confirmRankedMatchEntry(event, openid) };
       case 'createFriendChallenge': return { ok: true, match: await createFriendChallenge(event, openid, profile) };
       case 'joinFriendChallenge': return { ok: true, match: await joinFriendChallenge(event, openid, profile) };
       case 'getMatch': {
@@ -716,6 +750,7 @@ exports.main = async (event = {}) => {
         if (!match) throw new Error('match not found');
         requirePixelMatch(match);
         if (!isParticipant(match, openid)) throw new Error('not a participant');
+        if (match.matchType !== 'friend' && int(match.entryCost?.chargedAt) <= 0) throw new Error('ranked match entry is not confirmed');
         const requestDigest = submissionDigest(event);
         const side = match.playerAOpenid === openid ? 'a' : 'b';
         if (match.submissions?.[side]) {

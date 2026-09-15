@@ -58,7 +58,7 @@ async function main() {
     const click = key => tabs.getChildByName(`CollectionTab_${key}`).handlers.touch();
     click('coop'); await settle();
     assert.equal(runtime._collectionActiveTab, 'coop');
-    assert.equal(runtime._collectionCoopEntries.length, 10);
+    assert.equal(runtime._collectionCoopEntries.length, catalog.length);
     assert.equal(runtime._collectionCoopEntries.filter(entry => entry.unlocked).length, 1);
     assert.equal(runtime._collectionCoopEntries[0].grid, grid);
     unlocked = { ...unlocked, [catalog[1].collectionId]: 456 };

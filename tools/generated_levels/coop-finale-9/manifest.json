@@ -1,0 +1,184 @@
+{
+  "levels": [
+    {
+      "levelId": 12,
+      "name": "心贝小水獭",
+      "english": "Otter Heart Shell",
+      "file": "coop_level_12.json",
+      "beanCount": 3445,
+      "creatorBeanCount": 1750,
+      "collaboratorBeanCount": 1695,
+      "split": {
+        "type": "paired-characters",
+        "field": "coopRegions"
+      },
+      "cooperationReveal": "两只水獭各捧半扇贝壳，合起来才出现发光爱心",
+      "difficultyTier": "轻松默契",
+      "difficultyScore": 42,
+      "seeds": [202609141200,202609141203],
+      "collectionId": "coop_wonder_01",
+      "conceptSource": "tools/generated_levels/coop-finale-9/concept.png",
+      "sha256": "422259f0ac77853c5da478d4b25ba4308d81b3974238f38b1db5ad6bc7df5be6"
+    },
+    {
+      "levelId": 13,
+      "name": "月钓星愿",
+      "english": "Moon Fishing Wish",
+      "file": "coop_level_13.json",
+      "beanCount": 3414,
+      "creatorBeanCount": 1742,
+      "collaboratorBeanCount": 1672,
+      "split": {
+        "type": "moon-and-starlight",
+        "field": "coopRegions"
+      },
+      "cooperationReveal": "小熊猫与星星分别完成月亮和星尘弧线",
+      "difficultyTier": "轻松默契",
+      "difficultyScore": 46,
+      "seeds": [202609141220,202609141221],
+      "collectionId": "coop_wonder_02",
+      "conceptSource": "tools/generated_levels/coop-finale-9/concept.png",
+      "sha256": "09bc26850d81e8a23323f20b02cd8e5e177c15db7417c4f20fe7768475ea0d67"
+    },
+    {
+      "levelId": 14,
+      "name": "草莓蛋糕接力",
+      "english": "Strawberry Cake Relay",
+      "file": "coop_level_14.json",
+      "beanCount": 3508,
+      "creatorBeanCount": 2037,
+      "collaboratorBeanCount": 1471,
+      "split": {
+        "type": "cake-and-bakers",
+        "field": "coopRegions"
+      },
+      "cooperationReveal": "两只柯基抬起蛋糕，双方完成后才看见完整草莓卷",
+      "difficultyTier": "轻松默契",
+      "difficultyScore": 50,
+      "seeds": [202609141243,202609141241],
+      "collectionId": "coop_wonder_03",
+      "conceptSource": "tools/generated_levels/coop-finale-9/concept.png",
+      "sha256": "0ae35b25e8e1ec064e5c349cfafabc6cd8c09b0453b8784e422983ef93cb92da"
+    },
+    {
+      "levelId": 15,
+      "name": "龙蛋藏星河",
+      "english": "Dragon Egg Galaxy",
+      "file": "coop_level_15.json",
+      "beanCount": 3573,
+      "creatorBeanCount": 1655,
+      "collaboratorBeanCount": 1918,
+      "split": {
+        "type": "guardian-and-secret",
+        "field": "coopRegions"
+      },
+      "cooperationReveal": "一方守护幼龙与蛋壳，另一方揭开蛋中的迷你银河",
+      "difficultyTier": "趣味协作",
+      "difficultyScore": 55,
+      "seeds": [202609141260,202609141261],
+      "collectionId": "coop_wonder_04",
+      "conceptSource": "tools/generated_levels/coop-finale-9/concept.png",
+      "sha256": "601eac5edf1935c4b7a70538f9ee20e17307912f9a75d535a7a8989c8d14d01b"
+    },
+    {
+      "levelId": 16,
+      "name": "莲心双生鱼",
+      "english": "Lotus Axolotl Ring",
+      "file": "coop_level_16.json",
+      "beanCount": 3582,
+      "creatorBeanCount": 1792,
+      "collaboratorBeanCount": 1790,
+      "split": {
+        "type": "yin-yang-swirl",
+        "field": "coopRegions"
+      },
+      "cooperationReveal": "两只六角恐龙首尾相接，合成莲花太极环",
+      "difficultyTier": "趣味协作",
+      "difficultyScore": 60,
+      "seeds": [202609141283,202609141283],
+      "collectionId": "coop_wonder_05",
+      "conceptSource": "tools/generated_levels/coop-finale-9/concept.png",
+      "sha256": "81b25da5953b34b5f87a4c37d020c7150aa1ff159d35aaab9555a8bbc0af37da"
+    },
+    {
+      "levelId": 17,
+      "name": "彩虹森林乐团",
+      "english": "Rainbow Forest Orchestra",
+      "file": "coop_level_17.json",
+      "beanCount": 3513,
+      "creatorBeanCount": 1342,
+      "collaboratorBeanCount": 2171,
+      "split": {
+        "type": "melody-and-orchestra",
+        "field": "coopRegions"
+      },
+      "cooperationReveal": "一方拼出彩虹旋律，另一方让动物乐团奏响",
+      "difficultyTier": "趣味协作",
+      "difficultyScore": 65,
+      "seeds": [202609141300,202609141303],
+      "collectionId": "coop_wonder_06",
+      "conceptSource": "tools/generated_levels/coop-finale-9/concept.png",
+      "sha256": "7d15a8a90d30c4226138dfae6336a3fc39fe0b3fd5f89f7be937b732b3abc934"
+    },
+    {
+      "levelId": 18,
+      "name": "星际拼装队",
+      "english": "Cosmic Assembly Team",
+      "file": "coop_level_18.json",
+      "beanCount": 3571,
+      "creatorBeanCount": 1806,
+      "collaboratorBeanCount": 1765,
+      "split": {
+        "type": "rocket-assembly",
+        "field": "coopRegions"
+      },
+      "cooperationReveal": "太空猫和外星兔各装一半火箭，中央星河最后接通",
+      "difficultyTier": "高阶揭晓",
+      "difficultyScore": 71,
+      "seeds": [202609141330,202609141330],
+      "collectionId": "coop_wonder_07",
+      "conceptSource": "tools/generated_levels/coop-finale-9/concept.png",
+      "sha256": "27518d7ebdac9f972766c090762bdf589bc27c88a1d656da79387509864d76bd"
+    },
+    {
+      "levelId": 19,
+      "name": "双鲸穿镜海",
+      "english": "Mirror Sea Whales",
+      "file": "coop_level_19.json",
+      "beanCount": 3466,
+      "creatorBeanCount": 1722,
+      "collaboratorBeanCount": 1744,
+      "split": {
+        "type": "mirror-worlds",
+        "field": "coopRegions"
+      },
+      "cooperationReveal": "天空鲸与深海鲸隔镜相遇，完成时上下世界连成一体",
+      "difficultyTier": "高阶揭晓",
+      "difficultyScore": 78,
+      "seeds": [202609141340,202609141352],
+      "collectionId": "coop_wonder_08",
+      "conceptSource": "tools/generated_levels/coop-finale-9/concept.png",
+      "sha256": "c82e2761fad8068b2efcf7efb3f5b001435d66450b8e3d4788330a13feffca39"
+    },
+    {
+      "levelId": 20,
+      "name": "友谊升空大合照",
+      "english": "Friendship Balloon Finale",
+      "file": "coop_level_20.json",
+      "beanCount": 3534,
+      "creatorBeanCount": 2015,
+      "collaboratorBeanCount": 1519,
+      "split": {
+        "type": "balloon-and-friends",
+        "field": "coopRegions"
+      },
+      "cooperationReveal": "一方升起百衲热气球，另一方集合动物朋友，最终成为大合照",
+      "difficultyTier": "压轴庆典",
+      "difficultyScore": 86,
+      "seeds": [202609141379,202609141361],
+      "collectionId": "coop_wonder_09",
+      "conceptSource": "tools/generated_levels/coop-finale-9/concept.png",
+      "sha256": "b4d26dd6ae5e3fa36d17c558ab93f75eaf1600c2673e592a16405ea7694ef9a4"
+    }
+  ]
+}

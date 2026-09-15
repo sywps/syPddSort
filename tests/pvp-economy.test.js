@@ -27,6 +27,14 @@ async function initialize(id, inventory = {}) {
 async function newMatch(id) {
   return (await request(id, 'matchmake', { ...rules, economyRevision: assets(id).pvpEconomyRevision })).match;
 }
+async function enterMatch(id, match) {
+  return (await request(id, 'confirmMatchEntry', { matchId: match.matchId, economyRevision: assets(id).pvpEconomyRevision })).match;
+}
+async function paidMatch(id) {
+  const match = await newMatch(id);
+  await enterMatch(id, match);
+  return match;
+}
 // Finish the fixture between entry-charge tests; result verification is separately audited.
 function finishFixture(match) { recordsFor('pvp_matches').get(match.matchId).status = 'SETTLED'; }
 async function offer(id, source, suffix) {
@@ -40,7 +48,11 @@ async function run() {
   assert.strictEqual(initial.shareUsed, 0);
   assert.strictEqual(initial.resetAt, Date.parse('2026-09-07T16:00:00Z'));
   const simultaneous = await Promise.all([newMatch('charge'), newMatch('charge')]);
-  assert.strictEqual(simultaneous[0].matchId, simultaneous[1].matchId, 'concurrent starts return one paid match');
+  assert.strictEqual(simultaneous[0].matchId, simultaneous[1].matchId, 'concurrent matchmaking returns one pending match');
+  assert.strictEqual(assets('charge').vigor, 10, 'matching without entering must not consume stamina');
+  assert.strictEqual(profile('charge').tickets, 3, 'matching without entering must not consume a ticket');
+  assert.strictEqual(recordsFor('pvp_matches').get(simultaneous[0].matchId).entryCost.chargedAt, 0);
+  await Promise.all([enterMatch('charge', simultaneous[0]), enterMatch('charge', simultaneous[1])]);
   assert.strictEqual(assets('charge').vigor, 9);
   assert.strictEqual(assets('charge').pvpEconomyRevision, 1);
   assert.strictEqual(profile('charge').tickets, 2);
@@ -53,8 +65,8 @@ async function run() {
   await reject('charge', 'matchmake', { ...rules, economyRevision: 0 }, /资产已变化/);
   assert.deepStrictEqual(assets('charge'), beforeRevision);
   assert.strictEqual(profile('charge').tickets, 2);
-  finishFixture(await newMatch('charge'));
-  finishFixture(await newMatch('charge'));
+  finishFixture(await paidMatch('charge'));
+  finishFixture(await paidMatch('charge'));
   assert.strictEqual(profile('charge').tickets, 0);
   await reject('charge', 'matchmake', { ...rules, economyRevision: 3 }, /门票不足/);
   assert.strictEqual(assets('charge').vigor, 7);
@@ -93,7 +105,7 @@ async function run() {
   await reject('intruder', 'claimTicketReward', { claimId: first.claimId }, /不属于/);
   for (let i = 0; i < 4; i++) {
     // Ticket capacity is consumed by a real new match, not bypassed by an ad counter reset.
-    finishFixture(await newMatch('charge'));
+    finishFixture(await paidMatch('charge'));
     const ad = await offer('charge', 'ad', `unlimited-ad-${i}`);
     await request('charge', 'claimTicketReward', { claimId: ad.claimId });
   }
@@ -102,7 +114,7 @@ async function run() {
   now += 600001;
   await reject('charge', 'claimTicketReward', { claimId: cancelled.claimId }, /过期/);
   now = Date.parse('2026-09-07T15:59:59.000Z');
-  finishFixture(await newMatch('charge'));
+  finishFixture(await paidMatch('charge'));
   const crossDayOffer = await offer('charge', 'ad', 'cross-midnight');
   now += 1000;
   assert.strictEqual(ticketDay(now), '2026-09-08');

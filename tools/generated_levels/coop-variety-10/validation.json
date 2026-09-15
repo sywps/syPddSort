@@ -1,0 +1,246 @@
+{
+  "passed": true,
+  "scope": "data + actual controller and server replay; no device proof",
+  "levels": [
+    {
+      "levelId": 11,
+      "name": "双球冰淇淋",
+      "beanCount": 1988,
+      "hash": "pixel-3560661179-pixel-3054200007",
+      "parts": [
+        {
+          "role": "creator",
+          "beans": 846,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 97050,
+          "events": 3027
+        },
+        {
+          "role": "collaborator",
+          "beans": 1142,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 236650,
+          "events": 6374
+        }
+      ]
+    },
+    {
+      "levelId": 12,
+      "name": "花心与花冠",
+      "beanCount": 1578,
+      "hash": "pixel-2623066757-pixel-2875083079",
+      "parts": [
+        {
+          "role": "creator",
+          "beans": 605,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 57650,
+          "events": 1937
+        },
+        {
+          "role": "collaborator",
+          "beans": 973,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 71300,
+          "events": 2633
+        }
+      ]
+    },
+    {
+      "levelId": 13,
+      "name": "抱紧大胡萝卜",
+      "beanCount": 1712,
+      "hash": "pixel-4039118125-pixel-383176071",
+      "parts": [
+        {
+          "role": "creator",
+          "beans": 909,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 202200,
+          "events": 5333
+        },
+        {
+          "role": "collaborator",
+          "beans": 803,
+          "initialMatches": 5,
+          "peak": 60,
+          "elapsedMs": 68650,
+          "events": 2361
+        }
+      ]
+    },
+    {
+      "levelId": 14,
+      "name": "午睡搭子",
+      "beanCount": 1601,
+      "hash": "pixel-2901244193-pixel-3907313711",
+      "parts": [
+        {
+          "role": "creator",
+          "beans": 865,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 69900,
+          "events": 2493
+        },
+        {
+          "role": "collaborator",
+          "beans": 736,
+          "initialMatches": 10,
+          "peak": 60,
+          "elapsedMs": 74050,
+          "events": 2380
+        }
+      ]
+    },
+    {
+      "levelId": 15,
+      "name": "双味糖霜圈",
+      "beanCount": 2252,
+      "hash": "pixel-2978186629-pixel-3422101967",
+      "parts": [
+        {
+          "role": "creator",
+          "beans": 1259,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 471550,
+          "events": 11405
+        },
+        {
+          "role": "collaborator",
+          "beans": 993,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 270450,
+          "events": 6890
+        }
+      ]
+    },
+    {
+      "levelId": 16,
+      "name": "双枝迎春",
+      "beanCount": 1254,
+      "hash": "pixel-586171307-pixel-1841647647",
+      "parts": [
+        {
+          "role": "creator",
+          "beans": 672,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 116900,
+          "events": 3289
+        },
+        {
+          "role": "collaborator",
+          "beans": 582,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 69050,
+          "events": 2166
+        }
+      ]
+    },
+    {
+      "levelId": 17,
+      "name": "莓果庆祝蛋糕",
+      "beanCount": 2152,
+      "hash": "pixel-2813112295-pixel-279174399",
+      "parts": [
+        {
+          "role": "creator",
+          "beans": 1134,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 256450,
+          "events": 6805
+        },
+        {
+          "role": "collaborator",
+          "beans": 1018,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 175950,
+          "events": 5035
+        }
+      ]
+    },
+    {
+      "levelId": 18,
+      "name": "夏日柠檬冰茶",
+      "beanCount": 1839,
+      "hash": "pixel-3157090923-pixel-4157518639",
+      "parts": [
+        {
+          "role": "creator",
+          "beans": 937,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 114450,
+          "events": 3591
+        },
+        {
+          "role": "collaborator",
+          "beans": 902,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 72300,
+          "events": 2577
+        }
+      ]
+    },
+    {
+      "levelId": 19,
+      "name": "月下雪山河谷",
+      "beanCount": 2185,
+      "hash": "pixel-4188549755-pixel-439664607",
+      "parts": [
+        {
+          "role": "creator",
+          "beans": 842,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 115650,
+          "events": 3434
+        },
+        {
+          "role": "collaborator",
+          "beans": 1343,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 180300,
+          "events": 5426
+        }
+      ]
+    },
+    {
+      "levelId": 20,
+      "name": "星环双鱼",
+      "beanCount": 1466,
+      "hash": "pixel-1630548547-pixel-2232521271",
+      "parts": [
+        {
+          "role": "creator",
+          "beans": 654,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 128300,
+          "events": 3459
+        },
+        {
+          "role": "collaborator",
+          "beans": 812,
+          "initialMatches": 0,
+          "peak": 60,
+          "elapsedMs": 137050,
+          "events": 3852
+        }
+      ]
+    }
+  ]
+}

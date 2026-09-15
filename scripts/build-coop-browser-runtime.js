@@ -2,6 +2,10 @@
 const fs = require('fs');
 const path = require('path');
 const root = path.resolve(__dirname, '..');
+const legacyDir = path.join(root, 'cloudfunctions/coopService/legacy-levels');
+const legacyManifest = JSON.parse(fs.readFileSync(path.join(legacyDir, 'manifest.json'), 'utf8'));
+const legacyLevels = Object.fromEntries(legacyManifest.levels.map(entry => [1000 + entry.levelId,
+    JSON.parse(fs.readFileSync(path.join(legacyDir, entry.file), 'utf8'))]));
 const source = fs.readFileSync(path.join(root, 'cloudfunctions/coopService/core.js'), 'utf8').replace(/\r\n/g, '\n');
 const start = source.indexOf('const entries =');
 const end = source.indexOf('module.exports =');
@@ -15,6 +19,8 @@ replace("const hash = value => crypto.createHash('sha256').update(value).digest(
 replace('const runId = (post, user) => hash(`${post}:${user}`).slice(0, 40);', 'const runId = async (post, user) => (await hash(`${post}:${user}`)).slice(0, 40);');
 replace('const userId = user => hash(user).slice(0, 40);', 'const userId = async user => (await hash(user)).slice(0, 40);');
 replace('return require(`./levels/coop_level_${id}.json`);', 'return getLevel(id);');
+replace("const legacyManifest = require('./legacy-levels/manifest.json');", `const legacyManifest = ${JSON.stringify(legacyManifest)};`);
+replace('return require(`./legacy-levels/coop_level_${id - 1000}.json`);', 'return legacyLevels[id];');
 replace('function newRun(', 'async function newRun(');
 body = body.replace(/\brunId\(/g, 'await runId(').replace(/\buserId\(/g, 'await userId(');
 replace('const run = newRun(', 'const run = await newRun(');
@@ -24,9 +30,9 @@ replace("crypto.randomBytes(12).toString('hex')", "Array.from(globalThis.crypto.
 const output = `// @ts-nocheck
 // Generated from cloudfunctions/coopService/core.js by scripts/build-coop-browser-runtime.js.
 import { PvpHumanReplay } from './PvpHumanReplay';
-import { pixelLevelHash } from './PvpBotReplay';
-import { coopHalfLevel, COOP_MAX_ELAPSED_MS, COOP_RULES_VERSION } from './CoopModeConfig';
+import { coopHalfLevel, coopLevelHash, COOP_MAX_ELAPSED_MS, COOP_RULES_VERSION, COOP_LEGACY_RULES_VERSION } from './CoopModeConfig';
 export function createBrowserCoopService(store, manifest, getLevel, now = Date.now) {
+const legacyLevels = ${JSON.stringify(legacyLevels)};
 ${body}
 return createCoopService(store, now);
 }

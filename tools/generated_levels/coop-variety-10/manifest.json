@@ -1,0 +1,154 @@
+{
+  "levels": [
+    {
+      "levelId": 11,
+      "name": "双球冰淇淋",
+      "file": "coop_level_11.json",
+      "beanCount": 1988,
+      "creatorBeanCount": 846,
+      "collaboratorBeanCount": 1142,
+      "split": {
+        "type": "top-bottom",
+        "field": "coopRegions"
+      },
+      "seeds": [2026091200,2026091250],
+      "collectionId": "coop_variety_01",
+      "sha256": "c58f3d4c19b1e66697971d46d561e1496686fb6c9545e8ec35b659eec8c12584"
+    },
+    {
+      "levelId": 12,
+      "name": "花心与花冠",
+      "file": "coop_level_12.json",
+      "beanCount": 1578,
+      "creatorBeanCount": 605,
+      "collaboratorBeanCount": 973,
+      "split": {
+        "type": "center-ring",
+        "field": "coopRegions"
+      },
+      "seeds": [2026091300,2026091350],
+      "collectionId": "coop_variety_02",
+      "sha256": "ddbce78b5e9ea0d1d90e68b6b60c75dc13e87822fc3c488ad36d2ca37357bd1b"
+    },
+    {
+      "levelId": 13,
+      "name": "抱紧大胡萝卜",
+      "file": "coop_level_13.json",
+      "beanCount": 1712,
+      "creatorBeanCount": 909,
+      "collaboratorBeanCount": 803,
+      "split": {
+        "type": "character-object",
+        "field": "coopRegions"
+      },
+      "seeds": [2026091403,2026091450],
+      "collectionId": "coop_variety_03",
+      "sha256": "0f05689af6612ab204574ec350c9b8711b78414c88fdd42d2165429d1a7b8d13"
+    },
+    {
+      "levelId": 14,
+      "name": "午睡搭子",
+      "file": "coop_level_14.json",
+      "beanCount": 1601,
+      "creatorBeanCount": 865,
+      "collaboratorBeanCount": 736,
+      "split": {
+        "type": "two-characters",
+        "field": "coopRegions"
+      },
+      "seeds": [2026091500,2026091550],
+      "collectionId": "coop_variety_04",
+      "sha256": "06ad17b32d61c1779d9388f83bf92248de0217188860125b4aea3585defd4e94"
+    },
+    {
+      "levelId": 15,
+      "name": "双味糖霜圈",
+      "file": "coop_level_15.json",
+      "beanCount": 2252,
+      "creatorBeanCount": 1259,
+      "collaboratorBeanCount": 993,
+      "split": {
+        "type": "interlock",
+        "field": "coopRegions"
+      },
+      "seeds": [2026091618,2026091652],
+      "collectionId": "coop_variety_05",
+      "sha256": "13f4e40feaf6e1e184070db60a4e126aedc66953b9a35522208ee136cd78c1ee"
+    },
+    {
+      "levelId": 16,
+      "name": "双枝迎春",
+      "file": "coop_level_16.json",
+      "beanCount": 1254,
+      "creatorBeanCount": 672,
+      "collaboratorBeanCount": 582,
+      "split": {
+        "type": "crossed-branches",
+        "field": "coopRegions"
+      },
+      "seeds": [2026091700,2026091751],
+      "collectionId": "coop_variety_06",
+      "sha256": "5050bed46ed3fcb9f3b7a9b522c85d5ccd93bdafcb257784846191a8444a0514"
+    },
+    {
+      "levelId": 17,
+      "name": "莓果庆祝蛋糕",
+      "file": "coop_level_17.json",
+      "beanCount": 2152,
+      "creatorBeanCount": 1134,
+      "collaboratorBeanCount": 1018,
+      "split": {
+        "type": "topping-base",
+        "field": "coopRegions"
+      },
+      "seeds": [2026091807,2026091850],
+      "collectionId": "coop_variety_07",
+      "sha256": "c631076f12806bf108ce6c5ea3ce5e5cab8a2c10fc951ef0c2e1b147aba54e80"
+    },
+    {
+      "levelId": 18,
+      "name": "夏日柠檬冰茶",
+      "file": "coop_level_18.json",
+      "beanCount": 1839,
+      "creatorBeanCount": 937,
+      "collaboratorBeanCount": 902,
+      "split": {
+        "type": "vessel-content",
+        "field": "coopRegions"
+      },
+      "seeds": [2026091900,2026091951],
+      "collectionId": "coop_variety_08",
+      "sha256": "4aa9d8af43dd13506eb6b8122385fbec3a1fe0f05f7800212c4473b79836c791"
+    },
+    {
+      "levelId": 19,
+      "name": "月下雪山河谷",
+      "file": "coop_level_19.json",
+      "beanCount": 2185,
+      "creatorBeanCount": 842,
+      "collaboratorBeanCount": 1343,
+      "split": {
+        "type": "foreground-background",
+        "field": "coopRegions"
+      },
+      "seeds": [2026092000,2026092050],
+      "collectionId": "coop_variety_09",
+      "sha256": "e55661fce0f8b2753ada274502aa87aa354fe2c20b145b63652c3a7bb6010084"
+    },
+    {
+      "levelId": 20,
+      "name": "星环双鱼",
+      "file": "coop_level_20.json",
+      "beanCount": 1466,
+      "creatorBeanCount": 654,
+      "collaboratorBeanCount": 812,
+      "split": {
+        "type": "curved-interlock",
+        "field": "coopRegions"
+      },
+      "seeds": [2026092102,2026092150],
+      "collectionId": "coop_variety_10",
+      "sha256": "ac9acad787a8c09eb8154cb6bfaa9ed2939a81fc4a26a498e8bcd8e3dcab3aa6"
+    }
+  ]
+}
