@@ -223,7 +223,7 @@ assert.strictEqual(reusableGraphics.rectCalls, 2, 'reused Graphics must be clear
 assert.strictEqual(reusableGraphics.clearCalls, 2, 'each render must clear the reusable Graphics exactly once');
 
 const collection = read('assets/Scripts/Core/GameCtrlModules/CollectionAvatarModule.ts');
-assert.ok(collection.includes("renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';"), 'collection module must import the shared pixel poster renderer');
+assert.ok(collection.includes("renderCompletedPatternPreview as renderPixelPosterPreview } from '../CompletedPatternPreview';"), 'collection module must import the shared completed thumbnail renderer');
 assert.ok(collection.includes('releasePixelPosterPreviewTree(oldScrollContent);'), 'collection module must release stale generated preview trees before rerendering');
 assert.ok(collection.includes("name: 'Preview'"), 'large pattern preview must render into the Preview node');
 assert.ok(collection.includes("name: usePrefabContainer ? 'PixelPosterPreview' : 'PixelPreview'"), 'card previews must render inside prefab PixelPreview containers when present');
@@ -249,7 +249,7 @@ assert.ok(home.includes('this.drawCollectionPixelPreviewOnCard(previewAnchor, le
 
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 assert.ok(settlement.includes('drawWinPatternPreview()'), 'settlement module must draw a win pattern preview');
-assert.ok(settlement.includes("import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';"), 'settlement module must import the shared pixel poster renderer');
+assert.ok(settlement.includes("import { renderCompletedPatternPreview as renderPixelPosterPreview } from '../CompletedPatternPreview';"), 'settlement module must import the shared completed thumbnail renderer');
 assert.ok(settlement.includes("name: 'PixelPosterPreview'"), 'win pattern preview must render generated content inside PatternPreview');
 assert.ok(settlement.includes("previewNode.getChildByName('Preview')?.destroy();"), 'win pattern preview must clean legacy generated nodes without removing PatternPreview');
 assert.ok(settlement.includes('maxW = Math.max(120, previewTransform?.width || 392)'), 'win pattern preview width must come from the PatternPreview container');

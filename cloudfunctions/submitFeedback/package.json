@@ -1,0 +1,7 @@
+{
+  "name": "submit-feedback",
+  "version": "1.0.0",
+  "main": "index.js",
+  "private": true,
+  "dependencies": { "wx-server-sdk": "latest" }
+}

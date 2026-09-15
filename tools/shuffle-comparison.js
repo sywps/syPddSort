@@ -529,7 +529,93 @@
             + Math.abs(actual.largestCluster - target.largestCluster) / largestScale * 3;
     }
 
+    function structureMetrics(target, grid) {
+        let boundaries = 0, retained = 0, interiors = 0, split = 0;
+        for (const [row, col] of activeCells(target)) {
+            for (const [dr, dc] of [[0, 1], [1, 0]]) {
+                if (!(target[row + dr]?.[col + dc] > 0)) continue;
+                const different = grid[row][col] !== grid[row + dr][col + dc];
+                if (target[row][col] !== target[row + dr][col + dc]) {
+                    boundaries += 1;
+                    retained += Number(different);
+                } else {
+                    interiors += 1;
+                    split += Number(different);
+                }
+            }
+        }
+        return { boundaryRetention: boundaries ? retained / boundaries : 1,
+            interiorSplit: interiors ? split / interiors : 0 };
+    }
+
+    // Recolour complete source shapes first, then repair only inventory differences.
+    // Unlike strict mode, unchanged cells are allowed to protect recognisable parts.
+    function generateStructurePreserving(target, options = {}) {
+        const inventory = colorInventory(target);
+        if (!inventory.size) return target.map(row => row.slice());
+        const baseSeed = Number.isFinite(options.seed) ? options.seed : 20260827 + (Number(options.levelId) || 0) * 7919;
+        const cells = activeCells(target);
+        const colors = [...inventory.keys()].sort((a, b) => inventory.get(a) - inventory.get(b) || a - b);
+        let best = null;
+        for (let attempt = 0; attempt < 24; attempt += 1) {
+            const seed = baseSeed + attempt * 9973;
+            const mapping = new Map(colors.map(color => [color, color]));
+            // Similar quotas minimise repairs. A dominant colour may stay put.
+            const order = colors.slice().sort((a, b) => inventory.get(a) - inventory.get(b)
+                + (hashCell(seed, a, 0) / 4294967296 - hashCell(seed, b, 0) / 4294967296) * cells.length * 0.08);
+            for (let i = attempt % 2; i + 1 < order.length; i += 2) {
+                const a = order[i], b = order[i + 1];
+                if (inventory.get(b) > inventory.get(a) * 2.5) continue;
+                mapping.set(a, b); mapping.set(b, a);
+            }
+            const grid = target.map(row => row.map(color => color > 0 ? mapping.get(color) : color));
+            const counts = colorInventory(grid);
+            for (const wanted of colors) {
+                while (counts.get(wanted) < inventory.get(wanted)) {
+                    let chosen = null, cost = Infinity;
+                    for (const [r, c] of cells) {
+                        const current = grid[r][c];
+                        if (counts.get(current) <= inventory.get(current)) continue;
+                        let penalty = 0;
+                        for (const [dr, dc] of DIRS4) {
+                            const source = target[r + dr]?.[c + dc];
+                            if (!(source > 0)) { penalty += 60; continue; }
+                            const neighbor = grid[r + dr][c + dc];
+                            if (source !== target[r][c]) {
+                                penalty += 40; // Do not erode the source boundary.
+                                if (neighbor === wanted) penalty += 100;
+                            } else {
+                                penalty += (neighbor !== wanted ? 3 : 0) - (neighbor !== current ? 3 : 0);
+                            }
+                        }
+                        penalty += hashCell(seed, r, c) / 4294967296 * 0.01;
+                        if (penalty < cost) { cost = penalty; chosen = [r, c]; }
+                    }
+                    if (!chosen) throw new Error('structure shuffle inventory repair failed');
+                    const [r, c] = chosen, previous = grid[r][c];
+                    grid[r][c] = wanted;
+                    counts.set(previous, counts.get(previous) - 1);
+                    counts.set(wanted, counts.get(wanted) + 1);
+                }
+            }
+            const measured = structureMetrics(target, grid);
+            const displacement = 1 - matchingCellCount(target, grid) / cells.length;
+            if (!displacement && colors.length > 1) continue;
+            const score = (1 - measured.boundaryRetention) * 6 + measured.interiorSplit * 3 - displacement * 0.35;
+            if (!best || score < best.score) best = { grid, score };
+        }
+        if (!best) throw new Error('no nontrivial structure-preserving colour exchange available');
+        assertOutline(options.outlineGrid || target, best.grid);
+        const resultInventory = colorInventory(best.grid);
+        for (const [color, count] of inventory) {
+            if (resultInventory.get(color) !== count) throw new Error('structure shuffle inventory invariant failed');
+        }
+        return best.grid;
+    }
+
     function generate(target, options = {}) {
+        // Experimental structure mode must be explicitly requested until reviewed.
+        if (options.strictMismatch !== true && options.preserveStructure === true) return generateStructurePreserving(target, options);
         if (!options.profile?.cohorts) return generateInterleaved(target, options);
         const colors = colorInventory(target).size;
         const learned = options.profile.cohorts[cohortKey(colors)];
@@ -672,6 +758,8 @@
 
     return {
         generate,
+        generateStructurePreserving,
+        structureMetrics,
         generateInterleaved,
         learnProfile,
         metrics,

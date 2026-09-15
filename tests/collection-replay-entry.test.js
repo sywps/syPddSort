@@ -98,7 +98,7 @@ async function run() {
     assert.deepStrictEqual(homeCalls, [
         ['cost', 7, 'collection_replay'],
         ['close'],
-        ['route', 7, 'level_', false, 'none', 'collection_replay'],
+        ['route', 7, 'level_', false, 'auto', 'collection_replay'],
     ]);
     finishHomeRoute();
     assert.strictEqual(await firstHomeStart, true);
@@ -158,11 +158,13 @@ async function run() {
         ['cost', 2, 'collection_replay'],
         ['cost', 2, 'collection_replay'],
         ['close'],
-        ['route', 2, 'level_', false, 'none', 'collection_replay'],
+        ['route', 2, 'level_', false, 'auto', 'collection_replay'],
     ]);
 
     appRootRef.current = createAppRoot();
     const gameCalls = [];
+    let coveredTask;
+    let finishGameTransition;
     const gameRuntime = {
         _collectionReplayStarting: false,
         _isThemeLevel: false,
@@ -182,12 +184,19 @@ async function run() {
         loadLevel(...args) {
             gameCalls.push(['load', ...args]);
         },
+        requestGameplayTransition(_key, task) {
+            coveredTask = task;
+            return new Promise(resolve => { finishGameTransition = resolve; });
+        },
         showNoLivesAdModal() {},
         showToast() {},
     };
     installCollectionGuideModule(gameRuntime);
     gameRuntime.closeCollection = () => gameCalls.push(['close']);
-    assert.strictEqual(gameRuntime.startCollectionReplay(12, 'zt_level_'), true);
+    const gameStart = gameRuntime.startCollectionReplay(12, 'zt_level_');
+    assert.strictEqual(gameRuntime.startCollectionReplay(12, 'zt_level_'), false);
+    assert.deepStrictEqual(gameCalls, [['cost', 12, 'collection_replay'], ['close']], 'loading waits for full cover');
+    coveredTask();
     assert.strictEqual(gameRuntime._isThemeLevel, true);
     assert.strictEqual(gameRuntime._currentThemeLevelId, 12);
     assert.deepStrictEqual(gameCalls, [
@@ -196,6 +205,10 @@ async function run() {
         ['deactivate'],
         ['load', 12, 'zt_level_', false, 'collection_replay'],
     ]);
+    assert.strictEqual(gameRuntime._collectionReplayStarting, true, 'replay stays locked until reveal finishes');
+    finishGameTransition(true);
+    assert.strictEqual(await gameStart, true);
+    assert.strictEqual(gameRuntime._collectionReplayStarting, false);
 
     const replayTitleLabel = { string: '' };
     const replayCostLabel = { string: '' };

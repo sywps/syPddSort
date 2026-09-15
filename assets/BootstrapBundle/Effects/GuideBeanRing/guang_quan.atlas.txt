@@ -1,0 +1,174 @@
+
+guang_quan.png
+size: 1826,306
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+xuan_00
+  rotate: false
+  xy: 2, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_01
+  rotate: false
+  xy: 2, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_02
+  rotate: false
+  xy: 154, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_03
+  rotate: false
+  xy: 154, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_04
+  rotate: false
+  xy: 306, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_05
+  rotate: false
+  xy: 306, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_06
+  rotate: false
+  xy: 458, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_07
+  rotate: false
+  xy: 458, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_08
+  rotate: false
+  xy: 610, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_09
+  rotate: false
+  xy: 610, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_10
+  rotate: false
+  xy: 762, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_11
+  rotate: false
+  xy: 762, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_12
+  rotate: false
+  xy: 914, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_13
+  rotate: false
+  xy: 914, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_14
+  rotate: false
+  xy: 1066, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_15
+  rotate: false
+  xy: 1066, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_16
+  rotate: false
+  xy: 1218, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_17
+  rotate: false
+  xy: 1218, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_18
+  rotate: false
+  xy: 1370, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_19
+  rotate: false
+  xy: 1370, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_20
+  rotate: false
+  xy: 1522, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_21
+  rotate: false
+  xy: 1522, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_22
+  rotate: false
+  xy: 1674, 154
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+xuan_23
+  rotate: false
+  xy: 1674, 2
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1

@@ -93,7 +93,7 @@ assert(source.includes("where({ playerAOpenid: openid, status: command.in(status
 assert(source.includes("where({ playerBOpenid: openid, status: command.in(statuses) })"), 'active match lookup must use the deployed player B/status/updatedAt index');
 assert(source.includes(".filter((row) => row.levelPrefix === LEVEL_PREFIX && row.rulesVersion === RULES_VERSION)"), 'active match namespace and rules must remain server-filtered');
 assert(!source.includes("async function createRankedMatch(event, openid, profile) {\n  if (await getActiveMatch(openid)) throw new Error('active match already exists');"), 'ranked matchmaking must not reject a recoverable active match');
-const matcherSource = fs.readFileSync(path.join(__dirname, '../cloudfunctions/pvpService/matchmaking.js'), 'utf8');
+const matcherSource = fs.readFileSync(path.join(__dirname, '../cloudfunctions/pvpService/matchmaking.js'), 'utf8').replace(/\r\n/g, '\n');
 assert(matcherSource.includes('HUMAN_REPLAY_VERIFICATION') && matcherSource.includes('row.completeRun === true'), 'historical candidates must require complete rule-verified replays');
 assert(matcherSource.includes("where({ levelId, rulesVersion: RULES_VERSION,\n      verified: true, eligibleForMatchmaking: true })"), 'replay lookup must use the deployed level/rules/verified/eligible/createdAt index');
 assert(!matcherSource.includes('ratingBucket: db.command.in'), 'replay lookup must not require an undeployed rating-bucket index before bot fallback');

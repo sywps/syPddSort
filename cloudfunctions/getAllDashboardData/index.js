@@ -641,6 +641,135 @@ function buildFront10ExperimentStats(behaviorList, opt = {}) {
   };
 }
 
+function buildCapacityAdRoundFunnel(behaviorList, funnelList, levelRecords) {
+  const rounds = new Map();
+  const ensureRound = (item) => {
+    const openid = String(getBehaviorUserKey(item) || '').trim();
+    const sessionId = String(item?.sessionId || '').trim();
+    const roundId = String(item?.roundId || '').trim();
+    const clientBuildId = String(item?.clientBuildId || '').trim();
+    const experimentId = String(item?.experimentId || item?.abId || '').trim() || 'unknown';
+    const abBucket = normalizeFront10ExperimentBucket(item?.experimentBucket || item?.abBucket);
+    if (!openid || !sessionId || !roundId || !clientBuildId) return null;
+    const key = JSON.stringify([
+      openid,
+      sessionId,
+      roundId,
+      clientBuildId,
+      experimentId,
+      abBucket,
+    ]);
+    if (!rounds.has(key)) {
+      rounds.set(key, {
+        sessionId,
+        roundId,
+        clientBuildId,
+        logicalLevelId: 0,
+        experimentId,
+        abBucket,
+        eligible: false,
+        shown: false,
+        clicked: false,
+        rewarded: false,
+        followup: false,
+        passed: false,
+        followupDelayMs: 0,
+      });
+    }
+    const round = rounds.get(key);
+    round.logicalLevelId = round.logicalLevelId || getBehaviorLogicalLevelId(item);
+    return round;
+  };
+
+  for (const item of funnelList) {
+    const eventName = String(item?.eventName || '');
+    if (!eventName.startsWith('pch_capacity_') && !['ad_click', 'ad_reward_success'].includes(eventName)) continue;
+    const round = ensureRound(item);
+    if (!round) continue;
+    if (eventName === 'pch_capacity_soft_hint_eligible') round.eligible = true;
+    if (eventName === 'pch_capacity_soft_hint_shown') round.shown = true;
+    if (eventName === 'pch_capacity_soft_hint_click') round.clicked = true;
+    if (eventName === 'pch_capacity_reward_followup_action') {
+      round.followup = true;
+      round.followupDelayMs = Math.max(0, Number(item?.extra?.elapsedMsAfterReward) || 0);
+    }
+    if (eventName === 'ad_reward_success'
+      && String(item?.extra?.triggerSource || item?.source || '') === 'capacity_soft_hint') round.rewarded = true;
+  }
+  for (const item of behaviorList) {
+    if (!['ad_click', 'ad_reward_success'].includes(item?.eventName)) continue;
+    if (String(item?.page || '') !== 'pch_conveyor_expand') continue;
+    if (String(item?.triggerSource || '') !== 'capacity_soft_hint') continue;
+    const round = ensureRound(item);
+    if (!round) continue;
+    if (item.eventName === 'ad_click') round.clicked = true;
+    if (item.eventName === 'ad_reward_success') round.rewarded = true;
+  }
+  for (const item of levelRecords) {
+    const round = ensureRound(item);
+    if (!round) continue;
+    if (item?.passStatus === true) round.passed = true;
+  }
+
+  const statMap = new Map();
+  const addRound = (round, experimentId, abBucket, clientBuildId) => {
+    const key = JSON.stringify([
+      round.logicalLevelId,
+      experimentId,
+      abBucket,
+      clientBuildId,
+    ]);
+    if (!statMap.has(key)) {
+      statMap.set(key, {
+        logicalLevelId: round.logicalLevelId,
+        experimentId,
+        abBucket,
+        clientBuildId,
+        roundCount: 0,
+        eligibleRounds: 0,
+        shownRounds: 0,
+        clickedRounds: 0,
+        rewardedRounds: 0,
+        followupRounds: 0,
+        passedRounds: 0,
+        rewardedPassedRounds: 0,
+        followupDelayTotalMs: 0,
+      });
+    }
+    const stat = statMap.get(key);
+    stat.roundCount += 1;
+    if (round.eligible) stat.eligibleRounds += 1;
+    if (round.shown) stat.shownRounds += 1;
+    if (round.clicked) stat.clickedRounds += 1;
+    if (round.rewarded) stat.rewardedRounds += 1;
+    if (round.followup) {
+      stat.followupRounds += 1;
+      stat.followupDelayTotalMs += round.followupDelayMs;
+    }
+    if (round.passed) stat.passedRounds += 1;
+    if (round.rewarded && round.passed) stat.rewardedPassedRounds += 1;
+  };
+  for (const round of rounds.values()) {
+    if (![4, 5].includes(round.logicalLevelId)) continue;
+    if (!round.eligible && !round.shown && !round.clicked && !round.rewarded && !round.followup) continue;
+    addRound(round, 'all', 'all', 'all');
+    addRound(round, round.experimentId, round.abBucket, round.clientBuildId);
+  }
+  return {
+    scope: 'openid + sessionId + roundId + clientBuildId + experiment',
+    rows: Array.from(statMap.values()).map((stat) => ({
+      ...stat,
+      bucket: stat.abBucket,
+      eligibleToShownRate: toPercent(stat.shownRounds, stat.eligibleRounds),
+      shownToClickRate: toPercent(stat.clickedRounds, stat.shownRounds),
+      clickToRewardRate: toPercent(stat.rewardedRounds, stat.clickedRounds),
+      rewardToFollowupRate: toPercent(stat.followupRounds, stat.rewardedRounds),
+      rewardToPassRate: toPercent(stat.rewardedPassedRounds, stat.rewardedRounds),
+      avgFollowupDelayMs: stat.followupRounds ? Math.round(stat.followupDelayTotalMs / stat.followupRounds) : 0,
+    })),
+  };
+}
+
 function normalizeAbBucket(value) {
   const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (text === 'bucket_a') return 'bucket_a';
@@ -838,6 +967,7 @@ exports.main = async (event = {}) => {
       pchSkillUses: buildPchSkillUses(levelRecords),
       funnel: buildFunnel(behaviorList),
       front10ExperimentStats: buildFront10ExperimentStats(behaviorList),
+      capacityAdRoundFunnel: buildCapacityAdRoundFunnel(behaviorList, firstLevelFunnelEvents, levelRecords),
       pchOnboardingFunnel: buildOnboardingLevelFunnel(firstLevelFunnelEvents),
     };
   } catch (error) {

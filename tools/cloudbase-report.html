@@ -1760,6 +1760,27 @@ function buildOpsInsights(summary, trendSummaries) {
     return { highlights, risks, actions };
 }
 
+function renderBeanSelectionExperiment(report) {
+    if (!report) return '';
+    const title = '<div class="card-header"><div class="card-title">选豆 A / B 实验</div><div class="card-subtitle">A：底色优先；B：原包同色扩散。新用户独立 50% / 50% 分组，主线第二关起生效。</div></div>';
+    if (report.status !== 'ready') return `<section class="card span-12">${title}<div class="card-body">${escapeHtml(report.reason)}</div></section>`;
+    const pct = n => n == null ? '未就绪' : `${(n * 100).toFixed(1)}%`;
+    const num = n => n == null ? '—' : Number(n).toFixed(1);
+    const rows = (report.groups || []).map(g => `<tr><td>${escapeHtml(g.bucket)}</td><td>${g.enrolled}</td><td>${g.exposed2}</td><td>${g.passed2}</td><td>${pct(g.pass2Rate)}</td><td>${num(g.meanPass2Seconds)}</td><td>${num(g.meanPass2Actions)}</td><td>${pct(g.retention1Rate)}</td></tr>`).join('');
+    const strata = (report.byFirstLevelContent || []).map(g => `<tr><td>${escapeHtml(g.firstLevelContent)}</td><td>${escapeHtml(g.bucket)}</td><td>${g.exposed2}</td><td>${g.passed2}</td><td>${pct(g.pass2Rate)}</td></tr>`).join('');
+    return `<section class="card span-12">${title}<div class="card-body"><p>主指标：入组当日第二关通过 UV / 第二关实际曝光 UV。零样本显示未就绪。</p><div class="table-wrap"><table><thead><tr><th>选豆组</th><th>入组 UV</th><th>L2曝光 UV</th><th>L2通过 UV</th><th>L2通过率</th><th>L2通关平均秒</th><th>L2通关平均操作数</th><th>曝光用户次留</th></tr></thead><tbody>${rows}</tbody></table></div><details><summary>按首关 A/B/C 分开比较</summary><div class="table-wrap"><table><thead><tr><th>首关内容</th><th>选豆组</th><th>L2曝光 UV</th><th>L2通过 UV</th><th>L2通过率</th></tr></thead><tbody>${strata}</tbody></table></div></details><p>${escapeHtml(report.note)}</p></div></section>`;
+}
+
+function renderFirstLevelExperiment(report) {
+    if (!report) return '';
+    const pct = value => value == null ? '未就绪' : `${(value * 100).toFixed(1)}%`;
+    const title = '<div class="card-header"><div class="card-title">第一关 A / B / C 实验</div><div class="card-subtitle">当日实际入组新用户；主指标为当日进入第二关的比例。不会自动判定胜负。</div></div>';
+    if (report.status !== 'ready') return `<section class="card span-12">${title}<div class="card-body">${escapeHtml(report.reason)}</div></section>`;
+    const rows = report.groups.map(g => `<tr><td>${escapeHtml(g.bucket)}</td><td>${g.enrolled}</td><td>${g.loaded}</td><td>${g.exposed}</td><td>${pct(g.pass1Rate)}</td><td>${g.entered2} / ${pct(g.enter2Rate)}</td><td>${pct(g.pass3Rate)}</td><td>${pct(g.retention1Rate)}</td><td>${g.guide1Done}/${g.guide1Shown} · ${g.guide2Done}/${g.guide2Shown}</td><td>${g.firstPassMedianSeconds == null ? '—' : g.firstPassMedianSeconds.toFixed(1)}</td><td>${g.loadFailed} / ${g.errors}</td></tr>`).join('');
+    const q = report.quality;
+    return `<section class="card span-12">${title}<div class="card-body"><div class="table-wrap"><table><thead><tr><th>组别</th><th>入组 UV</th><th>加载 UV</th><th>实际进入 UV</th><th>L1通过率</th><th>进入L2 UV / 比例</th><th>L3通过率</th><th>次留</th><th>引导完成/展示（步骤1 · 2）</th><th>首次通关中位秒</th><th>加载失败/错误 UV</th></tr></thead><tbody>${rows}</tbody></table></div><p>测试用户 ${q.testUsers}；未入组 ${q.excludedUsers}；分组冲突 ${q.conflictedUsers}；缺少归属字段的记录 ${q.orphanedContextRecords}。</p><p>${escapeHtml(JSON.stringify(q.exclusionReasons))}</p><p>${escapeHtml(report.note)}</p></div></section>`;
+}
+
 function renderDiagnosisFunnelTable(rows, options = {}) {
     const headers = ['步骤', '事件', 'UV', 'UV占首次存入', 'Session', 'Session占首次存入', '上一步转化', 'PV/records'];
     const bodyRows = rows.map((row, rowIndex) => {
@@ -2054,7 +2075,7 @@ function renderFirstDayChurnAnalysis(churn) {
 
 function renderFirst20Table(rows) {
     return renderTable(
-        ['关卡', '进入UV', '通过UV', '失败UV', '进入未通过UV', '通过/进入UV', '记录局数', '平均尝试', '平均时长', '广告续关', '磁铁', '刷子', '冻结', '判断'],
+        ['关卡', '进入UV', '通过UV', '失败UV', '进入未通过UV', '通过/进入UV', '记录局数', '平均尝试', '平均时长', '广告续关', '峰值占用', '扩容次数', '平均有效操作', '最终进度', '磁铁', '刷子', '冻结', '判断'],
         rows.map((row) => [
             `<strong>L${escapeHtml(row.levelId)}</strong>`,
             formatNumber(row.enterUv),
@@ -2066,6 +2087,10 @@ function renderFirst20Table(rows) {
             finiteNumber(row.avgTryCount).toFixed(2),
             formatSeconds(row.avgDurationSeconds),
             formatNumber(row.adReviveCount),
+            pctFromRatio(row.avgPeakBufferRatio),
+            formatNumber(row.capacityExpandCount),
+            finiteNumber(row.avgValidActionCount).toFixed(1),
+            pctFromRatio(row.avgFinalProgressRatio),
             formatNumber(row.magnetUses),
             formatNumber(row.brushUses),
             formatNumber(row.freezeUses),
@@ -2341,6 +2366,30 @@ function renderReviveAdFunnel(rows) {
     );
 }
 
+function renderCapacityAdRoundFunnel(funnel) {
+    return renderTable(
+        ['关卡', '实验', '分组', '客户端构建', '符合条件局', '提示展示局', '提示点击局', '奖励成功局', '奖励后操作局', '奖励后通关局', '展示/符合', '点击/展示', '奖励/点击', '操作/奖励', '通关/奖励', '奖励后操作延迟'],
+        (funnel?.rows || []).map((row) => [
+            `<strong>L${escapeHtml(row.logicalLevelId)}</strong>`,
+            escapeHtml(row.experimentId),
+            escapeHtml(row.bucket || row.abBucket),
+            escapeHtml(row.clientBuildId || ''),
+            formatNumber(row.eligibleRounds),
+            formatNumber(row.shownRounds),
+            formatNumber(row.clickedRounds),
+            formatNumber(row.rewardedRounds),
+            formatNumber(row.followupRounds),
+            formatNumber(row.rewardedPassedRounds),
+            pctFromRatio(row.eligibleToShownRate),
+            pctFromRatio(row.shownToClickRate),
+            pctFromRatio(row.clickToRewardRate),
+            pctFromRatio(row.rewardToFollowupRate),
+            pctFromRatio(row.rewardToPassRate),
+            `${formatNumber(row.avgFollowupDelayMs)} ms`,
+        ]),
+    );
+}
+
 function renderReviveShareFunnel(rows) {
     return renderTable(
         ['关卡', '入口', '面板曝光', '分享点击', '合格返回', '分享复活成功', '点击/面板', '合格/点击', '复活/合格'],
@@ -2510,6 +2559,7 @@ function renderContent(summary, trendSummaries) {
     const guideTapByStep = Array.isArray(diagnosis?.guideTapByStep) ? diagnosis.guideTapByStep : [];
     const reviveAdFunnel = Array.isArray(diagnosis?.reviveAdFunnel) ? diagnosis.reviveAdFunnel : [];
     const reviveShareFunnel = Array.isArray(diagnosis?.reviveShareFunnel) ? diagnosis.reviveShareFunnel : [];
+    const capacityAdRoundFunnel = diagnosis?.capacityAdRoundFunnel || null;
     const pixelBeanProgress = diagnosis?.pixelBeanProgress || behavior?.pixelBeanProgress || null;
     const pixelBeanAds = diagnosis?.pixelBeanAds || behavior?.pixelBeanAds || null;
     const funnelScopeLabel = diagnosis?.pchFunnelScope?.label || 'logical_levels=1,2,3';
@@ -2648,6 +2698,8 @@ function renderContent(summary, trendSummaries) {
             </div>
         </section>
 
+        ${renderFirstLevelExperiment(summary.firstLevelExperiment)}
+        ${renderBeanSelectionExperiment(summary.beanSelectionExperiment)}
         <section class="card span-12">
             <div class="card-header">
                 <div class="card-title">传送带玩法引导结果（PCH）</div>
@@ -2682,6 +2734,16 @@ function renderContent(summary, trendSummaries) {
             </div>
             <div class="card-body">
                 ${pixelBeanAds ? renderPixelBeanAds(pixelBeanAds) : '<div class="empty">这份日报没有像素拼豆广告数据。</div>'}
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">L4—L5 扩容软提示单局闭环</div>
+                <div class="card-subtitle">使用同一 openid、sessionId、roundId、客户端构建与实验分组关联符合条件、提示展示、点击、广告奖励、奖励后首次合法操作和本局通关。</div>
+            </div>
+            <div class="card-body">
+                ${capacityAdRoundFunnel?.rows?.length ? renderCapacityAdRoundFunnel(capacityAdRoundFunnel) : '<div class="empty">这份日报没有包含完整单局身份的扩容软提示数据。</div>'}
             </div>
         </section>
 

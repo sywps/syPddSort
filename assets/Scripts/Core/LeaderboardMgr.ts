@@ -1,4 +1,5 @@
 import { _decorator, sys } from 'cc';
+import { getCachedWeChatDeviceInfo } from './WeChatDeviceInfo';
 import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
 import { runtimeLog, runtimeWarn } from './RuntimeLog';
@@ -405,7 +406,7 @@ export class LeaderboardMgr {
     private isDevtoolsEnv(): boolean {
         try {
             const wx = this.getWx(false);
-            const info = wx?.getSystemInfoSync?.() || {};
+            const info = getCachedWeChatDeviceInfo(wx);
             return typeof info.platform === 'string' && info.platform.toLowerCase() === 'devtools';
         } catch (_) {
             return false;

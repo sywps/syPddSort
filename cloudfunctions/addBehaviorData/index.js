@@ -158,6 +158,8 @@ exports.main = async (event = {}) => {
 
   const timestamp = Date.now();
   const gameplayMode = normalizeGameplayMode(event.gameplayMode);
+  const abId = cleanString(event.abId || event.experimentId, 64);
+  const abBucket = cleanString(event.abBucket || event.experimentBucket, 64);
   const data = {
     openid,
     eventName: cleanString(event.eventName, 64),
@@ -167,8 +169,21 @@ exports.main = async (event = {}) => {
     shareType: cleanString(event.shareType, 64),
     adType: cleanString(event.adType, 64),
     duration: normalizeDuration(event.duration),
-    abId: cleanString(event.abId, 64),
-    abBucket: cleanString(event.abBucket, 64),
+    abId,
+    abBucket,
+    experimentId: cleanString(event.experimentId, 64) || abId,
+    experimentBucket: cleanString(event.experimentBucket, 64) || abBucket,
+    firstLevelExperimentId: cleanString(event.firstLevelExperimentId, 64),
+    beanSelectionExperimentId: cleanString(event.beanSelectionExperimentId, 64),
+    beanSelectionExperimentStatus: cleanString(event.beanSelectionExperimentStatus, 16),
+    beanSelectionExperimentBucket: cleanString(event.beanSelectionExperimentBucket, 8),
+    beanSelectionEnrolledAt: Math.max(0, Number(event.beanSelectionEnrolledAt) || 0),
+    beanSelectionExperimentReason: cleanString(event.beanSelectionExperimentReason, 64),
+    firstLevelExperimentStatus: cleanString(event.firstLevelExperimentStatus, 16),
+    firstLevelExperimentBucket: cleanString(event.firstLevelExperimentBucket, 8),
+    firstLevelContentVersion: cleanString(event.firstLevelContentVersion, 32),
+    firstLevelEnrolledAt: Math.max(0, Number(event.firstLevelEnrolledAt) || 0),
+    firstLevelExperimentReason: cleanString(event.firstLevelExperimentReason, 64),
     logicalLevelId: normalizeExperimentLevelId(event.logicalLevelId),
     physicalLevelId: normalizeExperimentLevelId(event.physicalLevelId),
     smartHintShownCount: normalizeNonNegativeInt(event.smartHintShownCount),
@@ -176,6 +191,13 @@ exports.main = async (event = {}) => {
     gameplayEntryMode: normalizeGameplayEntryMode(event.gameplayEntryMode),
     gameplaySchemaVersion: normalizeGameplaySchemaVersion(event.gameplaySchemaVersion, gameplayMode),
     failureReason: normalizeFailureReason(event.failureReason),
+    sessionId: cleanString(event.sessionId, 96),
+    roundId: cleanString(event.roundId, 120),
+    clientBuildId: cleanString(event.clientBuildId, 80),
+    levelDataSource: cleanString(event.levelDataSource, 48),
+    adTransactionId: cleanString(event.adTransactionId, 160),
+    adAttemptId: cleanString(event.adAttemptId === undefined || event.adAttemptId === null ? '' : String(event.adAttemptId), 96),
+    triggerSource: cleanString(event.triggerSource, 64),
     timestamp,
   };
 

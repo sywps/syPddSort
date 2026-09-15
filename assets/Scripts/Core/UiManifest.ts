@@ -15,10 +15,8 @@ export const POPUP_UI_TEXTURE_NAMES = [
     'popup_frame_soft',
     'popup_title_badge_blank',
     'popup_close_button',
-    'popup_list_row_bg',
     'popup_primary_button',
     'popup_secondary_button',
-    'popup_tab_inactive',
 ];
 
 export const POPUP_SETTINGS_TEXTURE_NAMES = [
@@ -70,6 +68,16 @@ export const SETTINGS_PANEL_TEXTURE_NAMES = [
 
 export const LEADERBOARD_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
+    'leaderboard_row_standard',
+    'leaderboard_tab_active',
+    'leaderboard_avatar_default',
+    'leaderboard_avatar_frame',
+    'leaderboard_tab_inactive',
+    'leaderboard_title_plaque',
+    'medal_bronze_rank_3',
+    'medal_gold_rank_1',
+    'medal_silver_rank_2',
+    'my_ranking_panel',
 ];
 
 export const COLLECTION_TEXTURE_NAMES = [
@@ -161,8 +169,16 @@ export const LOCAL_ATLAS_MEMBER_ROUTES: Readonly<Record<string, string>> = Objec
     'gameAssets:popup_settings_vibrate_icon': 'Textures/UI/Atlases/Settings/popup_settings_vibrate_icon',
     'gameAssets:popup_settings_toggle_on': 'Textures/UI/Atlases/Settings/popup_settings_toggle_on',
     'gameAssets:popup_settings_toggle_off': 'Textures/UI/Atlases/Settings/popup_settings_toggle_off',
-    'gameAssets:popup_list_row_bg': 'Textures/UI/Atlases/Leaderboard/popup_list_row_bg',
-    'gameAssets:popup_tab_inactive': 'Textures/UI/Atlases/Leaderboard/popup_tab_inactive',
+    'gameAssets:leaderboard_row_standard': 'Textures/UI/Atlases/LeaderboardV2/leaderboard_row_standard',
+    'gameAssets:leaderboard_tab_active': 'Textures/UI/Atlases/LeaderboardV2/leaderboard_tab_active',
+    'gameAssets:leaderboard_avatar_default': 'Textures/UI/Atlases/LeaderboardV2/leaderboard_avatar_default',
+    'gameAssets:leaderboard_avatar_frame': 'Textures/UI/Atlases/LeaderboardV2/leaderboard_avatar_frame',
+    'gameAssets:leaderboard_tab_inactive': 'Textures/UI/Atlases/LeaderboardV2/leaderboard_tab_inactive',
+    'gameAssets:leaderboard_title_plaque': 'Textures/UI/Atlases/LeaderboardV2/leaderboard_title_plaque',
+    'gameAssets:medal_bronze_rank_3': 'Textures/UI/Atlases/LeaderboardV2/medal_bronze_rank_3',
+    'gameAssets:medal_gold_rank_1': 'Textures/UI/Atlases/LeaderboardV2/medal_gold_rank_1',
+    'gameAssets:medal_silver_rank_2': 'Textures/UI/Atlases/LeaderboardV2/medal_silver_rank_2',
+    'gameAssets:my_ranking_panel': 'Textures/UI/Atlases/LeaderboardV2/my_ranking_panel',
     'gameAssets:bean_skin_01': 'BeanSkins/icons/bean_skin_01',
     'gameAssets:bean_skin_02': 'BeanSkins/icons/bean_skin_02',
     'gameAssets:bean_skin_03': 'BeanSkins/icons/bean_skin_03',

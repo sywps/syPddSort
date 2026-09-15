@@ -30,8 +30,9 @@ for (const name of parseBootstrapNames(audioManifest)) {
 }
 
 for (const resourcePath of expectedPaths) {
-    const filePath = path.join(root, 'assets', 'GameAssetsBundle', `${resourcePath}.mp3`);
-    assert.ok(fs.existsSync(filePath), `Bootstrap audio resource must exist: ${resourcePath}`);
+    const filePaths = ['.mp3', '.wav']
+        .map((extension) => path.join(root, 'assets', 'GameAssetsBundle', `${resourcePath}${extension}`));
+    assert.ok(filePaths.some((filePath) => fs.existsSync(filePath)), `Bootstrap audio resource must exist: ${resourcePath}`);
 }
 
 for (const scriptPath of [

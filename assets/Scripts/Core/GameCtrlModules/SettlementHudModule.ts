@@ -1,3 +1,4 @@
+import { getBrowserLevelPreview } from '../BrowserLevelPreview';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
@@ -31,13 +32,12 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { runtimeWarn } from '../RuntimeLog';
-import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
+import { renderCompletedPatternPreview as renderPixelPosterPreview } from '../CompletedPatternPreview';
 import { getFrontLevelExperimentAnalyticsContext } from '../LevelExperimentService';
 import { isWorkbenchPreviewRequested, WorkbenchPreviewService } from '../WorkbenchPreviewService';
 
 const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
-const PATTERN_COMPLETE_BOARD_SHRINK_SCALE = 0.8;
 const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.25;
 const WIN_BONUS_REWARD_GATE_PAGE = 'win_bonus_reward';
 const LEVEL_3_IDLE_HINT_LEVEL_ID = 3;
@@ -305,8 +305,18 @@ export function installSettlementHudModule(target: any): void {
                 || panel?.name === 'BufferFullRevivePanel'
                 || panel?.name === 'ReviveSettlementOverlay'
                 || panel?.name === 'BufferFullSettlementOverlay';
-            if (isStaticRevivePrompt) return true;
             const box = panel?.getChildByName('Box');
+            if (isStaticRevivePrompt) {
+                const revivePercentLabel = box
+                    ?.getChildByName('CompletionSummary')
+                    ?.getChildByName('CompletionPercent')
+                    ?.getComponent(Label) ?? null;
+                if (!revivePercentLabel) {
+                    throw new Error('[settlement-progress] revive panel is missing CompletionSummary/CompletionPercent');
+                }
+                revivePercentLabel.string = `${percent}%`;
+                return true;
+            }
             if (!box) return false;
             for (const child of box.children) {
                 if (child.name !== 'Label') continue;
@@ -365,7 +375,8 @@ export function installSettlementHudModule(target: any): void {
         },
 
         updateWinRewardLabel(rewardGold: number) {
-            const box = this.panelWin?.getChildByName('Box');
+            const root = this.panelWin?.getChildByName('Box');
+            const box = (this.panelWin as any)?.__basicSettlement ? root : root?.getChildByName('BottomGroup');
             const rewardLbl = box?.getChildByName('RewardGoldIcon')?.getChildByName('RewardGoldLbl')?.getComponent(Label)
                 || box?.getChildByName('RewardGoldLbl')?.getComponent(Label);
             if (rewardLbl) {
@@ -436,7 +447,6 @@ export function installSettlementHudModule(target: any): void {
                 throw new Error('[WinPanel] missing route-owned SettlementTopHud widgets');
             }
 
-            root.active = true;
             root.setSiblingIndex(Math.max(0, panel.children.length - 1));
             this.bindResultPanelButton(settingsBtn, () => {
                 AudioMgr.inst.play('button');
@@ -448,7 +458,8 @@ export function installSettlementHudModule(target: any): void {
         },
 
         refreshWinAdBonusUI() {
-            const box = this.panelWin?.getChildByName('Box');
+            const root = this.panelWin?.getChildByName('Box');
+            const box = (this.panelWin as any)?.__basicSettlement ? root : root?.getChildByName('BottomGroup');
             const adBtn = box?.getChildByName('AdBonusBtn');
             if (!adBtn) return;
         
@@ -535,7 +546,7 @@ export function installSettlementHudModule(target: any): void {
             this.syncSettlementProgressWidget(this.panelBufferFullContinue, failStats);
         },
 
-        showLosePanel() {
+        showLosePanel(onShown?: () => void) {
             this.recordDynamicCountdownFinalFailure?.();
             if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
             if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
@@ -545,6 +556,7 @@ export function installSettlementHudModule(target: any): void {
                 if (!isCurrent()) return;
                 console.error('[settlement] using basic final-failure controls:', error);
                 this.showBasicSettlement('lose');
+                onShown?.();
             };
             const show = () => {
                 if (!isCurrent()) return;
@@ -557,6 +569,7 @@ export function installSettlementHudModule(target: any): void {
                     });
                     this.panelLose.active = true;
                     this.panelLose.setSiblingIndex(999);
+                    onShown?.();
                 } catch (error) {
                     fail(error);
                 }
@@ -596,9 +609,9 @@ export function installSettlementHudModule(target: any): void {
         },
 
         setWinPrimaryButtonInteractable(interactable: boolean): void {
-            const primaryBtn = this.panelWin
-                ?.getChildByName('Box')
-                ?.getChildByName('PrimaryBtn')
+            const root = this.panelWin?.getChildByName('Box');
+            const actions = (this.panelWin as any)?.__basicSettlement ? root : root?.getChildByName('BottomGroup');
+            const primaryBtn = actions?.getChildByName('PrimaryBtn')
                 ?.getComponent(Button);
             if (primaryBtn) primaryBtn.interactable = interactable;
         },
@@ -608,9 +621,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         continueTutorialToSlotIntro(nextId: number) {
-            this.scheduleOnce(() => {
-                this.loadLevel(nextId);
-            }, 0.08);
+            void this.requestLevelTransition(nextId);
         },
 
         failWinSettlementReveal(error: unknown, revealToken: number): void {
@@ -645,9 +656,7 @@ export function installSettlementHudModule(target: any): void {
                 PerformanceMgr.inst.markUserActivity(8000);
                 AudioMgr.inst.play('winSettlement');
                 if (this.boardGroup) {
-                    tween(this.boardGroup)
-                        .to(0.3, { scale: new Vec3(1, 1, 1) }, { easing: 'sineOut' })
-                        .start();
+                    this.resetBoardViewportToHome();
                 }
                 panel.active = true;
                 panel.setSiblingIndex(999);
@@ -729,7 +738,7 @@ export function installSettlementHudModule(target: any): void {
             AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId, {
                 gameplayStats: this._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
             });
-            SySDKMgr.inst.reportLevelPass(logicalLevelId);
+            if (!getBrowserLevelPreview().active) SySDKMgr.inst.reportLevelPass(logicalLevelId);
             this.recordDynamicCountdownWin?.();
             if (this._isThemeLevel) {
                 this.setThemeCompleted(this._currentThemeLevelId || this.levelData.levelId);
@@ -766,7 +775,7 @@ export function installSettlementHudModule(target: any): void {
                 if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
                 if (this.boardGroup?.isValid) {
                     Tween.stopAllByTarget(this.boardGroup);
-                    this.boardGroup.setScale(1, 1, 1);
+                    this.resetBoardViewportToHome();
                 }
                 revealSettlement();
             };
@@ -787,6 +796,9 @@ export function installSettlementHudModule(target: any): void {
                 PerformanceMgr.inst.markUserActivity(8000);
                 AudioMgr.inst.play('winAll');
                 try {
+                    // Large patterns need longer than the old fixed one-second sweep window.
+                    this.unschedule(recoverSettlement);
+                    this.scheduleOnce(recoverSettlement, this.getPatternCompleteMatchFxDuration() + PATTERN_COMPLETE_SETTLEMENT_HOLD + 2);
                     this.playPatternCompleteMatchFx(showSettlement);
                 } catch (error) {
                     console.error('[settlement] continuing without sweep:', error);
@@ -800,16 +812,21 @@ export function installSettlementHudModule(target: any): void {
                     playPatternCompleteFx();
                     return;
                 }
+                const home = this.boardViewport.getHomeTransform();
+                Tween.stopAllByTarget(this.boardGroup);
                 tween(this.boardGroup)
                     .to(
                         PATTERN_COMPLETE_BOARD_SHRINK_DURATION,
                         {
-                            scale: new Vec3(PATTERN_COMPLETE_BOARD_SHRINK_SCALE, PATTERN_COMPLETE_BOARD_SHRINK_SCALE, 1),
-                            position: new Vec3(this.boardHomePos.x, this.boardHomePos.y, 0),
+                            scale: new Vec3(home.scale, home.scale, 1),
+                            position: new Vec3(home.offset.x, home.offset.y, 0),
                         },
                         { easing: 'sineOut' },
                     )
-                    .call(playPatternCompleteFx)
+                    .call(() => {
+                        this.resetBoardViewportToHome();
+                        playPatternCompleteFx();
+                    })
                     .start();
             };
 
@@ -837,7 +854,7 @@ export function installSettlementHudModule(target: any): void {
 
         drawWinPatternPreview() {
             if (!this.panelWin) return;
-            const box = this.panelWin.getChildByName('Box');
+            const box = this.panelWin.getChildByName('Box')?.getChildByName('MiddleGroup');
             const previewNode = box?.getChildByName('PreviewFrame')?.getChildByName('PatternPreview')
                 || box?.getChildByName('PatternPreview');
             if (!previewNode) return;
@@ -862,6 +879,7 @@ export function installSettlementHudModule(target: any): void {
                     cellGap: 0,
                     padding: 6,
                 },
+                this,
             );
         },
 
@@ -892,36 +910,45 @@ export function installSettlementHudModule(target: any): void {
                 failureReason: reason === 'buffer-full' ? 'buffer_full' : 'timeout',
                 gameplayStats: this._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
             });
-            SySDKMgr.inst.reportLevelFail(logicalLevelId);
+            if (!getBrowserLevelPreview().active) SySDKMgr.inst.reportLevelFail(logicalLevelId);
             PerformanceMgr.inst.markUserActivity(6000);
-            AudioMgr.inst.play('lose');
+            let failureSoundPlayed = false;
+            const playFailureSound = () => {
+                if (failureSoundPlayed) return;
+                failureSoundPlayed = true;
+                AudioMgr.inst.play('lose');
+            };
             const showLoseResult = () => {
                 this.updateLoseProgressLabel();
                 this.refreshReviveShareButtons?.();
                 if (reason === 'buffer-full' && this.panelBufferFullContinue) {
                     this.panelBufferFullContinue.active = true;
+                    this._gameplayResultPanelController?.resetReviveHoldToPeek?.(this.panelBufferFullContinue);
                     AnalyticsMgr.inst.trackRevivePanelShow('pch_buffer_full_revive', logicalLevelId);
                     this.panelBufferFullContinue.setSiblingIndex(999);
                     if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
                     if (this.panelLose) this.panelLose.active = false;
-                    AudioMgr.inst.play('revivePop');
+                    playFailureSound();
                     return;
                 }
                 if (reason === 'timeout' && this.panelTimeoutContinue) {
                     this.panelTimeoutContinue.active = true;
+                    this._gameplayResultPanelController?.resetReviveHoldToPeek?.(this.panelTimeoutContinue);
                     AnalyticsMgr.inst.trackRevivePanelShow('level_revive', logicalLevelId);
                     this.panelTimeoutContinue.setSiblingIndex(999);
                     if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
                     if (this.panelLose) this.panelLose.active = false;
+                    playFailureSound();
                     return;
                 }
-                this.showLosePanel();
+                this.showLosePanel(playFailureSound);
             };
             const initSeq = this._gameplayInitSeq;
             const recoverLoseResult = (error: unknown) => {
                 if (!this.isValid || !this.isGameEnd || initSeq !== this._gameplayInitSeq) return;
                 console.error('[settlement] using basic revive controls:', error);
                 this.showBasicSettlement(reason);
+                playFailureSound();
             };
             try {
                 if (!this.ensureGameplayResultPanelsCreated?.(reason)) {
@@ -940,6 +967,7 @@ export function installSettlementHudModule(target: any): void {
 
         restart() {
             if (this.isCoopMode?.()) { void this.restartCoop(); return; }
+            if (this._gameplayTransitionPromise) return;
             if (this._settlementNextTransitioning) return;
             this._settlementNextTransitioning = true;
             const initSeq = this._gameplayInitSeq;
@@ -962,7 +990,7 @@ export function installSettlementHudModule(target: any): void {
                                     this._settlementNextTransitioning = false;
                                     return;
                                 }
-                                this.doRestart();
+                                void this.requestGameplayTransition('restart', () => this.doRestart());
                             } catch (error) {
                                 this._settlementNextTransitioning = false;
                                 throw error;
@@ -971,7 +999,7 @@ export function installSettlementHudModule(target: any): void {
                     });
                     return;
                 }
-                this.doRestart();
+                void this.requestGameplayTransition('restart', () => this.doRestart());
             } catch (error) {
                 this._settlementNextTransitioning = false;
                 throw error;
@@ -1044,11 +1072,9 @@ export function installSettlementHudModule(target: any): void {
         },
 
         goNextLevel() {
+            if (this._gameplayTransitionPromise) return;
             this.isGameEnd = true;
             this.unschedule(this.tickTimer);
-            this.unscheduleAllCallbacks();
-            this.stopPulseTweens();
-            this.clearDragNodes();
             // 像素拼图关卡通关 → 按主题展示顺序进入下一关
             if (this._isThemeLevel) {
                 const currentThemeLevelId = this._currentThemeLevelId || this.levelData.levelId;
@@ -1079,12 +1105,12 @@ export function installSettlementHudModule(target: any): void {
                             this.endSettlementNextTransition();
                             return;
                         }
-                        this.loadLevel(nextId);
+                        void this.requestLevelTransition(nextId);
                     },
                 });
                 return;
             }
-            this.loadLevel(nextId);
+            void this.requestLevelTransition(nextId);
         },
 
         stopIdleHintTimer() {

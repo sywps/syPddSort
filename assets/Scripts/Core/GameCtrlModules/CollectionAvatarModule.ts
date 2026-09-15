@@ -1,3 +1,4 @@
+import { getBrowserLevelPreview } from '../BrowserLevelPreview';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
@@ -30,7 +31,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { ensureCollectionPanelController } from '../Panels/CollectionPanelController';
-import { releasePixelPosterPreviewTree, renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
+import { releaseCompletedPatternPreviewTree as releasePixelPosterPreviewTree, renderCompletedPatternPreview as renderPixelPosterPreview } from '../CompletedPatternPreview';
 import type { LevelCollectionEntry } from '../LevelDataCdnService';
 
 const COLLECTION_PREVIEW_SETTLE_DELAY_SECONDS = 0.08;
@@ -130,132 +131,99 @@ export function rememberCollectionPreviewGrid(
     }
 }
 
-function getRankTextColor(rank: number): Color {
-    if (rank === 1) return new Color('#D99A16');
-    if (rank === 2) return new Color('#6D7F9C');
-    if (rank === 3) return new Color('#B97845');
-    return new Color('#5A4A3A');
+function requireCollectionAvatarNode(parent: Node, name: string): Node {
+    const node = parent.getChildByName(name);
+    if (!node) throw new Error(`[leaderboard-prefab] missing node: ${name}`);
+    return node;
 }
 
-function syncCollectionAvatarLabelNode(
-    parent: Node,
-    name: string,
-    text: string,
-    fontSize: number,
-    color: Color,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-    horizontalAlign: number = Label.HorizontalAlign.CENTER,
-): Label {
-    let node = parent.getChildByName(name);
-    if (!node) {
-        node = new Node(name);
-        parent.addChild(node);
-        node.layer = parent.layer || Layers.Enum.UI_2D;
-    }
-    node.setPosition(x, y, 0);
-    const ui = node.getComponent(UITransform) || node.addComponent(UITransform);
-    ui.setContentSize(width, height);
-    const label = node.getComponent(Label) || node.addComponent(Label);
-    label.string = text;
-    label.fontSize = fontSize;
-    label.lineHeight = Math.max(fontSize + 4, height);
-    label.color = color;
-    label.horizontalAlign = horizontalAlign;
-    label.verticalAlign = Label.VerticalAlign.CENTER;
-    label.overflow = Label.Overflow.SHRINK;
-    label.enableWrapText = false;
+function requireCollectionAvatarLabel(parent: Node, name: string): Label {
+    const node = requireCollectionAvatarNode(parent, name);
+    const label = node.getComponent(Label);
+    if (!label) throw new Error(`[leaderboard-prefab] missing label on ${name}`);
     node.active = true;
     return label;
 }
 
 export function installCollectionAvatarModule(target: any): void {
     Object.assign(target, {
+        /** Reuse the leaderboard's authored avatar subtree without mounting the panel. */
+        mountLeaderboardAvatar(url: string, host: Node, diameter: number): void {
+            const isAlive = () => host.isValid && !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
+            this._withGameAssetsBundle((bundle: Bundle | null) => {
+                if (!isAlive()) return;
+                if (!bundle) {
+                    console.warn('[Avatar] gameAssets bundle unavailable');
+                    return;
+                }
+                const mount = (error: Error | null, prefab: Prefab | null) => {
+                    if (!isAlive()) return;
+                    if (error || !prefab) {
+                        console.warn('[Avatar] leaderboard template unavailable:', error);
+                        return;
+                    }
+                    try {
+                        const template = prefab.data.getChildByPath('Box/LeaderboardList/LeaderboardViewport/LeaderboardContent/Leaderboard0Row/Avatar');
+                        if (!template) throw new Error('[Avatar] leaderboard avatar template missing');
+                        const size = template.getComponent(UITransform)?.contentSize;
+                        if (!size || size.width <= 0 || size.height <= 0) throw new Error('[Avatar] invalid template size');
+                        const avatar = instantiate(template);
+                        avatar.name = 'LeaderboardAvatar';
+                        avatar.setPosition(0, 0, 0);
+                        avatar.setScale(diameter / size.width, diameter / size.height, 1);
+                        host.addChild(avatar);
+                        prefab.addRef();
+                        host.once(Node.EventType.NODE_DESTROYED, () => prefab.decRef());
+                        // The default portrait is already in the prefab; remote loading never gates gameplay.
+                        this.loadAvatarToNode(url, avatar);
+                    } catch (error) {
+                        console.warn('[Avatar] unable to mount leaderboard avatar:', error);
+                    }
+                };
+                const path = 'UI/Prefabs/Panels/LeaderboardPanel';
+                const cached = bundle.get(path, Prefab);
+                if (cached) mount(null, cached);
+                else bundle.load(path, Prefab, mount);
+            });
+        },
+
         /** 从 URL 加载头像到节点 */
         loadAvatarToNode(
             url: string,
             node: Node,
-            w: number,
-            h: number,
-            displayName: string = '',
-            options?: { hideFallbackWhenUrlExists?: boolean; hideFallback?: boolean },
         ) {
-            const spriteNodeName = 'AvatarSpriteNode';
-            let spriteNode = node.getChildByName(spriteNodeName);
-            if (!spriteNode) {
-                spriteNode = new Node(spriteNodeName);
-                node.addChild(spriteNode);
-                spriteNode.layer = Layers.Enum.UI_2D;
-                spriteNode.setPosition(0, 0);
-                spriteNode.addComponent(UITransform).setContentSize(w, h);
-            }
-            const sp = spriteNode.getComponent(Sprite) || spriteNode.addComponent(Sprite);
-            sp.type = Sprite.Type.SIMPLE;
-            sp.sizeMode = Sprite.SizeMode.CUSTOM;
+            const maskNode = requireCollectionAvatarNode(node, 'AvatarMask');
+            const spriteNode = requireCollectionAvatarNode(maskNode, 'AvatarSpriteNode');
+            const defaultNode = requireCollectionAvatarNode(maskNode, 'AvatarDefault');
+            const frameNode = requireCollectionAvatarNode(node, 'AvatarFrame');
+            const sp = spriteNode.getComponent(Sprite);
             const ut = spriteNode.getComponent(UITransform);
-            if (ut) ut.setContentSize(w, h);
+            const maskSize = maskNode.getComponent(UITransform)?.contentSize;
+            if (!sp || !ut || !maskSize || !maskNode.getComponent(Mask)
+                || !defaultNode.getComponent(Sprite)?.spriteFrame || !frameNode.getComponent(Sprite)?.spriteFrame) {
+                throw new Error('[leaderboard-prefab] incomplete circular avatar components');
+            }
+            const request = {};
+            (spriteNode as any).__leaderboardAvatarRequest = request;
             sp.spriteFrame = null;
-            const trimmedName = (displayName || '').trim();
-            const shouldHideFallback = !!options?.hideFallback;
-            const shouldHideFallbackWhenUrlExists = !!options?.hideFallbackWhenUrlExists;
-            const hasAvatarUrl = !!(url || '').trim();
-            const fallbackInitial = trimmedName.startsWith('游客')
-                ? '游'
-                : (trimmedName.charAt(0) || '?');
-            const fallbackNodeName = 'AvatarFallbackInitial';
-            const ensureFallback = () => {
-                let labelNode = node.getChildByName(fallbackNodeName);
-                if (!labelNode) {
-                    labelNode = new Node(fallbackNodeName);
-                    node.addChild(labelNode);
-                    labelNode.layer = Layers.Enum.UI_2D;
-                }
-                const labelTransform = labelNode.getComponent(UITransform) || labelNode.addComponent(UITransform);
-                const innerSize = Math.max(24, Math.floor(Math.min(w, h) * 0.76));
-                labelTransform.setContentSize(innerSize, innerSize);
-                labelNode.setPosition(0, 0);
-                let label = labelNode.getComponent(Label);
-                if (!label) {
-                    label = labelNode.addComponent(Label);
-                }
-                label.string = fallbackInitial;
-                label.fontSize = Math.max(18, Math.floor(Math.min(w, h) * 0.5));
-                label.lineHeight = label.fontSize;
-                label.color = new Color('#5A4A3A');
-                label.horizontalAlign = Label.HorizontalAlign.CENTER;
-                label.verticalAlign = Label.VerticalAlign.CENTER;
-                label.overflow = Label.Overflow.SHRINK;
-                return labelNode;
-            };
-            const clearFallback = () => {
-                node.getChildByName(fallbackNodeName)?.destroy();
-            };
+            spriteNode.active = false;
+            defaultNode.active = true;
             const applySpriteFrame = (frame: SpriteFrame | null) => {
-                if (!node.isValid) return;
+                if (!node.isValid || !spriteNode.isValid || (spriteNode as any).__leaderboardAvatarRequest !== request) return;
                 if (!frame) {
                     sp.spriteFrame = null;
-                    if (shouldHideFallback || (hasAvatarUrl && shouldHideFallbackWhenUrlExists)) {
-                        clearFallback();
-                    } else {
-                        ensureFallback();
-                    }
+                    spriteNode.active = false;
                     return;
                 }
                 sp.spriteFrame = frame;
                 sp.sizeMode = Sprite.SizeMode.CUSTOM;
-                if (ut) ut.setContentSize(w, h);
-                clearFallback();
+                const scale = Math.max(maskSize.width / frame.rect.width, maskSize.height / frame.rect.height);
+                ut.setContentSize(frame.rect.width * scale, frame.rect.height * scale);
+                spriteNode.active = true;
+                defaultNode.active = false;
             };
         
-            if (shouldHideFallback || (hasAvatarUrl && shouldHideFallbackWhenUrlExists)) {
-                clearFallback();
-            } else {
-                ensureFallback();
-            }
-        
-            if (!url) {
+            if (!(url || '').trim()) {
                 return;
             }
         
@@ -525,47 +493,20 @@ export function installCollectionAvatarModule(target: any): void {
             const displayName = entry.displayName || '微信用户';
             const rankText = entry.rank > 0 ? `第${entry.rank}名` : '未上榜';
             const progressLevel = Math.max(1, Math.floor(Number(entry.progressLevel) || 1));
-            const rankColumnX = -218;
-            const avatarColumnX = -139;
-            const nameColumnX = -2;
-            const progressColumnX = 166;
-            const rowCenterY = 0;
-        
-            const parentTransform = parent.getComponent(UITransform);
-            const frameW = parentTransform?.width || 596;
-            const frameH = parentTransform?.height || 76;
-            parentTransform?.setContentSize(frameW, frameH);
-            const staleInlineTitle = parent.getChildByName('LeaderboardSelfTagLabel');
-            if (staleInlineTitle) staleInlineTitle.active = false;
-            const titleParent = parent.parent || parent;
-            const titleX = parent.position.x - 218;
-            const titleY = parent.position.y + frameH / 2 + 22;
-            const titleLabel = syncCollectionAvatarLabelNode(titleParent, 'LeaderboardSelfTitleLabel', '我的成绩', 20, new Color('#7C5A2E'), 130, 28, titleX, titleY);
-            titleLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-
-            const badgeLabel = syncCollectionAvatarLabelNode(parent, 'LeaderboardSelfBadgeLbl', rankText, 20, getRankTextColor(entry.rank), 74, 30, rankColumnX, rowCenterY);
-            badgeLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-            badgeLabel.overflow = Label.Overflow.SHRINK;
-
-            const existingAvatar = parent.getChildByName('LeaderboardSelfAvatar');
-            const resolvedAvatarNode = existingAvatar || new Node('LeaderboardSelfAvatar');
-            if (!existingAvatar) {
-                parent.addChild(resolvedAvatarNode);
-                resolvedAvatarNode.layer = parent.layer || Layers.Enum.UI_2D;
+            if (!parent.getComponent(UITransform)) {
+                throw new Error('[leaderboard-prefab] LeaderboardSelfBox is missing UITransform');
             }
-            (resolvedAvatarNode.getComponent(UITransform) || resolvedAvatarNode.addComponent(UITransform)).setContentSize(44, 44);
-            resolvedAvatarNode.setPosition(avatarColumnX, rowCenterY, 0);
-            this.loadAvatarToNode(entry.avatarUrl, resolvedAvatarNode, 44, 44, displayName, {
-                hideFallback: true,
-            });
-        
-            const nameLabel = syncCollectionAvatarLabelNode(parent, 'LeaderboardSelfName', displayName, 19, new Color('#4C331D'), 190, 30, nameColumnX, rowCenterY, Label.HorizontalAlign.LEFT);
-            nameLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-            nameLabel.overflow = Label.Overflow.SHRINK;
-        
-            const progressLabel = syncCollectionAvatarLabelNode(parent, 'LeaderboardSelfProgress', `第${progressLevel}关`, 19, new Color('#5E4326'), 118, 30, progressColumnX, rowCenterY);
-            progressLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-            progressLabel.overflow = Label.Overflow.SHRINK;
+            parent.active = true;
+
+            const badgeLabel = requireCollectionAvatarLabel(parent, 'LeaderboardSelfBadgeLbl');
+            badgeLabel.string = rankText;
+
+            const resolvedAvatarNode = requireCollectionAvatarNode(parent, 'LeaderboardSelfAvatar');
+            resolvedAvatarNode.active = true;
+            this.loadAvatarToNode(entry.avatarUrl, resolvedAvatarNode);
+
+            requireCollectionAvatarLabel(parent, 'LeaderboardSelfName').string = displayName;
+            requireCollectionAvatarLabel(parent, 'LeaderboardSelfProgress').string = `第${progressLevel}关`;
         },
 
         // ==================== 图鉴 ====================
@@ -1037,7 +978,7 @@ export function installCollectionAvatarModule(target: any): void {
                 maxCellSize: options?.maxCellSize,
                 cellGap: options?.cellGap ?? 0,
                 padding: options?.drawTargetBackground ? 6 : 8,
-            });
+            }, this);
         },
 
         /** 在图鉴卡片上绘制像素图预览 */
@@ -1082,8 +1023,8 @@ export function installCollectionAvatarModule(target: any): void {
                     reuseExisting: !!options?.reuseExisting,
                     maxCellSize: options?.maxCellSize ?? (previewMode === 'poster' ? 32 : 24),
                     cellGap: 0,
-                    padding: options?.padding ?? (previewMode === 'poster' ? 8 : 10),
-                });
+                    padding: options?.padding ?? (usePrefabContainer ? 0 : (previewMode === 'poster' ? 8 : 10)),
+                }, this);
             };
 
             if (prefix === 'coop_level_') {
@@ -1125,7 +1066,12 @@ export function installCollectionAvatarModule(target: any): void {
             }
 
             this.loadLevelData(levelId, (data) => {
-                if (!data) return;
+                if (!data) {
+                    if (getBrowserLevelPreview().active && prefix === 'level_' && levelId === getBrowserLevelPreview().currentLevel) {
+                        this.showRemoteLoadFatalError(`level_${levelId}`, 'preview_level_unavailable', `预览第 ${levelId} 关失败：关卡不存在或加载失败，请检查链接关卡号。`);
+                    }
+                    return;
+                }
                 renderGrid(data.correctColorArr || []);
             }, prefix);
         },

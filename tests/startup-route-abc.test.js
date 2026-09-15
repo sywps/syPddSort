@@ -29,6 +29,11 @@ function findComponent(scene, node, type) {
 }
 
 const startupRoute = read('assets/Scripts/Core/StartupRouteService.ts');
+for (const content of ['A', 'B', 'C']) {
+    for (const module of [loadStartupRouteModule('20', {}, `?level=1=${content}`), loadStartupRouteModule('20', { level: `1=${content}` })]) {
+        assert.strictEqual(module.resolveStartupRouteDecision().reason, 'explicit_launch', 'compact first-level preview must override saved progress');
+    }
+}
 const bootSceneCtrl = read('assets/Scripts/Core/BootSceneCtrl.ts');
 const bootScene = readScene('assets/Scenes/Boot.scene');
 const gameSceneRuntime = read('assets/Scripts/Core/GameSceneRuntimeController.ts');

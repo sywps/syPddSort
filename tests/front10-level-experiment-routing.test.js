@@ -264,8 +264,8 @@ assert.strictEqual(
 const analyticsMgr = readProjectFile('assets/Scripts/Core/AnalyticsMgr.ts');
 assert.ok(analyticsMgr.includes('abId?: string'), 'behavior and funnel analytics must accept abId');
 assert.ok(analyticsMgr.includes('abBucket?: string'), 'behavior and funnel analytics must accept abBucket');
-assert.ok(analyticsMgr.includes('abId: opt.abId ?? this.levelContext.abId'), 'behavior analytics must include experiment id');
-assert.ok(analyticsMgr.includes('abBucket: opt.abBucket ?? this.levelContext.abBucket'), 'behavior analytics must include experiment bucket');
+assert.ok(analyticsMgr.includes('const abId = normalizeAnalyticsText(opt.abId'), 'behavior analytics must freeze the experiment id');
+assert.ok(analyticsMgr.includes('const abBucket = normalizeAnalyticsText(opt.abBucket'), 'behavior analytics must freeze the experiment bucket');
 
 const gameplaySessionController = readProjectFile('assets/Scripts/Core/GameplaySessionController.ts');
 assert.ok(gameplaySessionController.includes('getFrontLevelExperimentAnalyticsContext'), 'gameplay session must attach experiment analytics context');

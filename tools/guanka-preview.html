@@ -48,7 +48,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .15s, box-shadow .15s; cursor: pointer; position: relative; }
 .card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
 .card .preview { display: flex; justify-content: center; align-items: center; padding: 12px; background: #faf8f4; min-height: 120px; position: relative; }
-.card .preview .col { text-align: center; }
+.card .preview { gap: 10px; }
+.card .preview .col { text-align: center; flex: 1; min-width: 0; }
+.card .preview canvas { max-width: 100%; height: auto; image-rendering: pixelated; }
 .card .preview .col .label { font-size: 10px; color: #999; margin-bottom: 2px; }
 .card canvas { border-radius: 6px; }
 .special-badges { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; pointer-events: none; z-index: 3; }
@@ -182,7 +184,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
                 <option value="assets/LevelData::main">正式关卡</option>
                 <option value="assets/LevelData::coop">双人合作关卡</option>
                 <option value="tools/historical/formal-1643-20260825::main">历史正式关卡-1643关</option>
-                <option value="tools/competitors/拼成彩虹/levels/main::main">拼成彩虹 主线</option>
+                <option value="tools/competitors/拼成彩虹-新版1478关/levels/main::main">拼成彩虹-新版1478关</option>
                 <option value="tools/competitors/拼豆解解压/levels/main::main">拼豆解解压 主线</option>
                 <option value="tools/competitors/快乐拼拼豆/levels/main::main">快乐拼拼豆 主线</option>
                 <option value="assets/LevelData::theme">主题关卡</option>
@@ -194,6 +196,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
                 <option value="tools/competitors/这不是挑战/levels/main::main">这不是挑战 主线</option>
                 <option value="tools/competitors/拼豆天才/levels/main::main">拼豆天才 主线</option>
                 <option value="tools/competitors/拼豆天才/levels/daily::main">拼豆天才 Daily</option>
+                <option value="tools/competitors/旋转拼豆/levels/main::main">旋转拼豆 主线</option>
+                <option value="tools/competitors/拼大豆/levels/main::main">拼大豆 缓存关卡（54关）</option>
             </select>
         </div>
     </div>
@@ -314,8 +318,8 @@ const DEFAULT_LEVEL_DIR = 'assets/LevelData';
 const DEFAULT_LEVEL_KIND = 'main';
 const PRESET_LEVEL_DIR_ITEMS = [
     { label: '正式关卡', dir: DEFAULT_LEVEL_DIR, kind: 'main' },
+    { label: '拼成彩虹-新版1478关', dir: 'tools/competitors/拼成彩虹-新版1478关/levels/main', kind: 'main' },
     { label: '双人合作关卡', dir: DEFAULT_LEVEL_DIR, kind: 'coop' },
-    { label: '拼成彩虹 主线', dir: 'tools/competitors/拼成彩虹/levels/main', kind: 'main' },
     { label: '拼豆解解压 主线', dir: 'tools/competitors/拼豆解解压/levels/main', kind: 'main' },
     { label: '快乐拼拼豆 主线', dir: 'tools/competitors/快乐拼拼豆/levels/main', kind: 'main' },
     { label: '主题关卡', dir: DEFAULT_LEVEL_DIR, kind: 'theme' },
@@ -327,6 +331,8 @@ const PRESET_LEVEL_DIR_ITEMS = [
     { label: '这不是挑战 主线', dir: 'tools/competitors/这不是挑战/levels/main', kind: 'main' },
     { label: '拼豆天才 主线', dir: 'tools/competitors/拼豆天才/levels/main', kind: 'main' },
     { label: '拼豆天才 Daily', dir: 'tools/competitors/拼豆天才/levels/daily', kind: 'main' },
+    { label: '旋转拼豆 主线', dir: 'tools/competitors/旋转拼豆/levels/main', kind: 'main' },
+    { label: '拼大豆 缓存关卡（54关）', dir: 'tools/competitors/拼大豆/levels/main', kind: 'main' },
 ];
 const PRESET_LEVEL_DIR_KEYS = PRESET_LEVEL_DIR_ITEMS.map(item => makeLevelDirKey(item.dir, item.kind));
 const BASE_TITLE = '🎮 拼豆豆 关卡预览';
@@ -509,6 +515,8 @@ function mergeLevelDirChoices(scannedDirs = []) {
     }
     for (const item of scannedDirs) {
         const dir = normalizeLevelDir(item.dir);
+        // Retain the archived files without offering the superseded version.
+        if (dir === 'tools/competitors/拼成彩虹/levels/main') continue;
         const kind = normalizeLevelKind(item.kind);
         const key = makeLevelDirKey(dir, kind);
         byKey.set(key, {
@@ -1613,12 +1621,9 @@ function renderCard(data) {
     const colorCount = Object.keys(colors).length;
     const beanCount = Object.values(colors).reduce((a, b) => a + b, 0);
     const dispRate = getDisplacementRate(data.correctColorArr, data.initRandomColorArr);
-    const nextDispRate = shuffleComparisonReady
-        ? getDisplacementRate(data.correctColorArr, getNextShuffle(data))
-        : null;
     const specialMeta = getSpecialMeta(data);
 
-    // Preview: show target only
+    // List cards compare the target with the saved original shuffle only.
     const previewDiv = document.createElement('div');
     previewDiv.className = 'preview';
 
@@ -1631,12 +1636,22 @@ function renderCard(data) {
     const canvasTarget = document.createElement('canvas');
     targetCol.appendChild(canvasTarget);
     previewDiv.appendChild(targetCol);
+    const originalCol = document.createElement('div');
+    originalCol.className = 'col';
+    const originalLabel = document.createElement('div');
+    originalLabel.className = 'label';
+    originalLabel.textContent = '原乱序';
+    originalCol.appendChild(originalLabel);
+    const canvasOriginal = document.createElement('canvas');
+    originalCol.appendChild(canvasOriginal);
+    previewDiv.appendChild(originalCol);
     const specialBadges = createSpecialBadges(specialMeta);
     if (specialBadges) card.appendChild(specialBadges);
 
     card.appendChild(previewDiv);
 
     drawGrid(canvasTarget, data.correctColorArr, cellSize, { palette: data.palette });
+    drawGrid(canvasOriginal, data.initRandomColorArr, cellSize, { palette: data.palette });
 
     // Info
     const info = document.createElement('div');
@@ -1655,7 +1670,7 @@ function renderCard(data) {
             <span>🎨 ${colorCount}色</span>
             <span>🔢 ${beanCount}豆</span><br>
             <span>⏱ ${data.timeLimit}s</span>
-            <span title="${nextDispRate === null ? '原乱序' : '原数据 → 学习生成'}">🔀 ${dispRate}%${nextDispRate === null ? '' : ` → ${nextDispRate}%`}</span>
+            <span title="原乱序">🔀 ${dispRate}%</span>
             ${statusHtml}
             <span>${colorDots}</span>
         </div>

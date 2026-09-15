@@ -125,18 +125,26 @@ export function installGameplayLevelFlowModule(target: any): void {
 
         _loadLocalLevelDataImpl(levelId: number, callback: (data: LevelData | null) => void, prefix: string = 'level_') {
             if (this.shouldUseLocalBootstrapBundle(levelId, prefix)) {
+                const contentPath = this.getLevelDataPath(levelId, prefix);
                 this._withBootstrapBundle((bundle) => {
                     if (!bundle) {
                         console.error(`[bootstrap] loadBundle failed for LevelData/${prefix}${levelId}`);
+                        AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'first_level_content_load', levelId,
+                            source: 'bootstrap', success: false, errorCode: 'first_level_bundle_load_failed',
+                            extra: { contentPath } });
                         callback(null);
                         return;
                     }
-                    bundle.load(`${LOCAL_BOOTSTRAP_LEVEL_DIR}/${prefix}${levelId}`, JsonAsset, (err, jsonAsset) => {
+                    bundle.load(contentPath, JsonAsset, (err, jsonAsset) => {
+                        AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'first_level_content_load', levelId,
+                            source: 'bootstrap', success: !err && !!jsonAsset,
+                            errorCode: err || !jsonAsset ? 'first_level_content_load_failed' : '',
+                            extra: { contentPath } });
                         if (!err && jsonAsset) {
                             callback(jsonAsset.json as LevelData);
                             return;
                         }
-                        console.error(`[bootstrap] failed to load LevelData/${prefix}${levelId}:`, err?.message || 'missing json asset');
+                        console.error(`[bootstrap] failed to load ${contentPath}:`, err?.message || 'missing json asset');
                         callback(null);
                     });
                 });

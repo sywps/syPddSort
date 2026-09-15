@@ -1828,6 +1828,8 @@ function copyDirSync(src, dest) {
     fs.mkdirSync(dest, { recursive: true });
     var entries = fs.readdirSync(src, { withFileTypes: true });
     for (var i = 0; i < entries.length; i++) {
+        // 源图片保留在工程中，构建时仅打入独立资源分包。
+        if (src === openDataContextSrc && entries[i].name === 'ranking') continue;
         var srcPath = path.join(src, entries[i].name);
         var destPath = path.join(dest, entries[i].name);
         if (entries[i].isDirectory()) {
@@ -1839,6 +1841,28 @@ function copyDirSync(src, dest) {
     return true;
 }
 if (copyDirSync(openDataContextSrc, openDataContextDest)) {
+    var rankingArtSource = path.join(openDataContextSrc, 'ranking');
+    var rankingArtDest = path.join(resolveRuntimeRoot(), 'subpackages', 'rankingArt');
+    var rankingArtFiles = [
+        'leaderboard_avatar_default.png', 'leaderboard_avatar_frame.png',
+        'leaderboard_row_standard.png', 'medal_gold_rank_1.png',
+        'medal_silver_rank_2.png', 'medal_bronze_rank_3.png',
+    ];
+    fs.mkdirSync(rankingArtDest, { recursive: true });
+    rankingArtFiles.forEach(function (name) {
+        // 缺图直接中断构建；不能交付缺失样式的排行榜。
+        fs.copyFileSync(path.join(rankingArtSource, name), path.join(rankingArtDest, name));
+        // 兼容旧输出目录重复 postbuild，仅移除这六张已转入分包的副本。
+        var oldCopy = path.join(openDataContextDest, 'ranking', name);
+        if (fs.existsSync(oldCopy)) fs.unlinkSync(oldCopy);
+    });
+    fs.writeFileSync(path.join(rankingArtDest, 'game.js'), '// Ranking art resource-only subpackage.\n');
+    if (!fs.existsSync(path.join(resolveRuntimeRoot(), 'game.json'))) {
+        throw new Error('无法注册 rankingArt 分包：缺少 game.json');
+    }
+    ensureBundleInGameSubpackages(resolveRuntimeRoot(), 'rankingArt');
+    subpackageExcludeNames = getDeclaredSubpackageRootNames();
+    console.log('[8/8] 排行榜六张原图已移入 rankingArt 按需分包 ✓');
     var nestedOpenDataProjectConfig = path.join(openDataContextDest, 'project.config.json');
     if (fs.existsSync(nestedOpenDataProjectConfig)) {
         fs.unlinkSync(nestedOpenDataProjectConfig);

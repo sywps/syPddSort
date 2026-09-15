@@ -249,7 +249,7 @@ const leaderboardAvatarPendingLoads = new Map<string, Array<(frame: SpriteFrame 
 const leaderboardAvatarLoadQueue: string[] = [];
 const leaderboardAvatarLoadLaunchers = new Map<string, () => void>();
 let leaderboardAvatarLoadInFlight = 0;
-const LEADERBOARD_ROW_PITCH = 84;
+const LEADERBOARD_ROW_PITCH = 116;
 const LEADERBOARD_SCROLL_DECAY = 0.92;
 const LEADERBOARD_SCROLL_MIN_SPEED = 48;
 const LEADERBOARD_AVATAR_MAX_CONCURRENT = 2;
@@ -389,6 +389,7 @@ type BoardViewportControllerOptions = {
     getBoardGroup: () => Node | null;
     getBoardNode: () => Node | null;
     getSafeViewportRect: () => BoardSafeViewportRect;
+    getPanBounds?: (scale: number) => BoardSafeViewportRect | null;
 };
 
 class BoardViewportController {
@@ -583,6 +584,13 @@ class BoardViewportController {
     }
 
     private clampOffset(x: number, y: number, scale: number): Vec2 {
+        const panBounds = this.options.getPanBounds?.(scale);
+        if (panBounds) {
+            return new Vec2(
+                Math.max(panBounds.left, Math.min(panBounds.right, x)),
+                Math.max(panBounds.bottom, Math.min(panBounds.top, y)),
+            );
+        }
         const boardNode = this.options.getBoardNode();
         if (!boardNode || !boardNode.isValid) return new Vec2(x, y);
         const boardUT = boardNode.getComponent(UITransform);

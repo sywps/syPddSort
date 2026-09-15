@@ -25,6 +25,11 @@ function load(file) {
         if (id.endsWith('/AppRoot')) return { AppRoot: { tryGet: () => app } };
         if (id.endsWith('/CoopServiceMgr')) return { CoopServiceMgr: { get inst() { return mgr; } } };
         if (id.endsWith('/CoopModeConfig')) return config;
+        if (id.endsWith('/CoopBrowserRuntime')) return load('CoopBrowserRuntime.ts');
+        if (id.endsWith('/CoopBrowserStore')) return load('CoopBrowserStore.ts');
+        if (id.endsWith('/BrowserLevelPreview')) return { getBrowserLevelPreview: () => ({ active: false }) };
+        if (id.endsWith('/LevelDataCdnService')) return { LevelDataCdnService: { inst: { getLevelAnalyticsMetadata: () => ({}) } } };
+        if (id.endsWith('/GameplayJudgmentFeedbackModule')) return { GAMEPLAY_JUDGMENT_PRELOAD_SFX_NAMES: [] };
         if (id.endsWith('/PvpHumanReplay')) return replay;
         if (id.endsWith('/GameCtrlShared')) return shared;
         if (id.endsWith('/LevelConfig')) return require('../cloudfunctions/coopService/runtime/LevelConfig');
@@ -32,7 +37,7 @@ function load(file) {
         if (id.endsWith('/HardLevelIntroController')) return { ensureHardLevelIntroController: () => ({ stop: noop, play: noop }) };
         if (id.endsWith('/PchConveyorGameplayController')) return { ensurePchConveyorGameplayController: () => ({ stop: noop, start: noop }) };
         if (['PlatformCloudMgr', 'MiniGamePlatform', 'RemoteDataCdnClient', 'WeChatShareReturnService', 'UserMgr',
-            'CoopPanelController', 'PixelPosterPreviewRenderer', 'RuntimeLog', 'LevelExperimentService',
+            'CoopPanelController', 'PixelPosterPreviewRenderer', 'CompletedPatternPreview', 'BoardSlotBatchRenderer', 'RuntimeLog', 'LevelExperimentService',
             'DebugPerfTrace', 'AnalyticsMgr', 'StartupTrace'].some(name => id.endsWith('/' + name))) return {};
         throw new Error(`Unexpected dependency ${id}`);
     });
@@ -107,7 +112,7 @@ async function main() {
         await runtime.restartCoop();
         assert.equal(runtime.renders, beforeFailure, 'failed preparation must not restart a different game');
         assert.equal(runtime.panelLose.active, true, 'failed preparation keeps restart controls available');
-        assert.match(runtime.errors.at(-1), /关卡读取失败/);
+        assert.equal(runtime.errors.at(-1), '暂时无法开始，请稍后再试');
         assert.equal(runtime._coopRestarting, false);
         app.markGameRequested(7, 'zt_level_', 'theme');
         app.markGameActive(7, 'zt_level_', 'theme');

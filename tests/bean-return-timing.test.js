@@ -39,8 +39,8 @@ assert.ok(wandDump.includes('.delay(i * STAGGER)'), 'wand slot returns must keep
 assert.ok(/\.to\(FLY_DURATION, \{[\s\S]*?position:[\s\S]*?scale:[\s\S]*?\}, \{ easing: 'sineOut' \}\)/.test(wandDump), 'wand slot returns must move and scale in one sineOut flight');
 assert.ok(!wandDump.includes("{ easing: 'circOut' }"), 'wand slot returns must not retain the old circOut travel');
 
-assert.ok(pch.includes('const PCH_RETURN_TRANSFER_SECONDS = 0.3;'), 'PCH automatic returns must match the package 0.30-second flight');
-assert.ok(pch.includes('const PCH_RETURN_STAGGER_SECONDS = 0.05;'), 'PCH automatic returns must match the package 0.05-second launch cadence');
+assert.ok(pch.includes('const PCH_RETURN_TRANSFER_SECONDS = 0.2;'), 'PCH automatic returns must use the approved 0.20-second flight');
+assert.ok(pch.includes('const PCH_RETURN_STAGGER_SECONDS = 0.08;'), 'PCH automatic returns must use the approved 0.08-second launch cadence');
 assert.ok(pch.includes('const PCH_RETURN_COMPLETE_DELAY_SECONDS = 0.01;'), 'PCH automatic returns must keep the package 0.01-second completion delay');
 assert.ok(pch.includes('const PCH_RETURN_SETTLE_FX_DURATION_SECONDS = 0.7;'), 'PCH final win must wait for the visible a1 settle feedback');
 assert.ok(pch.includes('const PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS = Math.max('), 'PCH color completion must wait only for the triggering bean a1 remainder');
@@ -87,23 +87,24 @@ assert.ok(!pchReturn.includes('playReturnTargetPulse'), 'PCH automatic returns m
 const hideIndex = pchReturn.indexOf('bean.active = false;');
 const audioIndex = pchReturn.indexOf("AudioMgr.inst.play('settle');");
 const vibrateIndex = pchReturn.indexOf('AudioMgr.inst.vibratePlace();');
-const renderIndex = pchReturn.indexOf('this.runtime.renderBoardCell(target.row, target.col);');
+const renderIndex = pchReturn.indexOf('this.runtime.renderBoardCell(target.row, target.col);', hideIndex);
 const settleIndex = pchReturn.indexOf('this.runtime.playBeanSettleMatchFxOnCell?.(target.row, target.col);');
 const completeReturnIndex = pchReturn.indexOf('const completeReturn = () => {');
 const destroyIndex = pchReturn.indexOf('this.destroyFlyBean(bean);', completeReturnIndex);
 const finishIndex = pchReturn.indexOf('this.finishReturnAnimation(target, colorBatch);', destroyIndex);
 const completionScheduleIndex = pchReturn.indexOf('this.runtime.scheduleOnce(completeReturn, PCH_RETURN_COMPLETE_DELAY_SECONDS);');
+assert.ok(pchReturn.indexOf('.delay(flightDelay)') < audioIndex && vibrateIndex < pchReturn.indexOf('.to(PCH_RETURN_TRANSFER_SECONDS'), 'each bean must emit feedback after its stagger delay and before movement');
 assert.ok(
     completeReturnIndex >= 0
         && completeReturnIndex < destroyIndex
         && destroyIndex < finishIndex
         && finishIndex < hideIndex
-        && hideIndex < audioIndex
+        && audioIndex < hideIndex
         && audioIndex < vibrateIndex
         && vibrateIndex < renderIndex
         && renderIndex < settleIndex
         && settleIndex < completionScheduleIndex,
-    'PCH arrival must swap visuals and keep feedback before runtime-owned delayed completion',
+    'PCH launch must play feedback before arrival visuals and delayed completion',
 );
 assert.strictEqual((pchReturn.match(/AudioMgr\.inst\.play\('settle'\);/g) || []).length, 1, 'each individual PCH return must use the dedicated settlement cue once');
 assert.ok(!pchReturn.includes('.delay(PCH_RETURN_COMPLETE_DELAY_SECONDS)'), 'an inactive return bean must not own the completion delay');

@@ -6,6 +6,26 @@ const vm = require('vm');
 const root = path.resolve(__dirname, '..');
 const dashboardPath = path.join(root, 'cloudfunctions/getAllDashboardData/index.js');
 const timestamp = Date.parse('2026-07-24T10:00:00+08:00');
+const capacityRoundMeta = {
+  openid: 'capacity-user',
+  sessionId: 'capacity-session',
+  roundId: 'round-l4-1',
+  clientBuildId: 'build-capacity-v1',
+  experimentId: 'capacity_v1',
+  experimentBucket: 'exp',
+};
+const collisionCapacityMetaA = {
+  ...capacityRoundMeta,
+  openid: 'capacity-collision-user',
+  roundId: 'shared-round',
+  clientBuildId: 'build-a',
+};
+const collisionCapacityMetaB = {
+  ...capacityRoundMeta,
+  openid: 'capacity-collision-user',
+  roundId: 'shared-round',
+  clientBuildId: 'build-b',
+};
 
 const collections = {
   user_behavior: [
@@ -31,10 +51,16 @@ const collections = {
     { openid: 'share-revive-user', eventName: 'share_click', levelId: 4, logicalLevelId: 4, page: 'level_revive_share', timestamp: timestamp + 19 },
     { openid: 'share-revive-user', eventName: 'share_success', levelId: 4, logicalLevelId: 4, page: 'level_revive_share', timestamp: timestamp + 20 },
     { openid: 'share-revive-user', eventName: 'share_revive_success', levelId: 4, logicalLevelId: 4, page: 'level_revive_share', timestamp: timestamp + 21 },
+    { ...capacityRoundMeta, eventName: 'ad_click', levelId: 4, logicalLevelId: 4, page: 'pch_conveyor_expand', triggerSource: 'capacity_soft_hint', timestamp: timestamp + 26 },
+    { ...capacityRoundMeta, eventName: 'ad_reward_success', levelId: 4, logicalLevelId: 4, page: 'pch_conveyor_expand', triggerSource: 'capacity_soft_hint', timestamp: timestamp + 27 },
+    { ...collisionCapacityMetaA, eventName: 'ad_click', levelId: 4, logicalLevelId: 4, page: 'pch_conveyor_expand', triggerSource: 'capacity_soft_hint', timestamp: timestamp + 31 },
+    { ...collisionCapacityMetaB, eventName: 'ad_reward_success', levelId: 4, logicalLevelId: 4, page: 'pch_conveyor_expand', triggerSource: 'capacity_soft_hint', timestamp: timestamp + 32 },
   ],
   level_record: [
     { openid: 'revive-user', levelId: 3, gameplayMode: 'pch_conveyor', gameplaySchemaVersion: 1, gameplayStats: { magnetUses: 2, brushUses: 3, freezeUses: 4 }, endTime: timestamp + 18 },
     { openid: 'legacy-user', levelId: 3, gameplayMode: '', gameplaySchemaVersion: 0, gameplayStats: { magnetUses: 100 }, endTime: timestamp + 19 },
+    { ...capacityRoundMeta, levelId: 4, logicalLevelId: 4, passStatus: true, endTime: timestamp + 30 },
+    { ...collisionCapacityMetaB, levelId: 4, logicalLevelId: 4, passStatus: true, endTime: timestamp + 35 },
   ],
   first_level_funnel: [
     { openid: 'guide-user', sessionId: 'pch-l1', eventName: 'pch_first_store_success', logicalLevelId: 1, timestamp: timestamp + 20 },
@@ -43,6 +69,14 @@ const collections = {
     { openid: 'guide-user', sessionId: 'pch-l2', eventName: 'pch_guide_tap_result', logicalLevelId: 2, timestamp: timestamp + 23 },
     { openid: 'guide-user', sessionId: 'pch-l2', eventName: 'pch_guide_step_done', logicalLevelId: 2, timestamp: timestamp + 24 },
     { openid: 'legacy-user', sessionId: 'legacy-l1', eventName: 'first_valid_select', logicalLevelId: 1, timestamp: timestamp + 25 },
+    { ...capacityRoundMeta, eventName: 'pch_capacity_soft_hint_eligible', logicalLevelId: 4, timestamp: timestamp + 22 },
+    { ...capacityRoundMeta, eventName: 'pch_capacity_soft_hint_shown', logicalLevelId: 4, timestamp: timestamp + 23 },
+    { ...capacityRoundMeta, eventName: 'pch_capacity_soft_hint_click', logicalLevelId: 4, timestamp: timestamp + 24 },
+    { ...capacityRoundMeta, eventName: 'pch_capacity_reward_followup_action', logicalLevelId: 4, extra: { elapsedMsAfterReward: 1500 }, timestamp: timestamp + 28 },
+    { ...collisionCapacityMetaA, eventName: 'pch_capacity_soft_hint_eligible', logicalLevelId: 4, timestamp: timestamp + 31 },
+    { ...collisionCapacityMetaA, eventName: 'pch_capacity_soft_hint_shown', logicalLevelId: 4, timestamp: timestamp + 32 },
+    { ...collisionCapacityMetaA, eventName: 'pch_capacity_soft_hint_click', logicalLevelId: 4, timestamp: timestamp + 33 },
+    { ...collisionCapacityMetaB, eventName: 'pch_capacity_reward_followup_action', logicalLevelId: 4, extra: { elapsedMsAfterReward: 900 }, timestamp: timestamp + 34 },
   ],
   daily_stat: [],
   user_profile: [],
@@ -191,6 +225,34 @@ function findRow(stats, logicalLevelId, abBucket) {
   assert.ok(!levelOnePch.steps.some((row) => row.key === 'first_valid_select'));
   const levelTwoPch = result.pchOnboardingFunnel.levels[1].groups.find((row) => row.abBucket === 'all');
   assert.strictEqual(levelTwoPch.diagnostics.find((row) => row.key === 'pch_guide_tap_result').sessionCount, 1);
+
+  const capacityRound = result.capacityAdRoundFunnel.rows.find((row) => row.logicalLevelId === 4 && row.experimentId === 'capacity_v1');
+  assert.ok(capacityRound, 'dashboard must expose the capacity flow by round and experiment');
+  assert.deepStrictEqual(
+    [capacityRound.eligibleRounds, capacityRound.shownRounds, capacityRound.clickedRounds, capacityRound.rewardedRounds, capacityRound.followupRounds, capacityRound.rewardedPassedRounds],
+    [1, 1, 1, 1, 1, 1],
+  );
+  assert.deepStrictEqual(
+    [capacityRound.eligibleToShownRate, capacityRound.shownToClickRate, capacityRound.clickToRewardRate, capacityRound.rewardToFollowupRate, capacityRound.rewardToPassRate, capacityRound.avgFollowupDelayMs],
+    [100, 100, 100, 100, 100, 1500],
+  );
+  assert.strictEqual(capacityRound.clientBuildId, capacityRoundMeta.clientBuildId);
+  assert.ok(!Object.hasOwn(capacityRound, 'levelDataVersion'));
+  const collisionCapacityRows = result.capacityAdRoundFunnel.rows.filter((row) => (
+    row.logicalLevelId === 4
+    && row.experimentId === 'capacity_v1'
+    && ['build-a', 'build-b'].includes(row.clientBuildId)
+  ));
+  assert.strictEqual(collisionCapacityRows.length, 2, 'dashboard must not merge identical roundId across client builds');
+  const collisionCapacityByBuild = Object.fromEntries(collisionCapacityRows.map((row) => [row.clientBuildId, row]));
+  assert.deepStrictEqual(
+    [collisionCapacityByBuild['build-a'].eligibleRounds, collisionCapacityByBuild['build-a'].clickedRounds, collisionCapacityByBuild['build-a'].rewardedRounds, collisionCapacityByBuild['build-a'].followupRounds, collisionCapacityByBuild['build-a'].passedRounds],
+    [1, 1, 0, 0, 0],
+  );
+  assert.deepStrictEqual(
+    [collisionCapacityByBuild['build-b'].eligibleRounds, collisionCapacityByBuild['build-b'].clickedRounds, collisionCapacityByBuild['build-b'].rewardedRounds, collisionCapacityByBuild['build-b'].followupRounds, collisionCapacityByBuild['build-b'].passedRounds],
+    [0, 0, 1, 1, 1],
+  );
 
   console.log('front10-experiment-dashboard-cloud.test.js passed');
 })().catch((error) => {

@@ -74,7 +74,7 @@ function createStorage() {
     };
 }
 
-function loadController(storage, pchController) {
+function loadController(storage, pchController, random = () => 0) {
     const module = { exports: {} };
     class Label {}
     vm.runInNewContext(transpile(controllerPath), {
@@ -83,6 +83,8 @@ function loadController(storage, pchController) {
         require(id) {
             if (id === './GameCtrlShared') {
                 return {
+                    ccclass: () => (target) => target,
+                    Component: class {},
                     AnalyticsMgr: { inst: {} },
                     AudioMgr: { inst: { play() {} } },
                     BlockInputEvents: class {},
@@ -118,7 +120,7 @@ function loadController(storage, pchController) {
         console,
         Date,
         JSON,
-        Math,
+        Math: Object.assign(Object.create(Math), { random }),
         Map,
         Set,
         WeakMap,
@@ -136,7 +138,7 @@ function makeRuntime() {
         _activeGameplayEntryMode: 'main',
         panelTimeoutContinue: null,
         panelBufferFullContinue: null,
-        getActiveLogicalLevelId: () => 4,
+        getActiveLogicalLevelId: () => 7,
         getWeChatRuntime: () => ({
             shareAppMessage() {},
             onShow() {},
@@ -162,7 +164,7 @@ function makeRuntime() {
 
 function testSourceContract() {
     assert.ok(controllerSource.includes("const REVIVE_SHARE_STATE_KEY = 'pdd.revive.shareState.v1'"));
-    assert.ok(controllerSource.includes('const REVIVE_SHARE_DAILY_LIMIT = 1;'));
+    assert.ok(controllerSource.includes('const REVIVE_SHARE_DAILY_LIMIT = 3;'));
     assert.ok(controllerSource.includes('elapsedMs > active.minElapsedMs') === false, 'time gate belongs to the platform service');
     assert.ok(controllerSource.includes("const shareBtn = box.getChildByName('ShareBtn');"));
     assert.ok(controllerSource.includes("const shareIcon = shareBtn?.getChildByName('ShareIcon');"));
@@ -223,18 +225,24 @@ function testDailyStateAndEligibility() {
     const { runtime } = makeRuntime();
     const controller = new Controller(runtime);
 
-    assert.strictEqual(controller.canUseReviveShare(), true, 'main level 4 with full WeChat API starts eligible');
+    assert.strictEqual(controller.canUseReviveShare(), true, 'main level 7 with full WeChat API starts eligible');
     const rollback = controller.reserveReviveShareGrant();
     assert.strictEqual(typeof rollback, 'function');
     assert.strictEqual(storage.getJson('pdd.revive.shareState.v1').count, 1);
-    assert.strictEqual(controller.canUseReviveShare(), false, 'both revive panels must see the same daily claim');
+    runtime.getActiveLogicalLevelId = () => 10;
+    controller.reserveReviveShareGrant();
+    runtime.getActiveLogicalLevelId = () => 13;
+    controller.reserveReviveShareGrant();
+    assert.strictEqual(controller.canUseReviveShare(), false, 'three daily claims exhaust both panels');
     rollback();
     assert.strictEqual(storage.getJson('pdd.revive.shareState.v1').count, 0);
     assert.strictEqual(controller.canUseReviveShare(), true);
 
-    runtime.getActiveLogicalLevelId = () => 3;
-    assert.strictEqual(controller.canUseReviveShare(), false, 'level 1-3 must keep the original ad revive');
-    runtime.getActiveLogicalLevelId = () => 4;
+    for (let level = 1; level <= 6; level += 1) {
+        runtime.getActiveLogicalLevelId = () => level;
+        assert.strictEqual(controller.canUseReviveShare(), false, 'levels 1-6 must keep ad revive');
+    }
+    runtime.getActiveLogicalLevelId = () => 7;
     runtime._isThemeLevel = true;
     assert.strictEqual(controller.canUseReviveShare(), false, 'theme levels must not consume the main-line daily share');
 }
@@ -269,9 +277,76 @@ function testBothReviveActionsConsumeOneSharedClaim() {
     assert.strictEqual(storage.getJson('pdd.revive.shareState.v1').count, 1);
 
     const bufferOverlay = { active: true };
+    runtime.getActiveLogicalLevelId = () => 10;
     controller.runReviveShareAction('buffer-full', bufferOverlay);
-    assert.strictEqual(calls.filter((call) => call[0] === 'share').length, 1, 'daily share claim blocks the other revive panel');
-    assert.strictEqual(bufferContinues, 0);
+    const bufferShare = calls.filter((call) => call[0] === 'share')[1];
+    assert.ok(bufferShare);
+    assert.strictEqual(bufferShare[2](), true);
+    assert.strictEqual(bufferContinues, 1);
+    assert.strictEqual(storage.getJson('pdd.revive.shareState.v1').count, 2);
+    runtime.getActiveLogicalLevelId = () => 13;
+    controller.runReviveShareAction('timeout', { active: true }, 120);
+    assert.strictEqual(calls.filter((call) => call[0] === 'share')[2][2](), true);
+    assert.strictEqual(storage.getJson('pdd.revive.shareState.v1').count, 3);
+    controller.captureReviveFailure('buffer-full');
+    controller.runReviveShareAction('buffer-full', { active: true });
+    assert.strictEqual(calls.filter((call) => call[0] === 'share').length, 3);
+}
+
+function testRandomSelectionPersistsOnlyForCurrentFailure() {
+    const storage = createStorage();
+    const samples = [0.2999, 0.3, 0.9, 0];
+    let draws = 0;
+    const Controller = loadController(storage, {}, () => samples[draws++]);
+    const { runtime } = makeRuntime();
+    const controller = new Controller(runtime);
+    controller.captureReviveFailure('timeout');
+    assert.strictEqual(controller.canUseReviveShare(), true);
+    assert.strictEqual(controller.canUseReviveShare(), true);
+    controller.closeReviveFailureSession('timeout', { active: true });
+    assert.strictEqual(controller.canUseReviveShare(), true, 'reopening the same failure must not reroll');
+    assert.strictEqual(draws, 1);
+    assert.strictEqual(storage.getItem('pdd.revive.shareState.v1'), null, 'unused offers do not consume quota');
+    controller.captureReviveFailure('buffer-full');
+    assert.strictEqual(controller.canUseReviveShare(), false, '0.3 belongs to the ad outcome');
+    assert.strictEqual(controller.canUseReviveShare(), false);
+    assert.strictEqual(draws, 2);
+    controller.captureReviveFailure('timeout');
+    assert.strictEqual(controller.canUseReviveShare(), false);
+    controller.captureReviveFailure('timeout');
+    assert.strictEqual(controller.canUseReviveShare(), true, 'new failure can draw share again');
+    assert.strictEqual(draws, 4);
+    storage.setItem('pdd.revive.shareState.v1', JSON.stringify({ dateKey: '2000-01-01', count: 3 }));
+    assert.strictEqual(controller.readReviveShareState().count, 0, 'new date resets daily quota');
+}
+
+function testThreeLevelInterval() {
+    const storage = createStorage();
+    let draws = 0;
+    const Controller = loadController(storage, {}, () => { draws += 1; return 0; });
+    const { runtime } = makeRuntime();
+    runtime.getActiveLogicalLevelId = () => 10;
+    const controller = new Controller(runtime);
+    assert.strictEqual(controller.canUseReviveShare(), true);
+    const rollback = controller.reserveReviveShareGrant();
+    assert.strictEqual(storage.getJson('pdd.revive.shareState.v1').lastShareLevel, 10);
+    for (const level of [10, 11, 12]) {
+        runtime.getActiveLogicalLevelId = () => level;
+        controller.captureReviveFailure('timeout');
+        assert.strictEqual(controller.canUseReviveShare(), false);
+        assert.strictEqual(controller.reserveReviveShareGrant(), null);
+    }
+    assert.strictEqual(draws, 1, 'cooldown failures must not draw');
+    const persisted = storage.getJson('pdd.revive.shareState.v1');
+    storage.setItem('pdd.revive.shareState.v1', JSON.stringify({ ...persisted, dateKey: '2000-01-01' }));
+    const reloaded = new Controller(runtime);
+    assert.strictEqual(reloaded.readReviveShareState().count, 0);
+    assert.strictEqual(reloaded.canUseReviveShare(), false, 'restart and midnight preserve level interval');
+    runtime.getActiveLogicalLevelId = () => 13;
+    assert.strictEqual(reloaded.canUseReviveShare(), true, 'level 13 reopens the draw');
+    rollback();
+    runtime.getActiveLogicalLevelId = () => 10;
+    assert.strictEqual(new Controller(runtime).canUseReviveShare(), true, 'failed reward rolls back level cooldown');
 }
 
 function testLateShareGrantCannotReviveAfterClose() {
@@ -304,6 +379,8 @@ function testLateShareGrantCannotReviveAfterClose() {
 }
 
 testSourceContract();
+testThreeLevelInterval();
+testRandomSelectionPersistsOnlyForCurrentFailure();
 testStaticShareButtonBinding();
 testDailyStateAndEligibility();
 testBothReviveActionsConsumeOneSharedClaim();

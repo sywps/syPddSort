@@ -180,8 +180,8 @@ function updateRuntimeMemoryOverlay(snapshot: PlainRecord, enabled: boolean): vo
 }
 
 export function reportRuntimeMemorySnapshot(event: string, runtime: any): void {
-    if (getMiniGameBuildPlatform() !== 'wechat') return;
-    // The release entry mutes console.warn after saving this original sink.
+    if (!isDebugPerfTraceEnabled()) return;
+    // Memory collection is diagnostic-only; release must not traverse assets or emit snapshots.
     const memoryWarn: typeof console.warn = (console as any).__pddOriginalWarn || console.warn;
     const now = Date.now();
     if (event === 'color-fx.peak') {

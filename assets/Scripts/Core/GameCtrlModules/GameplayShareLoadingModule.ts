@@ -285,7 +285,9 @@ export function installGameplayShareLoadingModule(target: any): void {
         hideLoadingOverlayAfterGameplayReady() {
             this.setGameplayStartupRootVisible?.(true);
             this.clearLoadingStageTimers();
-            const loading = AppRoot.tryGet()?.startupLoading;
+            const appRoot = AppRoot.tryGet();
+            appRoot?.completeAppTransitionAfterDraw?.('Game');
+            const loading = appRoot?.startupLoading;
             if (loading?.node.active) loading.finishAfterDraw(() => this.hideLoadingOverlay());
             else this.hideLoadingOverlay();
         },

@@ -12,10 +12,16 @@ export const AUDIO_SFX_RESOURCE_PATH = {
     button: 'Audio/ui',
     tick: 'Audio/tick',
     lose: 'Audio/lose',
-    winColor: 'Audio/winColor',
+    winColor: 'Audio/Judgment/SFX_color_complete',
     winAll: 'Audio/winColor',
     winSettlement: 'Audio/winSettlement',
     revivePop: 'Audio/ui',
+    judgmentGreat: 'Audio/Judgment/SFX_Female_great',
+    judgmentExcellent: 'Audio/Judgment/SFX_Female_excellent',
+    judgmentAwesome: 'Audio/Judgment/SFX_Female_awesome',
+    judgmentAmazing: 'Audio/Judgment/SFX_Female_amazing',
+    judgmentPerfect: 'Audio/Judgment/SFX_Female_perfect',
+    judgmentUnbelievable: 'Audio/Judgment/SFX_Female_unbelievable',
 } as const;
 
 export type SfxName = keyof typeof AUDIO_SFX_RESOURCE_PATH;
@@ -27,10 +33,16 @@ export const AUDIO_SFX_VOLUME: Record<SfxName, number> = {
     button: 0.52,
     tick: 0.40,
     lose: 0.44,
-    winColor: 0.50,
+    winColor: 0.32,
     winAll: 0.50,
     winSettlement: 0.62,
     revivePop: 0.32,
+    judgmentGreat: 0.42,
+    judgmentExcellent: 0.42,
+    judgmentAwesome: 0.42,
+    judgmentAmazing: 0.42,
+    judgmentPerfect: 0.42,
+    judgmentUnbelievable: 0.42,
 };
 
 export const AUDIO_SFX_VOLUME_VARIANCE: Partial<Record<SfxName, number>> = {
@@ -51,4 +63,10 @@ export const AUDIO_BOOTSTRAP_SFX_NAMES: SfxName[] = [
     'winAll',
     'winSettlement',
     'revivePop',
+    'judgmentGreat',
+    'judgmentExcellent',
+    'judgmentAwesome',
+    'judgmentAmazing',
+    'judgmentPerfect',
+    'judgmentUnbelievable',
 ];

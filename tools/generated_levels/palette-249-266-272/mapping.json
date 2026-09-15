@@ -1,0 +1,73 @@
+[
+  {
+    "level": 249,
+    "source": "tools/competitors/旋转拼豆/levels/main/lv_611.json",
+    "mapping": {
+      "1": 1,
+      "2": 2,
+      "3": 3,
+      "4": 4,
+      "7": 7,
+      "8": 8,
+      "9": 9,
+      "10": 10,
+      "11": 11,
+      "13": 13,
+      "14": 14,
+      "17": 17,
+      "19": 19,
+      "20": 20
+    },
+    "beans": 1512,
+    "originalColors": 14,
+    "colors": 14,
+    "method": "Independent CIELAB nearest color with brown/wine/pink hue-family corrections",
+    "formalChanged": false
+  },
+  {
+    "level": 266,
+    "source": "tools/competitors/拼成彩虹-新版1478关/levels/main/lv_0731.json",
+    "mapping": {
+      "3": 3,
+      "8": 2,
+      "12": 14,
+      "15": 3,
+      "17": 1,
+      "24": 2,
+      "30": 4,
+      "32": 20,
+      "34": 9,
+      "40": 17,
+      "44": 14,
+      "45": 7
+    },
+    "beans": 466,
+    "originalColors": 12,
+    "colors": 9,
+    "method": "Independent CIELAB nearest color with brown/wine/pink hue-family corrections",
+    "formalChanged": false
+  },
+  {
+    "level": 272,
+    "source": "tools/competitors/拼成彩虹-新版1478关/levels/main/lv_1477.json",
+    "mapping": {
+      "2": 4,
+      "7": 1,
+      "8": 2,
+      "9": 16,
+      "10": 20,
+      "11": 19,
+      "12": 14,
+      "15": 3,
+      "17": 1,
+      "18": 1,
+      "20": 16,
+      "27": 8
+    },
+    "beans": 486,
+    "originalColors": 12,
+    "colors": 9,
+    "method": "Independent CIELAB nearest color with brown/wine/pink hue-family corrections",
+    "formalChanged": false
+  }
+]

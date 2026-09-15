@@ -9,6 +9,7 @@ import {
     Node,
     Prefab,
     UITransform,
+    UserMgr,
     Vec3,
     instantiate,
 } from '../GameCtrlShared';
@@ -86,6 +87,7 @@ export class LeaderboardPanelController {
                     const closeOverlay = () => {
                         if (!overlay?.isValid) return;
                         AudioMgr.inst.play('button');
+                        UserMgr.inst.destroyUserInfoButtons();
                         runtime.clearLeaderboardScroll?.();
                         runtime.deactivateWeChatFriendRank('overlay-close');
                         runtime._closePanelWithTextureOwner(overlay, 'leaderboard', 'leaderboard');
@@ -105,14 +107,6 @@ export class LeaderboardPanelController {
                     }, runtime);
 
                     runtime.bindPanelButton(runtime.requirePanelChild(box, 'XBtn'), closeOverlay);
-                    const hintAnchor = runtime.requirePanelChild(box, 'HintAnchor');
-                    const hintLabel = hintAnchor.getComponent(Label);
-                    if (!hintLabel) {
-                        throw new Error('[leaderboard-prefab] missing label on HintAnchor');
-                    }
-                    hintLabel.string = '';
-                    runtime.resetLeaderboardHintState?.(hintAnchor);
-
                     const tabWrap = runtime.requirePanelChild(box, 'LeaderboardTabs');
                     const listNode = runtime.requirePanelChild(box, 'LeaderboardList');
                     const selfBox = runtime.requirePanelChild(box, 'LeaderboardSelfBox');
@@ -136,21 +130,21 @@ export class LeaderboardPanelController {
                             if (activeTab === 'global') return;
                             activeTab = 'global';
                             updateTabStyle();
-                            void runtime.switchLeaderboardTab(box, hintAnchor, activeTab);
+                            void runtime.switchLeaderboardTab(box, activeTab);
                         });
                         runtime.bindPanelButton(rightHotspot, () => {
                             AudioMgr.inst.play('button');
                             if (activeTab === 'friend') return;
                             activeTab = 'friend';
                             updateTabStyle();
-                            void runtime.switchLeaderboardTab(box, hintAnchor, activeTab);
+                            void runtime.switchLeaderboardTab(box, activeTab);
                         });
                     };
 
                     updateTabStyle();
                     tabWrap.setSiblingIndex(box.children.length - 1);
                     const initialRequestToken = runtime.beginLeaderboardTabRequest?.('global');
-                    await runtime.loadGlobalLeaderboard(box, listNode, selfBox, hintAnchor, initialRequestToken);
+                    await runtime.loadGlobalLeaderboard(box, listNode, selfBox, initialRequestToken);
                     if (!isOpenTargetAlive() || !overlay?.isValid) {
                         cancelStaleOpen();
                         return;

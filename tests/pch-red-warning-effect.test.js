@@ -26,6 +26,7 @@ new Function('module', 'exports', 'require', compiled.outputText)(
                 return value;
             },
             validatePchSingleSelectionLimit(value) { return value ?? 12; },
+            validateAutoConveyorFinishSpeed(value) { return value ?? true; },
         };
     },
 );
@@ -89,8 +90,93 @@ assert.ok(
         && controller.includes('PCH_RED_WARNING_MAX_OPACITY = 102')
         && controller.includes("this.runtime.requireCanvasUiRoot?.('FxRoot')")
         && controller.includes('transform.setContentSize(effectTransform.contentSize)')
-        && controller.includes('.to(PCH_RED_WARNING_PULSE_SECONDS, { opacity: 0 })'),
-    'controller must use the original stateful 0 → 0.4 → 0 red warning cycle on the full-screen effect root',
+        && controller.includes('this.syncWarningOverlay(Math.max(0, this.rules.bufferCapacity - this.rules.bufferCount))'),
+    'number warning must retain its old rule while the overlay uses remaining capacity independently',
 );
+
+const parsed = ts.createSourceFile('controller.ts', controller, ts.ScriptTarget.Latest, true);
+const wanted = new Set(['syncWarningOverlay', 'startWarningOverlayPulse', 'resetCapacityWarning', 'resetWarningOverlay', 'resetCapacityNumberWarning', 'syncCapacityWarning']);
+const methods = parsed.statements.filter(ts.isClassDeclaration).flatMap(c => c.members)
+    .filter(m => m.name && wanted.has(m.name.getText(parsed))).map(m => m.getText(parsed));
+assert.equal(methods.length, wanted.size);
+const constants = parsed.statements.filter(ts.isVariableStatement)
+    .filter(s => /const PCH_(RED_WARNING_|CAPACITY_(TEXT_COLOR|OUTLINE_COLOR|FULL_WARNING_CLIP))/.test(s.getText(parsed)))
+    .map(s => s.getText(parsed));
+const code = ts.transpileModule(constants.join('\n') + '\nclass WarningHarness {' + methods.join('\n') + '}', {
+    compilerOptions: { target: ts.ScriptTarget.ES2020 },
+}).outputText;
+const jobs = [];
+class Vec3 { constructor(x, y, z) { Object.assign(this, { x, y, z }); } }
+const Tween = { stopAllByTarget(target) { jobs.forEach(j => { if (j.target === target) j.cancelled = true; }); } };
+function tween(target) {
+    const job = { target, steps: [], cancelled: false };
+    const chain = {
+        to(seconds, props) { job.steps.push({ seconds, props }); return chain; },
+        delay(seconds) { job.steps.push({ seconds }); return chain; },
+        call(cb) { job.callback = cb; return chain; },
+        start() { jobs.push(job); return chain; },
+    };
+    return chain;
+}
+const Harness = new Function('Tween', 'tween', 'Vec3', 'Color', code + '\nreturn WarningHarness;')(Tween, tween, Vec3, class Color {});
+const h = new Harness();
+Object.assign(h, { runtime: { isGameEnd: false }, warningPulseGeneration: 0,
+    warningOverlayRunning: false, capacityWarningActive: false,
+    warningOverlayOpacity: { isValid: true, opacity: 0 },
+    warningOverlay: { isValid: true, active: false, setScale(x, y, z) { this.scale = new Vec3(x, y, z); } } });
+h.syncWarningOverlay(11);
+assert.equal(jobs.length, 0);
+h.syncWarningOverlay(10);
+assert.equal(jobs.length, 1);
+assert.equal(h.warningOverlayOpacity.opacity, 0);
+assert.equal(jobs[0].target, h.warningOverlayOpacity);
+assert.deepEqual(jobs[0].steps.map(s => s.seconds), [.5, .5]);
+assert.deepEqual(jobs[0].steps.map(s => s.props), [{ opacity: 102 }, { opacity: 0 }]);
+h.syncWarningOverlay(9);
+h.syncCapacityWarning(false);
+assert.equal(h.warningOverlay.active, true, 'normal digit state must not cancel the red overlay');
+jobs[0].callback();
+assert.equal(h.warningOverlay.active, true);
+assert.equal(jobs.length, 2, 'low capacity must continue the opacity pulse');
+h.syncWarningOverlay(0);
+assert.equal(jobs.length, 2, 'refresh must not create overlapping loops');
+h.syncWarningOverlay(22);
+assert.equal(h.warningOverlay.active, false);
+assert.equal(jobs[1].cancelled, true);
+jobs[1].callback();
+assert.equal(jobs.length, 2, 'recovery must invalidate pending loop callbacks');
+h.syncWarningOverlay(8);
+assert.equal(jobs.length, 3);
+h.resetCapacityWarning();
+assert.equal(jobs[2].cancelled, true);
+assert.equal(h.warningOverlay.active, false);
+assert.equal(h.warningOverlayOpacity.opacity, 0);
+assert.equal(h.warningOverlay.scale.x, 1);
+jobs[2].callback();
+assert.equal(jobs.length, 3, 'stale animation completion must not revive a cancelled warning');
+h.settlementPaused = true;
+h.syncWarningOverlay(12);
+h.syncWarningOverlay(10);
+assert.equal(jobs.length, 3);
+let numberPlays = 0;
+h.settlementPaused = false;
+h.syncWarningOverlay(10);
+const firstPulse = jobs.length - 1;
+jobs[firstPulse].callback();
+jobs[firstPulse + 1].callback();
+jobs[firstPulse + 2].callback();
+assert.equal(jobs.length, firstPulse + 3, 'exactly three pulses must run');
+assert.equal(h.warningOverlay.active, false, 'third pulse must hide the overlay');
+assert.equal(h.warningOverlayRunning, false);
+h.syncWarningOverlay(8);
+assert.equal(jobs.length, firstPulse + 3, 'remaining low must not restart after three pulses');
+h.syncWarningOverlay(11);
+h.syncWarningOverlay(10);
+assert.equal(jobs.length, firstPulse + 4, 'recovery must rearm the three-pulse warning');
+h.resetCapacityWarning();
+h.capacityWarningAnimation = { play() { numberPlays++; }, stop() {} };
+h.syncCapacityWarning(true);
+h.syncCapacityWarning(true);
+assert.equal(numberPlays, 1, 'existing number animation must still start only once');
 
 console.log('pch-red-warning-effect: PASS');

@@ -561,8 +561,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 358,
-      "height": 42
+      "width": 198.728,
+      "height": 65.354
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -592,9 +592,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 89,
-      "g": 68,
-      "b": 179,
+      "r": 255,
+      "g": 255,
+      "b": 255,
       "a": 255
     },
     "_string": "补充体力",
@@ -610,33 +610,33 @@
     "_isSystemFontUsed": true,
     "_spacingX": 0,
     "_isItalic": false,
-    "_isBold": false,
+    "_isBold": true,
     "_isUnderline": false,
     "_underlineHeight": 2,
     "_cacheMode": 0,
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 204,
-      "g": 197,
-      "b": 159,
+      "r": 151,
+      "g": 112,
+      "b": 221,
       "a": 255
     },
     "_outlineWidth": 2,
-    "_enableShadow": false,
+    "_enableShadow": true,
     "_shadowColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
-      "a": 255
+      "r": 104,
+      "g": 67,
+      "b": 181,
+      "a": 170
     },
     "_shadowOffset": {
       "__type__": "cc.Vec2",
-      "x": 2,
-      "y": 2
+      "x": 0,
+      "y": -2
     },
-    "_shadowBlur": 2,
+    "_shadowBlur": 1,
     "_id": ""
   },
   {
@@ -671,7 +671,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 226.728,
-      "height": 82
+      "height": 77.354
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",

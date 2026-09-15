@@ -28,6 +28,8 @@ function loadInstaller(timerApi = {}, adApi = {}) {
         durationMs: 0,
     };
     const analyticsInst = {
+        getCurrentRoundId() { return 'test-round'; },
+        getSessionId() { return 'test-session'; },
         trackAdClick() {},
         trackAdShow() {},
         trackAdFinish() {},
@@ -727,6 +729,7 @@ async function main() {
     );
 
     const trackedCallbacks = [];
+    const trackedAnalyticsStages = [];
     let trackedAudioRefs = 0;
     const installTrackedFlow = loadInstaller({}, {
         showRewardedAd(callback, hooks) {
@@ -738,6 +741,15 @@ async function main() {
                 endExternalInterruptionWithBgmRestart() {
                     if (trackedAudioRefs > 0) trackedAudioRefs -= 1;
                 },
+            },
+        },
+        AnalyticsMgr: {
+            inst: {
+                getCurrentRoundId() { return 'tracked-round'; },
+                trackAdClick(...args) { trackedAnalyticsStages.push({ stage: 'click', attribution: args[4] }); },
+                trackAdShow(...args) { trackedAnalyticsStages.push({ stage: 'show', attribution: args[4] }); },
+                trackAdFinish(...args) { trackedAnalyticsStages.push({ stage: 'finish', attribution: args[4] }); },
+                trackAdRewardSuccess(...args) { trackedAnalyticsStages.push({ stage: 'reward', attribution: args[4] }); },
             },
         },
     });
@@ -768,6 +780,7 @@ async function main() {
         assert.strictEqual(trackedRuntime._adShowing, true);
         const trackedAttempt = trackedCallbacks.shift();
         assert.ok(trackedAttempt, 'shared provider callback must be registered');
+        trackedAttempt.hooks.onShow(attempt);
         trackedAttempt.callback(adOutcome('verified_complete', attempt, { closeResult: { isEnded: true } }));
         assert.strictEqual(trackedGrantCount, attempt, 'verified close must invoke the concrete grant in the same turn');
         assert.strictEqual(trackedAudioRefs, 0, 'verified close must release shared audio before later lifecycle work');
@@ -778,6 +791,20 @@ async function main() {
 
     assert.strictEqual(trackedRuntime.cancelRewardedGrantInteraction('scene-destroy'), false, 'later teardown must not find a completed claim to cancel');
     assert.strictEqual(trackedGrantCount, 2, 'two independent completed ads must each grant exactly once');
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const transactionId = `tracked-round:ad:${attempt}`;
+        const stages = trackedAnalyticsStages.filter((entry) => entry.attribution.transactionId === transactionId);
+        assert.deepStrictEqual(stages.map((entry) => entry.stage), ['click', 'show', 'finish', 'reward']);
+        assert.deepStrictEqual(
+            stages.slice(1).map((entry) => entry.attribution.attemptId),
+            [attempt, attempt, attempt],
+            'show, finish, and reward must preserve the provider attempt id',
+        );
+        assert.ok(
+            stages.every((entry) => entry.attribution.triggerSource === 'manual_button'),
+            'all ad stages must preserve one trigger source',
+        );
+    }
 
     console.log('rewarded-grant-transaction.test.js passed');
 }

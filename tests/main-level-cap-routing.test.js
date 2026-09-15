@@ -36,8 +36,11 @@ const { getPhysicalMainLevelId } = routeModule.exports;
 for (const [savedLevel, expectedPhysicalLevel] of [
     [1, 1],
     [300, 300],
-    [301, 300],
-    [999999, 300],
+    [301, 301],
+    [599, 599],
+    [600, 600],
+    [601, 600],
+    [999999, 600],
 ]) {
     assert.strictEqual(
         getPhysicalMainLevelId(savedLevel),
@@ -67,10 +70,11 @@ assert.ok(
 
 assert.ok(
     normalizedSettlementSource.includes('const nextId = this.getActiveLogicalLevelId() + 1;\n            this.saveLevelProgress(nextId);'),
-    'winning level 300 must keep the existing monotonic saved-progress update',
+    'winning a mainline level must keep the existing monotonic saved-progress update',
 );
 assert.ok(
-    normalizedSettlementSource.includes('this.loadLevel(nextId);'),
+    normalizedSettlementSource.includes('this.requestLevelTransition(nextId);')
+        && normalizedSceneHomeEntrySource.includes('this.loadLevel(levelId, prefix, false, routeReason);'),
     'settlement-next must continue through the capped ordinary loading boundary',
 );
 

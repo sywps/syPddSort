@@ -23,6 +23,14 @@ assert.ok(
     settlement.includes("throw new Error('[WinPanel] missing route-owned SettlementTopHud widgets')"),
     'missing settlement-owned widgets must fail explicitly',
 );
+const ensureWinSettlementTopWidgets = settlement.match(
+    /ensureWinSettlementTopWidgets\(\) \{([\s\S]*?)refreshWinAdBonusUI\(\) \{/,
+);
+assert.ok(ensureWinSettlementTopWidgets, 'win settlement top HUD binder must remain present');
+assert.ok(
+    !ensureWinSettlementTopWidgets[1].includes('root.active = true;'),
+    'WinPanel-owned SettlementTopHud visibility must remain controlled by its prefab state',
+);
 assert.ok(
     state.includes("_settlementRevealState: 'idle'") && state.includes('_settlementRevealToken: 0'),
     'runtime state must own an explicit settlement reveal state and token',
@@ -55,13 +63,14 @@ assert.ok(
 assert.ok(
     colorFx.includes('flushPendingColorCompleteEffectsSequentially(onDone?: () => void, gapSeconds: number = 0.12): void')
         && colorFx.includes('const entries = Array.from(pending.entries());')
-        && colorFx.includes('this.playColorCompleteEffect(colorId, true, () => {'),
-    'global completion must play the actual queued colors serially, with one audio cue per color',
+        && colorFx.includes('for (const [colorId] of entries)')
+        && colorFx.includes('this.playColorCompleteEffect(colorId, true, completeOne);'),
+    'global completion must play the actual queued colors concurrently, with one audio cue per color and a shared b1 barrier',
 );
 assert.match(
     settlement,
     /this\.flushPendingColorCompleteEffectsSequentially\(scheduleBoardCompleteShrink\);/,
-    'board shrink must wait for the final queued b1 sequence to finish',
+    'board shrink must wait for every final queued b1 to finish',
 );
 assert.match(
     settlement,

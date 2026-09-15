@@ -30,6 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { installGameplayColorCompleteFxMethods } from './GameplayColorCompleteFxModule';
+import { installGameplayJudgmentFeedbackMethods } from './GameplayJudgmentFeedbackModule';
 import { installGameplaySlotCompactionMethods } from './GameplaySlotCompactionModule';
 import { runtimeLog } from '../RuntimeLog';
 
@@ -69,6 +70,7 @@ export function getBeanFlyStaggerDelay(beanCount: number): number {
 }
 
 export function installGameplayPlacementFxModule(target: any): void {
+    installGameplayJudgmentFeedbackMethods(target);
     installGameplayColorCompleteFxMethods(target);
     installGameplaySlotCompactionMethods(target);
     Object.assign(target, {
@@ -237,6 +239,7 @@ export function installGameplayPlacementFxModule(target: any): void {
         },
 
         clearPlacementVisualState(): void {
+            this.clearGameplayJudgmentFeedback?.();
             this.clearPlacementOperationWatchdogs?.();
             this._placementAnimationGeneration = Math.max(
                 0,

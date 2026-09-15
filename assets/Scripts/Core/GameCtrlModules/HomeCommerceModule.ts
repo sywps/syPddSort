@@ -138,13 +138,13 @@ export function installHomeCommerceModule(target: any): void {
             btn.getComponent(Button) || btn.addComponent(Button);
             const enterSelectedLevel = () => {
                 if (this.getRuntimeSceneName('Game') === 'Home') {
-                    void this.requestGameplayRoute(level, 'level_', false, 'none');
+                    void this.requestGameplayRoute(level, 'level_', false, 'auto');
                     return;
                 }
-                this.deactivateMainMenuNode();
-                this.loadLevel(level);
+                void this.requestLevelTransition(level);
             };
             btn.on(Button.EventType.CLICK, () => {
+                if (this._gameplayTransitionPromise) return;
                 if ((Number(this._suppressHomeStartUntil) || 0) > Date.now()) return;
                 AudioMgr.inst.play('button');
                 if (!this.costVigorForLevel(level, 'main')) {

@@ -19,7 +19,7 @@ assert.equal(new Set(entries.map(entry => entry.name)).size, 9, 'every new level
 
 for (const entry of entries) {
     const file = path.join(root, 'assets/LevelData', entry.file);
-    const raw = fs.readFileSync(file);
+    const raw = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
     assert.equal(crypto.createHash('sha256').update(raw).digest('hex'), entry.sha256);
     const level = JSON.parse(raw);
     assert.equal(level.levelId, entry.levelId);
