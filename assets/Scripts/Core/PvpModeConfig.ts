@@ -153,6 +153,29 @@ export function createSeededPvpBoardState(
     return ordered.slice(0, Math.floor(ordered.length * clampPvpProgress(progress)));
 }
 
+export function reconcilePvpBoardProgress(
+    boardCells: ReadonlyArray<PvpLockedCell>,
+    recordedCells: ReadonlyArray<PvpLockedCell>,
+    seed: string,
+    progress: number,
+): PvpLockedCell[] {
+    const boardByKey = new Map(boardCells.map((cell) => [`${cell.row}:${cell.col}`, cell]));
+    const visible = new Map<string, PvpLockedCell>();
+    for (const cell of recordedCells) {
+        const key = `${Number(cell.row)}:${Number(cell.col)}`;
+        const boardCell = boardByKey.get(key);
+        if (boardCell) visible.set(key, boardCell);
+    }
+    const targetCount = Math.floor(boardCells.length * clampPvpProgress(progress));
+    if (visible.size >= targetCount) return [...visible.values()];
+    for (const cell of createSeededPvpBoardState(boardCells, seed, 1)) {
+        const key = `${cell.row}:${cell.col}`;
+        if (!visible.has(key)) visible.set(key, cell);
+        if (visible.size >= targetCount) break;
+    }
+    return [...visible.values()];
+}
+
 export function resolvePvpBoardFallbackSeed(context: Pick<PvpBattleContext, 'opponentBoardSeed' | 'opponentReplayId' | 'matchId'>): string {
     return String(context.opponentBoardSeed || context.opponentReplayId || context.matchId || '');
 }

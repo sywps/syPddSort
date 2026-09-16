@@ -45,7 +45,8 @@ const { CoopServiceMgr } = compile(path.join(__dirname, '../assets/Scripts/Core/
     if (id.endsWith('/CoopModeConfig')) return config;
     if (id.endsWith('/PvpHumanReplay')) return replay;
     if (id.endsWith('/MiniGamePlatform')) return { getWeChatMiniGameRuntime: () => wx, isMiniGameRuntime: () => true };
-    if (['PlatformCloudMgr', 'RemoteDataCdnClient', 'WeChatShareReturnService', 'UserMgr'].some(name => id.endsWith('/' + name))) return {};
+    if (['PlatformCloudMgr', 'RemoteDataCdnClient', 'WeChatShareReturnService', 'UserMgr',
+        'CoopBrowserRuntime', 'CoopBrowserStore'].some(name => id.endsWith('/' + name))) return {};
     throw new Error(id);
 });
 const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));

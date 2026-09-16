@@ -110,8 +110,9 @@ export class GameplaySessionController {
                 : resolvedTimeLimit;
             const dynamicTimeLimit = gameplayEntryMode === 'main' && activeLogicalLevelId === 1 ? 0 : resolvedDynamicTimeLimit;
             initStage = 'state_reset';
-            runtime._currentLevelUnlimitedTime = !!runtime.isCoopMode?.() || dynamicTimeLimit <= 0;
-            runtime.timeRemain = runtime.isCoopMode?.() ? 0 : dynamicTimeLimit;
+            const unlimitedTime = !!runtime.isCoopMode?.() || !!runtime.isRankedPvpMode?.() || dynamicTimeLimit <= 0;
+            runtime._currentLevelUnlimitedTime = unlimitedTime;
+            runtime.timeRemain = unlimitedTime ? 0 : dynamicTimeLimit;
             runtime._countdownWarningTickSecondsPlayed = new Set<number>();
             runtime.isGameEnd = false;
             runtime._activeLoseReason = null;

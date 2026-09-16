@@ -1,6 +1,7 @@
 'use strict';
 const cloud = require('wx-server-sdk');
 const { createCoopService } = require('./core');
+const { createCompletionFileHandler } = require('./completion-file');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const names = { users: 'coop_users', posts: 'coop_posts', runs: 'coop_runs' };
@@ -28,7 +29,7 @@ function adapter(source) {
         transaction: operation => db.runTransaction(tx => operation(adapter(tx))),
     };
 }
-const execute = createCoopService(adapter(db));
+const execute = createCompletionFileHandler(createCoopService(adapter(db)), cloud);
 exports.main = async event => {
     try { return { ok: true, ...await execute(cloud.getWXContext().OPENID, event || {}) }; }
     catch (error) { console.error('[coopService]', error); return { ok: false, errorMessage: error.message || '合作服务异常' }; }

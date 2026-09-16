@@ -24,6 +24,7 @@ import {
     isPixelPvpMatch,
     clampPvpProgress,
     createSeededPvpBoardState,
+    reconcilePvpBoardProgress,
     resolvePvpBoardFallbackSeed,
     createDemoPvpBattle,
     isPvpRouteReason,
@@ -378,8 +379,12 @@ function collectBoardCells(runtime: any): PvpLockedCell[] {
 function opponentBoardStateAt(runtime: any, context: PvpBattleContext, elapsedMs: number, progress: number): { available: boolean; cells: PvpLockedCell[]; revision: string } {
     const timeline = Array.isArray(context.opponentBoardTimeline) ? context.opponentBoardTimeline : [];
     if (timeline.length > 0) {
-        const cells = resolvePvpBoardTimeline(timeline, elapsedMs);
-        return { available: true, cells, revision: `replay:${cells.length}` };
+        const replayCells = resolvePvpBoardTimeline(timeline, elapsedMs);
+        const displaySeed = resolvePvpBoardFallbackSeed(context);
+        const cells = displaySeed
+            ? reconcilePvpBoardProgress(collectBoardCells(runtime), replayCells, displaySeed, progress)
+            : replayCells;
+        return { available: true, cells, revision: `replay:${replayCells.length}:visible:${cells.length}` };
     }
     const fallbackSeed = resolvePvpBoardFallbackSeed(context);
     if (fallbackSeed) {
@@ -1286,6 +1291,7 @@ export function installPvpModeModule(target: any): void {
             if (!timerWidget) throw new Error('[PvpMode] PVP timer requires the scene Widget anchor');
             alignPvpUtilityCenter(timerWrap, timerWidget, PVP_BATTLE_ARTWORK_OPTICAL_TOP_OFFSET);
             this._pvpTimerLabel = timerLabel;
+            timerLabel.string = '不限时';
             const speedNode = topBar.getChildByName('PchSpeedButton');
             if (!speedNode) throw new Error('[PvpMode] TopBarGroup/PchSpeedButton is required by the formal battle HUD');
             speedNode.active = true;
@@ -1443,9 +1449,8 @@ export function installPvpModeModule(target: any): void {
                 this._pvpNextCheckpointAtMs = elapsedMs + 5000;
                 void this.syncPvpCheckpoint(context, elapsedMs, ownProgress);
             }
-            if (elapsedMs >= context.opponentTargetMs && !this.isGameEnd) {
-                const thresholdTerminal: PvpTerminalType = context.opponentTerminalType === 'PASS' ? 'FORFEIT' : 'SURVIVED_OPPONENT_DEATH';
-                void this.finishPvpBattle(thresholdTerminal, elapsedMs, context.opponentTerminalType === 'PASS' ? '对手先通关' : '对手先失败');
+            if (context.opponentTerminalType === 'PASS' && elapsedMs >= context.opponentTargetMs && !this.isGameEnd) {
+                void this.finishPvpBattle('FORFEIT', elapsedMs, '对手先完成');
             }
         },
 

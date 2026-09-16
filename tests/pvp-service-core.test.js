@@ -121,6 +121,8 @@ for (const maintenanceIndex of ['status_expires', 'eligible_valid_until']) {
 const opponentStateSource = source.slice(source.indexOf('async function getOpponentState'), source.indexOf('async function cancelOrForfeit'));
 assert(!opponentStateSource.includes('COLLECTIONS.checkpoints'), 'opponent state must never expose a live friend checkpoint');
 assert(opponentStateSource.includes("freshness: 'frozen'"), 'opponent state must be an immutable asynchronous run');
+const replayValidationSource = fs.readFileSync(path.join(__dirname, '../cloudfunctions/pvpService/replay-validation.js'), 'utf8');
+assert(!replayValidationSource.includes('result continues after opponent terminal'), 'ranked submission must remain valid after the opponent finishes');
 
 const uiSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/GameCtrlModules/PvpModeModule.ts'), 'utf8');
 const lobbyViewSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/Panels/PixelPuzzleLobbyView.ts'), 'utf8');
@@ -138,6 +140,9 @@ for (const referenceHeaderNode of ['TimerWrap', 'SelfIdentityPlate', 'OpponentId
   assert(uiSource.includes(referenceHeaderNode), `reference battle header is missing ${referenceHeaderNode}`);
 }
 assert(uiSource.includes("topBar.getChildByName('TimerWrap')"), 'ranked header must reuse the original scene timer wrap');
+assert(uiSource.includes("timerLabel.string = '不限时'"), 'ranked header must explicitly show unlimited time');
+assert(uiSource.includes("context.opponentTerminalType === 'PASS' && elapsedMs >= context.opponentTargetMs && !this.isGameEnd"), 'opponent pass must end the run at its frozen completion time');
+assert(uiSource.includes("finishPvpBattle('FORFEIT', elapsedMs, '对手先完成')"), 'opponent first completion must submit and settle the local loss');
 assert(!uiSource.includes("new Node('ReferenceTimerPill')"), 'ranked header must not create a parallel timer pill');
 assert(uiSource.includes('speedNode.active = true'), 'ranked header must retain the functional speed control');
 assert(uiSource.includes('const PVP_BATTLE_UTILITY_CENTER_TOP = 50.5;'), 'ranked utilities must share one visual center measured from the top');
@@ -167,10 +172,12 @@ assert(uiSource.includes('未扣除门票和体力'), 'entry confirmation failur
 assert(pvpServiceSource.includes("this.call<{ match: PvpCloudMatch }>('confirmMatchEntry'"), 'client entry confirmation must use the authoritative cloud action');
 assert(uiSource.includes('resolvePvpBoardTimeline(timeline, elapsedMs)'), 'historical board thumbnail must consume recorded board timeline');
 assert(uiSource.includes('if (timeline.length > 0)'), 'an empty replay timeline must not be mistaken for an available opponent board');
+assert(uiSource.includes('const displaySeed = resolvePvpBoardFallbackSeed(context);'), 'a legacy opponent with a board timeline must still derive a stable display seed');
+assert(uiSource.includes('reconcilePvpBoardProgress(collectBoardCells(runtime), replayCells, displaySeed, progress)'), 'opponent thumbnail must reconcile a lagging board timeline with its frozen progress');
 assert(uiSource.includes('const fallbackSeed = resolvePvpBoardFallbackSeed(context);'), 'old cloud matches must derive a stable thumbnail seed from the match');
 assert(uiSource.includes('createSeededPvpBoardState(collectBoardCells(runtime), fallbackSeed, progress)'), 'bot thumbnail must advance deterministically from its frozen seed and replay progress');
 assert(pvpServiceSource.includes('context.opponentBoardSeed = run.replayId'), 'local bot preview must retain a stable thumbnail seed');
-assert(!uiSource.includes('index < visibleCount'), 'opponent thumbnail must not infer cells from an overall percentage');
+assert(!uiSource.includes('index < visibleCount'), 'opponent thumbnail simulation must remain deterministic instead of revealing cells in board order');
 assert(!uiSource.includes('pollPvpFriendState'), 'asynchronous friend battles must not poll a live opponent');
 assert(!uiSource.includes('对手刚刚同步'), 'asynchronous battle UI must not imply live synchronization');
 for (const forbiddenAsyncState of ['对局已暂停，等待同步', '! 待同步', '↑ 同步中']) {

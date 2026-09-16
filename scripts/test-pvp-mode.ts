@@ -4,6 +4,7 @@ import {
     isPixelPvpMatch,
     clampPvpProgress,
     createSeededPvpBoardState,
+    reconcilePvpBoardProgress,
     createDemoPvpBattle,
     isPvpRouteReason,
     resolvePvpBoardTimeline,
@@ -69,6 +70,13 @@ const seededA = createSeededPvpBoardState(boardCells, 'fixed-seed', 0.5);
 const seededB = createSeededPvpBoardState(boardCells, 'fixed-seed', 0.5);
 equal(JSON.stringify(seededA), JSON.stringify(seededB), 'seeded opponent board is frozen');
 equal(seededA.length, 2, 'seeded opponent board follows progress');
+const reconciledEmptyBot = reconcilePvpBoardProgress(boardCells, [], 'fixed-seed', 0.5);
+equal(reconciledEmptyBot.length, 2, 'bot board remains visible when its recorded cells lag behind progress');
+const reconciledPartialBot = reconcilePvpBoardProgress(boardCells, [{ row: 1, col: 1, colorId: 99 }], 'fixed-seed', 0.75);
+equal(reconciledPartialBot.length, 3, 'bot board supplements a partial recorded state up to its visible progress');
+equal(reconciledPartialBot.some((cell) => cell.row === 1 && cell.col === 1 && cell.colorId === 4), true, 'bot board keeps valid recorded coordinates and canonical board colors');
+const reconciledInvalidBot = reconcilePvpBoardProgress(boardCells, [{ row: 9, col: 9, colorId: 1 }], 'fixed-seed', 0.25);
+equal(reconciledInvalidBot.length, 1, 'invalid recorded coordinates cannot leave a progressed bot thumbnail gray');
 equal(resolvePvpBoardFallbackSeed({ opponentBoardSeed: '', opponentReplayId: '', matchId: 'match-fallback' }), 'match-fallback', 'old cloud matches use stable match fallback seed');
 equal(resolvePvpBoardFallbackSeed({ opponentBoardSeed: 'board-seed', opponentReplayId: 'replay', matchId: 'match' }), 'board-seed', 'server board seed has priority');
 

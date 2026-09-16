@@ -43,7 +43,7 @@ const COLLECTIONS = Object.freeze({
 const RULES_VERSION = 'pvp-pixel-v2';
 const LEVEL_PREFIX = 'zt_level_';
 const DEFAULT_RATING = 1200;
-const MATCH_EXPIRE_MS = 10 * 60 * 1000;
+const MATCH_EXPIRE_MS = 24 * 60 * 60 * 1000;
 const FRIEND_EXPIRE_MS = 24 * 60 * 60 * 1000;
 const economyService = createEconomyService({ db, readDoc });
 

@@ -38,6 +38,12 @@ assert.strictEqual(slowDeadlockReplay.finish(slowDeadlockFixture.terminalType,
   slowDeadlockFixture.terminalTimeMs).completeRun, true, 'x1 deadlock remains valid after the client one-loop grace period');
 const fixture = controllerReplay(level);
 const clone = () => JSON.parse(JSON.stringify(fixture.envelope));
+const overtime = clone();
+const firstTapIndex = overtime.events.findIndex(item => item[1] === 2);
+const overtimeDelay = level.timeLimit * 1000 + 2000;
+for (let index = firstTapIndex + 1; index < overtime.events.length; index++) overtime.events[index][0] += overtimeDelay;
+assert.strictEqual(replayHumanEvents(level, overtime).finish(fixture.terminalType,
+  fixture.terminalTimeMs + overtimeDelay).completeRun, true, 'ranked replay remains valid after the authored level countdown');
 assert.throws(() => replayHumanEvents(level, { ...clone(), levelHash: 'changed' }), /version/);
 const fast = clone(); fast.events[1] = [1, 1, 100];
 assert.throws(() => replayHumanEvents(level, fast), /clock/);

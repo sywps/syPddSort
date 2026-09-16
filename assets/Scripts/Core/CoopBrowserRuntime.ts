@@ -124,8 +124,8 @@ function createCoopService(store, now = Date.now) {
             requireValue(run && run.owner === owner, '尚未加入这张合作图');
             requireValue(event.action === 'complete', '只支持保存完成结果，请更新游戏');
             requireValue(typeof event.requestId === 'string' && /^[a-f0-9-]{16,80}$/.test(event.requestId), '保存标识无效');
-            requireValue(Array.isArray(event.events) && event.events.length > 0 && event.events.length <= 100000
-                && JSON.stringify(event.events).length <= 2000000, '完成校验数据过大或为空');
+            requireValue(Array.isArray(event.events) && event.events.length > 0 && event.events.length <= 1000000
+                && JSON.stringify(event.events).length <= 64 * 1024 * 1024, '完成校验数据过大或为空');
             const digest = await hash(JSON.stringify([event.version, event.events]));
             if (run.lastRequestId === event.requestId) {
                 requireValue(run.lastDigest === digest, '保存标识重复但内容不同');

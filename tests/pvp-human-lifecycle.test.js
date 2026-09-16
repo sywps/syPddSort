@@ -34,7 +34,7 @@ async function run() {
   await enter('history-owner', first);
   const firstStored = recordsFor('pvp_matches').get(first.matchId);
   assert.strictEqual(firstStored.matchType, 'bot');
-  assert.strictEqual(firstStored.expiresAt - firstStored.createdAt, 600000);
+  assert.strictEqual(firstStored.expiresAt - firstStored.createdAt, 24 * 60 * 60 * 1000);
   const prefix = fixture.envelope.events.slice(0, 300);
   now += prefix[prefix.length - 1][0] + 10;
   const checkpoint = { matchId: first.matchId, logicalTimeMs: prefix[prefix.length - 1][0], progress: 0.99,

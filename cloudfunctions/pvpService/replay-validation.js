@@ -19,8 +19,6 @@ function verifySubmission(match, submission, event, now) {
       throw new Error('opponent has not failed before this result');
     }
   }
-  if (match.matchType !== 'friend' && match.opponentRun && result.completeRun
-    && submission.terminalTimeMs > match.opponentRun.terminalTimeMs + 1000) throw new Error('result continues after opponent terminal');
   if (replay.actions.length !== submission.actionCount) throw new Error('replay action count mismatch');
   return { ...submission, ...result, verificationLevel: HUMAN_REPLAY_VERIFICATION, levelHash: event.replay.levelHash,
     verifiedActions: replay.actions, performance: performanceOf({ ...submission, progress: result.progress }, match.levelId) };

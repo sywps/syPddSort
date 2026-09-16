@@ -62,12 +62,12 @@ assert(finished.board.isAllLocked(), 'skill finish reaches the same completion c
 assert.equal(finished.progress, 1);
 const fs = require('node:fs');
 const session = fs.readFileSync(require('node:path').join(__dirname, '../assets/Scripts/Core/GameplaySessionController.ts'), 'utf8');
-const policy = session.match(/runtime\._currentLevelUnlimitedTime =[^;]+;\s*runtime\.timeRemain =[^;]+;/)[0];
-for (const coop of [true, false]) {
-    const runtime = { isCoopMode: () => coop };
+const policy = session.match(/const unlimitedTime =[^;]+;\s*runtime\._currentLevelUnlimitedTime =[^;]+;\s*runtime\.timeRemain =[^;]+;/)[0];
+for (const [coop, ranked, unlimited] of [[true, false, true], [false, true, true], [false, false, false]]) {
+    const runtime = { isCoopMode: () => coop, isRankedPvpMode: () => ranked };
     new Function('runtime', 'dynamicTimeLimit', policy)(runtime, 600);
-    assert.equal(runtime._currentLevelUnlimitedTime, coop);
-    assert.equal(runtime.timeRemain, coop ? 0 : 600);
+    assert.equal(runtime._currentLevelUnlimitedTime, unlimited);
+    assert.equal(runtime.timeRemain, unlimited ? 0 : 600);
 }
 const timerSource = fs.readFileSync(require('node:path').join(__dirname, '../assets/Scripts/Core/GameCtrlModules/GameplayPlacementFxModule.ts'), 'utf8');
 const timerGuards = timerSource.slice(timerSource.indexOf('tickTimer() {') + 'tickTimer() {'.length, timerSource.indexOf('if (this.tickFreezeTimer()) return;'));

@@ -6,6 +6,7 @@ import type { LevelData } from './LevelConfig';
 
 export const HUMAN_REPLAY_PROTOCOL = 'pch-events-v1';
 export const HUMAN_REPLAY_VERIFICATION = 'replay-verified-v1';
+export const PVP_MAX_ELAPSED_MS = 24 * 60 * 60 * 1000;
 // [elapsedMs, kind, ...args]: init(speed), frame(absoluteTravel),
 // tap(row,col,color,moved), ready(), speed(multiplier).
 export type PvpRuleEvent = [number, number, ...number[]];
@@ -43,7 +44,8 @@ export class PvpHumanReplay {
     private readonly total: number;
     private locked = 0;
 
-    constructor(readonly level: LevelData, private readonly maxElapsedMs = 600000, private readonly allowAssists = false) {
+    constructor(readonly level: LevelData, private readonly maxElapsedMs = 600000, private readonly allowAssists = false,
+        private readonly enforceTimeLimit = true) {
         this.timeRemaining = Math.min(600, level.timeLimit);
         this.board = new BoardModel(level);
         this.rules = new PchConveyorRules(this.board, level.conveyorCapacity, level.singleSelectionLimit, undefined, level.autoConveyorFinishSpeed);
@@ -160,7 +162,8 @@ export class PvpHumanReplay {
             this.speed = a;
         } else if (kind === 2) {
             if (this.completedAt >= 0 || this.rules.isBufferDeadlocked()) throw new Error('action after terminal');
-            if (!this.allowAssists && this.firstTap >= 0 && time > this.firstTap + this.level.timeLimit * 1000 + 1000) throw new Error('action after timeout');
+            if (this.enforceTimeLimit && !this.allowAssists && this.firstTap >= 0
+                && time > this.firstTap + this.level.timeLimit * 1000 + 1000) throw new Error('action after timeout');
             if (![a, b, c, d].every(Number.isInteger)) throw new Error('invalid replay tap');
             const block = this.rules.selectBoard(a, b);
             if (!block || block.colorId !== c) throw new Error('illegal replay selection');
@@ -210,8 +213,10 @@ export class PvpHumanReplay {
         progressTimeline: Array<{ elapsedMs: number; progress: number }>; completeRun: boolean } {
         if (!Number.isInteger(time) || time < this.lastTime || time > this.maxElapsedMs) throw new Error('invalid terminal time');
         if (terminalType === 'PASS' && (this.completedAt < 0 || time - this.completedAt > 10000)) throw new Error('unverified pass');
-        if (terminalType === 'PASS' && this.firstTap >= 0 && this.completedAt > this.firstTap + this.level.timeLimit * 1000 + 1000) throw new Error('pass after timeout');
-        if (terminalType === 'SURVIVED_OPPONENT_DEATH' && this.firstTap >= 0 && time > this.firstTap + this.level.timeLimit * 1000 + 1000) throw new Error('survival after timeout');
+        if (this.enforceTimeLimit && terminalType === 'PASS' && this.firstTap >= 0
+            && this.completedAt > this.firstTap + this.level.timeLimit * 1000 + 1000) throw new Error('pass after timeout');
+        if (this.enforceTimeLimit && terminalType === 'SURVIVED_OPPONENT_DEATH' && this.firstTap >= 0
+            && time > this.firstTap + this.level.timeLimit * 1000 + 1000) throw new Error('survival after timeout');
         if (terminalType === 'DEAD_CONVEYOR_FULL' && (!this.rules.isBufferDeadlocked() || this.deadlockedAt < 0
             || time - this.deadlockedAt > 1000)) throw new Error('unverified deadlock');
         if (terminalType === 'DEAD_TIMEOUT' && (this.firstTap < 0 || time < this.firstTap + this.level.timeLimit * 1000 - 1000
@@ -233,7 +238,7 @@ export function replayHumanEvents(level: LevelData, envelope: PvpReplayEnvelope)
     if (envelope?.protocol !== HUMAN_REPLAY_PROTOCOL || envelope.levelHash !== pixelLevelHash(level)) throw new Error('replay version mismatch');
     if (!Array.isArray(envelope.events) || !envelope.events.length || envelope.events.length > 75000
         || JSON.stringify(envelope).length > 2500000) throw new Error('invalid replay envelope');
-    const replay = new PvpHumanReplay(level);
+    const replay = new PvpHumanReplay(level, PVP_MAX_ELAPSED_MS, false, false);
     for (const event of envelope.events) replay.apply(event);
     return replay;
 }
