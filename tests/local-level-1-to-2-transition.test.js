@@ -32,7 +32,7 @@ assert.ok(
     'only mainline level 1 should use the tutorial transition chain',
 );
 assert.ok(
-    settlement.includes('this.scheduleOnce(() => {\n                this.loadLevel(nextId);\n            }, 0.08);'),
+    settlement.includes('this.scheduleOnce(() => {\n                requestChurnLevel(this, nextId);\n                this.loadLevel(nextId);\n            }, 0.08);'),
     'level-1 transition must invoke the shared loadLevel entrypoint',
 );
 assert.ok(

@@ -700,6 +700,7 @@ td strong { color: #31486e; }
 </div>
 
 <script src="cloudbase-social-report.js"></script>
+<script src="cloudbase-registered-retention.js"></script>
 <script>
 const REPORT_ROOT = '../artifacts/cloudbase-daily-report';
 
@@ -709,6 +710,7 @@ const state = {
     currentDate: '',
     summary: null,
     social: null,
+    retention: null,
     loadVersion: 0,
     trendSummaries: [],
     showFunnelLatency: false,
@@ -1045,7 +1047,11 @@ function formatSignedNumber(delta, digits = 0) {
 
 function getParamDate() {
     const params = new URLSearchParams(window.location.search);
-    return params.get('date') || '';
+    const value = params.get('date') || '';
+    const match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value);
+    if (!match) return value;
+    const normalized = `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+    return isCalendarDate(normalized) ? normalized : value;
 }
 
 function setParamDate(date) {
@@ -2623,6 +2629,7 @@ function renderContent(summary, trendSummaries) {
             </div>
         </section>
 
+        ${renderRegisteredRetention()}
         ${renderSocialAnalysis()}
 
         <section class="card span-12">
@@ -2930,22 +2937,25 @@ async function loadReport(date) {
     state.currentDate = date;
     state.summary = null;
     state.social = null;
+    state.retention = null;
     populateDateControls();
     setParamDate(date);
     renderLoading(`正在加载 ${date} 的 combined_summary.json ...`);
 
     const summaryUrl = `${REPORT_ROOT}/${date}/combined_summary.json`;
-    const [base, social] = await Promise.all([
+    const [base, social, retention] = await Promise.all([
         fetchJson(summaryUrl).then(value => ({ value }), error => ({ error })),
         CloudbaseSocialReport.load(`${REPORT_ROOT}/${date}/social_summary.json`, date),
+        CloudbaseRegisteredRetention.load('../artifacts/cloudbase-retention-report/registered-cohorts.json'),
     ]);
     if (version !== state.loadVersion) return;
     state.social = social;
+    state.retention = retention;
     if (base.error) {
         qs('heroDate').textContent = `日期：${date}`;
         qs('heroEnv').textContent = `环境：${social.environment || '数据不可得'}`;
         const reason = base.error.status === 404 ? '尚未生成' : '读取失败';
-        qs('content').innerHTML = `<section class="card span-12"><div class="card-body">主线/普通像素拼图完整日报${reason}，未将缺失指标显示为零。合作与 PvP 独立结果如下。</div></section>${renderSocialAnalysis()}`;
+        qs('content').innerHTML = `<section class="card span-12"><div class="card-body">主线/普通像素拼图完整日报${reason}，未将缺失指标显示为零。注册留存、合作与 PvP 独立结果如下。</div></section>${renderRegisteredRetention()}${renderSocialAnalysis()}`;
         bindRenderedTableScrollSync();
         return;
     }
@@ -2961,6 +2971,10 @@ async function loadReport(date) {
         if (version !== state.loadVersion) return;
         renderError(`没找到 ${date} 的完整日报。请先执行 \`npm run analytics:daily -- --date ${date}\`，然后刷新页面。`);
     }
+}
+
+function renderRegisteredRetention() {
+    return CloudbaseRegisteredRetention.render(state.retention, state.currentDate, { escapeHtml, renderMetricCard, renderTable });
 }
 
 function renderSocialAnalysis() {

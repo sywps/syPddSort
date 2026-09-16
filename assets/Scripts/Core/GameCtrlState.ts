@@ -1,3 +1,4 @@
+import type { ChurnTransition } from './GameplayChurnTelemetry';
 import {
     BoardViewportController,
     Bundle,
@@ -56,6 +57,8 @@ export function initializeGameCtrlState(runtime: any): void {
         panelBufferFullContinue: null,
         _activeLoseReason: null as 'timeout' | 'buffer-full' | null,
         _gameplayInitSeq: 0,
+        _churnAttemptId: '',
+        _churnTransition: null as ChurnTransition | null,
         _postPlayableWarmupSeq: 0,
         _postPlayableWarmupInitSeq: 0,
         _postPlayableWarmupQueue: [],

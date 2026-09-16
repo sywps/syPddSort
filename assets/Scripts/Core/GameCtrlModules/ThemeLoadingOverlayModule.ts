@@ -24,6 +24,7 @@
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
 } from '../GameCtrlShared';
 
+import { trackGameplayChurn } from '../GameplayChurnTelemetry';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
@@ -101,6 +102,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             const startedFromHome = this.getRuntimeSceneName('Game') === 'Home';
             const onFail = (error: unknown): false => {
+                if (this._churnTransition) trackGameplayChurn(this, 'next_failed', 'theme_start_failed');
                 console.error('[theme_unlock] start theme level failed:', { levelId: normalizedLevelId, error });
                 if (!options.suppressFailureToast) {
                     this.showToast('像素关启动失败，请重试');
@@ -109,11 +111,14 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 return false;
             };
             if (!this.costVigorForLevel(normalizedLevelId, 'theme')) {
+                const churnTransition = this._churnTransition;
+                if (churnTransition) trackGameplayChurn(this, 'next_waiting', 'vigor_required', churnTransition);
                 this.showNoLivesAdModal({
                     source: 'theme_start',
                     levelId: normalizedLevelId,
                     gameplayEntryMode: 'theme',
                     onResult: (result: any) => {
+                        if (churnTransition) trackGameplayChurn(this, 'next_vigor_result', result?.status === 'granted' ? '' : 'not_granted', churnTransition);
                         if (result?.status !== 'granted' || !this.isValid) return;
                         this.startThemeLevel(normalizedLevelId, options);
                     },

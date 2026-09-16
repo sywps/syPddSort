@@ -105,6 +105,26 @@ export class CoopServiceMgr {
 
     discardPending(runId: string): void { sys.localStorage.removeItem(`coop-pending:${runId}`); }
 
+    private async submitCompletion(post: CoopPost, pending: CoopPendingSave): Promise<{ run: CoopRun; post: CoopPost }> {
+        if (this.isLocalSimulation()) return this.call('complete', { postId: post.id, ...pending });
+        const wx = getWeChatMiniGameRuntime();
+        if (!wx?.cloud?.uploadFile || !wx?.getFileSystemManager || !wx?.env?.USER_DATA_PATH) throw new Error('当前环境无法上传完成记录，请更新微信');
+        const ticket = await this.call<{ cloudPath?: string; run?: CoopRun; post?: CoopPost }>('completeUpload', { postId: post.id, requestId: pending.requestId });
+        if (ticket.run?.status === 'complete' && ticket.post) return { run: ticket.run, post: ticket.post };
+        const cloudPath = ticket.cloudPath;
+        if (!cloudPath) throw new Error('完成记录上传地址不可用');
+        const fs = wx.getFileSystemManager();
+        const filePath = `${wx.env.USER_DATA_PATH}/coop-result-${pending.requestId}.json`;
+        try {
+            await new Promise<void>((resolve, reject) => fs.writeFile({ filePath, data: JSON.stringify(pending.events), encoding: 'utf8', success: () => resolve(), fail: reject }));
+            const uploaded = await wx.cloud.uploadFile({ cloudPath, filePath });
+            if (!uploaded?.fileID) throw new Error('完成记录上传失败');
+            return await this.call('complete', { postId: post.id, requestId: pending.requestId, version: pending.version, replayFileID: uploaded.fileID });
+        } finally {
+            fs.unlink({ filePath, fail: () => {} });
+        }
+    }
+
     record(kind: number, args: number[]): void {
         const a = this.active;
         if (!a || a.completed || a.run.status === 'complete') return;
@@ -119,7 +139,7 @@ export class CoopServiceMgr {
         if (!a.events.length) return;
         a.pending ||= { requestId: `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`,
             version: a.run.version, events: a.events.slice() };
-        a.saving = this.call<{ run: CoopRun; post: CoopPost }>('complete', { postId: a.post.id, ...a.pending }).then(result => {
+        a.saving = this.submitCompletion(a.post, a.pending).then(result => {
             if (result.run.status !== 'complete') throw new Error('服务端未确认完成');
             a.events.splice(0, a.pending!.events.length);
             a.run = result.run; a.post = result.post; a.pending = null; a.error = '';

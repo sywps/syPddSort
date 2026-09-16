@@ -22,6 +22,7 @@ function load(file) {
     const loaded = { exports: {} };
     new Function('module', 'exports', 'require', code)(loaded, loaded.exports, id => {
         if (id === 'cc') return { sys };
+        if (id.endsWith('/GameplayChurnTelemetry')) return { trackGameplayChurn: noop, beginChurnAttempt: noop, finishChurnReady: noop };
         if (id.endsWith('/AppRoot')) return { AppRoot: { tryGet: () => app } };
         if (id.endsWith('/CoopServiceMgr')) return { CoopServiceMgr: { get inst() { return mgr; } } };
         if (id.endsWith('/CoopModeConfig')) return config;

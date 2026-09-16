@@ -8,7 +8,8 @@ const { shanghaiDayRange, createApiKeyBundle, parseDatabaseValue } = require('./
 const { summarizeCoop, summarizePvp } = require('./social-analytics');
 const specs = { posts: ['coop_posts', 'createdAt'], runs: ['coop_runs', 'createdAt'], matches: ['pvp_matches', 'createdAt'], settlements: ['pvp_settlements', 'settledAt'] };
 
-async function readCollection(bundle, collection, field, cutoff, request = fetch) {
+async function readCollection(bundle, collection, field, cutoff, request = fetch, startMs = 0) {
+    assert.ok(Number.isFinite(startMs) && Number.isFinite(cutoff) && startMs >= 0 && cutoff > startMs, '时间区间无效');
     const rows = [], ids = new Set(), slices = []; let requests = 0;
     async function query(filter) {
         const params = new URLSearchParams({ offset: '0', limit: '1000', query: JSON.stringify(filter) });
@@ -40,10 +41,10 @@ async function readCollection(bundle, collection, field, cutoff, request = fetch
         slices.push({ start: lo, end: hi, records: page.length });
     }
     // Read all history before snapshot for parent joins, but persist aggregates only.
-    await interval(0, cutoff);
+    await interval(startMs, cutoff);
     const invalid = await query({ $or: [{ [field]: { $exists: false } }, { [field]: null }, { [field]: { $lt: 0 } }] });
     assert.equal(invalid.length, 0, `${collection}存在缺失或非法时间，停止汇总`);
-    slices.forEach((s, i) => assert.equal(s.start, i ? slices[i - 1].end : 0));
+    slices.forEach((s, i) => assert.equal(s.start, i ? slices[i - 1].end : startMs));
     assert.equal(slices.at(-1).end, cutoff);
     return { rows, coverage: { collection, field, records: rows.length, requests, slices, serverTotalAvailable: false } };
 }

@@ -549,7 +549,7 @@ assert.match(
 const runLeaveFailureToHome = compileExtractedMethod(
     resultPanel,
     'leaveFailureToHome(overlay: Node): void',
-    ['overlay', 'AnalyticsMgr'],
+    ['overlay', 'AnalyticsMgr', 'trackGameplayChurn'],
 );
 const pendingSession = { active: true };
 const homeExitOverlay = { active: true };
@@ -571,7 +571,7 @@ runLeaveFailureToHome.call(homeExitController, homeExitOverlay, {
             homeExitCalls.push('finalize');
         },
     },
-});
+}, () => {});
 assert.equal(pendingSession.active, false, 'HomeBtn must invalidate the in-flight revive session');
 assert.equal(homeExitController.activeReviveFailureSession, null, 'HomeBtn must clear the active revive session handle');
 assert.equal(homeExitController.finalFailureReviveContext, null, 'HomeBtn must clear final failure revive context');

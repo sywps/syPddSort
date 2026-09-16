@@ -81,6 +81,7 @@ function loadController(storage, pchController) {
         module,
         exports: module.exports,
         require(id) {
+            if (id === './GameplayChurnTelemetry') return { trackGameplayChurn() {} };
             if (id === './GameCtrlShared') {
                 return {
                     AnalyticsMgr: { inst: {} },

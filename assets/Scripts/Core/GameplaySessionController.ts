@@ -6,6 +6,7 @@ import {
 } from './GameCtrlShared';
 import type { LevelData, TutorialMode } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
+import { beginChurnAttempt, finishChurnReady, trackGameplayChurn } from './GameplayChurnTelemetry';
 import { collectActiveBlockInputEvents, debugPerfSnapshot } from './DebugPerfTrace';
 import { ensureHardLevelIntroController } from './HardLevelIntroController';
 import { validateAutoConveyorFinishSpeed, validateConveyorCapacity, validateHard, validateWinAdBonusEnabled } from './LevelConfig';
@@ -58,6 +59,7 @@ export class GameplaySessionController {
             runtime._activePhysicalLevelId = resolvedLevelId;
             runtime._activeLogicalLevelId = resolvedLevelId;
             runtime._activeGameplayEntryMode = gameplayEntryMode;
+            beginChurnAttempt(runtime);
             activeLogicalLevelId = gameplayEntryMode === 'main'
                 ? runtime.getActiveLogicalLevelId()
                 : resolvedLevelId;
@@ -234,6 +236,7 @@ export class GameplaySessionController {
                     }, pchController.getAnalyticsSnapshot());
                     if (!isWorkbenchPreviewRequested()) SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
                     initStage = 'interaction_ready';
+                    finishChurnReady(runtime, analyticsLevelId, gameplayEntryMode);
                     this.reportLevelInteractionReady(
                         runtime,
                         analyticsLevelId,
@@ -317,6 +320,7 @@ export class GameplaySessionController {
             : String(context.error || 'unknown gameplay initialization error');
         const safeStage = String(context.initStage || 'unknown').replace(/[^a-z0-9_]+/gi, '_').toLowerCase();
         const errorCode = `gameplay_init_${safeStage}_failed`;
+        trackGameplayChurn(runtime, 'init_failed', errorCode);
         const levelId = Math.max(1, Math.floor(Number(context.activeLogicalLevelId || context.resolvedLevelId) || 1));
         const levelPath = runtime._currentExternalLevelFilePath
             || (typeof runtime.getLevelDataPath === 'function'

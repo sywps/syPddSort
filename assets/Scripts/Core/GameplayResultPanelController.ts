@@ -24,6 +24,7 @@ import {
     tween,
 } from './GameCtrlShared';
 import { isMiniGameRuntime } from './MiniGamePlatform';
+import { trackGameplayChurn } from './GameplayChurnTelemetry';
 import { ensurePchConveyorGameplayController } from './PchConveyorGameplayController';
 
 const RESULT_PANEL_PREFAB_PATHS = {
@@ -148,6 +149,7 @@ export class GameplayResultPanelController {
     }
 
     private closeReviveFailureSession(kind: ReviveSharePanelKind, overlay: Node): void {
+        trackGameplayChurn(this.runtime, 'revive_decline_click');
         const session = this.beginReviveFailureSession(kind);
         session.active = false;
         if (this.activeReviveFailureSession === session) {
@@ -165,6 +167,8 @@ export class GameplayResultPanelController {
 
     private leaveFailureToHome(overlay: Node): void {
         const runtime = this.runtime;
+        trackGameplayChurn(runtime, 'home_click');
+        runtime._churnTransition = null;
         if (this.activeReviveFailureSession) {
             this.activeReviveFailureSession.active = false;
         }

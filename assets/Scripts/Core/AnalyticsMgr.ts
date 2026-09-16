@@ -436,6 +436,7 @@ export class AnalyticsMgr {
             clientBuildId: clientBuild.id,
             clientBuildIdSource: clientBuild.source,
             launchChannelAtEvent: this.resolveChannel(),
+            gameplayEntryMode: normalizeGameplayEntryMode(opt.gameplayEntryMode ?? this.levelContext.gameplayEntryMode),
             ...(opt.extra && typeof opt.extra === 'object' ? opt.extra : {}),
             ...(gameplayMode ? { gameplayMode, gameplaySchemaVersion } : {}),
         };

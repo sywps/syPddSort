@@ -63,6 +63,7 @@ async function main() {
     cloudPlatform = 'none';
     const mgr = new loaded.exports.CoopServiceMgr();
     await assert.rejects(mgr.overview(), /需要微信云服务/, 'no fake offline rewards');
+    mgr.isLocalSimulation = () => true;
     mgr.fullLevel = async () => full;
     await assert.rejects(mgr.prepare({}, { ...post, levelHash: 'bad' }, run), /版本不一致/);
     await mgr.prepare({}, post, run);

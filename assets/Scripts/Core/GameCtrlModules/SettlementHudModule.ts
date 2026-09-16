@@ -24,6 +24,7 @@ import {
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, BoardViewportController
 } from '../GameCtrlShared';
 import { Widget } from 'cc';
+import { beginChurnTransition, requestChurnLevel, trackGameplayChurn } from '../GameplayChurnTelemetry';
 import type {
     LevelData, BeanBlockInfo, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
@@ -573,12 +574,22 @@ export function installSettlementHudModule(target: any): void {
         },
 
         handleWinSettlementPrimaryAction() {
-            if (!this.beginSettlementNextTransition()) return;
-            if (this.shouldChainTutorialLevelsOnWin()) {
-                this.continueTutorialToSlotIntro(this.levelData.levelId + 1);
+            trackGameplayChurn(this, 'next_click');
+            if (!this.beginSettlementNextTransition()) {
+                trackGameplayChurn(this, 'next_blocked', 'transition_busy');
                 return;
             }
-            this.goNextLevel();
+            beginChurnTransition(this);
+            try {
+                if (this.shouldChainTutorialLevelsOnWin()) {
+                    this.continueTutorialToSlotIntro(this.levelData.levelId + 1);
+                    return;
+                }
+                this.goNextLevel();
+            } catch (error) {
+                trackGameplayChurn(this, 'next_failed', 'transition_exception');
+                throw error;
+            }
         },
 
         beginSettlementNextTransition(): boolean {
@@ -609,6 +620,7 @@ export function installSettlementHudModule(target: any): void {
 
         continueTutorialToSlotIntro(nextId: number) {
             this.scheduleOnce(() => {
+                requestChurnLevel(this, nextId);
                 this.loadLevel(nextId);
             }, 0.08);
         },
@@ -616,12 +628,15 @@ export function installSettlementHudModule(target: any): void {
         failWinSettlementReveal(error: unknown, revealToken: number): void {
             if (revealToken !== this._settlementRevealToken || this._settlementRevealState === 'failed') return;
             this._settlementRevealState = 'failed';
+            trackGameplayChurn(this, 'result_failed', 'win_panel_reveal_failed');
             const message = error instanceof Error ? error.message : String(error || 'unknown error');
             console.error('[settlement] failed to reveal win panel:', error);
             try {
                 this.showBasicSettlement('win');
                 this._settlementRevealState = 'shown';
+                trackGameplayChurn(this, 'result_shown_basic');
             } catch (fatalUiError) {
+                trackGameplayChurn(this, 'result_failed', 'basic_panel_reveal_failed');
                 console.error('[settlement] basic controls unavailable:', message, fatalUiError);
             }
         },
@@ -653,6 +668,7 @@ export function installSettlementHudModule(target: any): void {
                 panel.setSiblingIndex(999);
                 this.playWinSettlementBannerFx?.();
                 this._settlementRevealState = 'shown';
+                trackGameplayChurn(this, 'result_shown');
                 return true;
             } catch (error) {
                 this.failWinSettlementReveal?.(error, revealToken);
@@ -939,6 +955,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         restart() {
+            trackGameplayChurn(this, 'restart_click');
             if (this.isCoopMode?.()) { void this.restartCoop(); return; }
             if (this._settlementNextTransitioning) return;
             this._settlementNextTransitioning = true;
@@ -1054,8 +1071,11 @@ export function installSettlementHudModule(target: any): void {
                 const currentThemeLevelId = this._currentThemeLevelId || this.levelData.levelId;
                 const nextThemeLevelId = this.getNextThemeLevelId(currentThemeLevelId);
                 if (nextThemeLevelId > 0) {
+                    requestChurnLevel(this, nextThemeLevelId);
                     this.startThemeLevel(nextThemeLevelId);
                 } else {
+                    trackGameplayChurn(this, 'next_ended', 'theme_sequence_end');
+                    this._churnTransition = null;
                     this._isThemeLevel = false;
                     this._currentThemeLevelId = 0;
                     this.showMainMenu();
@@ -1063,27 +1083,40 @@ export function installSettlementHudModule(target: any): void {
                 return;
             }
             const nextId = this.getActiveLogicalLevelId() + 1;
+            if (this._churnTransition) this._churnTransition.targetLevel = nextId;
             this.saveLevelProgress(nextId);
             // 下一关消耗体力
             if (!this.costVigorForLevel(nextId, 'main')) {
+                trackGameplayChurn(this, 'next_waiting', 'vigor_required');
+                const churnTransition = this._churnTransition;
                 this.showNoLivesAdModal({
                     source: 'next_level',
                     onResult: (result: any) => {
+                        trackGameplayChurn(this, 'next_vigor_result', result?.status === 'granted' ? '' : 'not_granted', churnTransition);
                         if (result?.status !== 'granted') {
                             this.endSettlementNextTransition();
                             return;
                         }
-                        if (!this.isValid) return;
-                        if (this.getRuntimeSceneName('Game') !== 'Game') return;
+                        if (!this.isValid) {
+                            trackGameplayChurn(this, 'next_interrupted', 'runtime_invalid', churnTransition);
+                            return;
+                        }
+                        if (this.getRuntimeSceneName('Game') !== 'Game') {
+                            trackGameplayChurn(this, 'next_interrupted', 'scene_changed', churnTransition);
+                            return;
+                        }
                         if (!this.costVigorForLevel(nextId, 'main')) {
+                            trackGameplayChurn(this, 'next_blocked', 'vigor_still_insufficient', churnTransition);
                             this.endSettlementNextTransition();
                             return;
                         }
+                        requestChurnLevel(this, nextId, churnTransition);
                         this.loadLevel(nextId);
                     },
                 });
                 return;
             }
+            requestChurnLevel(this, nextId);
             this.loadLevel(nextId);
         },
 
