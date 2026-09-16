@@ -59,7 +59,7 @@ export class StartupLoadingController extends Component {
         camera.visibility = STARTUP_LAYER;
         camera.priority = 100;
         camera.clearFlags = Camera.ClearFlag.SOLID_COLOR;
-        camera.clearColor = new Color(247, 251, 237, 255);
+        camera.clearColor = new Color(78, 199, 252, 255);
         const setLayer = (node: Node) => {
             node.layer = STARTUP_LAYER;
             for (const child of node.children) setLayer(child);
@@ -80,13 +80,15 @@ export class StartupLoadingController extends Component {
         this.node.getComponent(UITransform)!.setContentSize(size.width, size.height);
         const loading = this.cover.parent!;
         loading.getComponent(UITransform)!.setContentSize(size.width, size.height);
-        // Fit the complete authored image, including the health notice, on all aspect ratios.
+        // Fill the screen without stretching; tall phones crop only the artwork's side margins.
         const frame = this.cover.getComponent(Sprite)!.spriteFrame!;
-        const scale = Math.min(size.width / frame.originalSize.width, size.height / frame.originalSize.height);
+        const scale = Math.max(size.width / frame.originalSize.width, size.height / frame.originalSize.height);
         const widget = this.cover.getComponent(Widget);
         if (widget) widget.enabled = false;
         this.cover.getComponent(UITransform)!.setContentSize(frame.originalSize.width * scale, frame.originalSize.height * scale);
         this.cover.setPosition(0, 0, 0);
+        // Keep the bar and slow-load restart action in the artwork's gap above the health notice.
+        this.track!.parent!.setPosition(0, -frame.originalSize.height * scale * 0.28, 0);
     }
 
     show(stage: string): void {

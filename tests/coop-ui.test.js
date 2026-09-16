@@ -15,13 +15,17 @@ class Node {
     destroy() { this.isValid = false; for (const value of this.components.values()) value.isValid = false; this.children.forEach(child => child.destroy()); this.removeFromParent(); }
 }
 class Label {}
+class UIOpacity { opacity = 255; }
 Label.HorizontalAlign = Label.VerticalAlign = { CENTER: 0 }; Label.Overflow = { SHRINK: 0 };
 class UITransform { setContentSize(width, height) { this.width = width; this.height = height; } setAnchorPoint() {} }
 class ScrollView { static EventType = { SCROLL_TO_BOTTOM: 'bottom' }; }
 class Graphics { constructor() { this.rects = []; } rect(...args) { this.rects.push(args); } roundRect() {} fill() {} }
+class BoardSlotBatchRenderer { configure(cells) { this.cells = cells; } }
+class Sprite {}
+Sprite.SizeMode = { CUSTOM: 0 };
 class Button {}
 Button.EventType = { CLICK: 'click' };
-class Color { constructor(hex) { this.hex = hex; } }
+class Color { constructor(hex, _g, _b, a = 255) { this.hex = hex; this.a = a; } }
 Color.WHITE = new Color('#fff');
 const root = new Node('OverlayRoot'), calls = [], images = [];
 const catalog = require('../assets/GameAssetsBundle/coop-manifest.json').levels;
@@ -96,7 +100,7 @@ async function main() {
     panel.close(); assert.equal(root.children.length, 0);
     mgr.overview = async () => { throw new Error('云服务断开'); };
     panel.open(); await settle();
-    assert(findAll(root, 'Text').some(node => node.getComponent(Label).string === '云服务断开'), 'cloud errors are visible');
+    assert(findAll(root, 'Text').some(node => node.getComponent(Label).string === '暂时无法加载，请稍后再试'), 'cloud failure remains visible through the local friendly notice');
     assert.equal(findAll(root, '发起合作').length, 0, 'no false offline success');
     panel.close();
     const modeSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/GameCtrlModules/CoopModeModule.ts'), 'utf8');
@@ -109,12 +113,18 @@ async function main() {
     mgr.share = () => calls.push(['share']);
     mgr.call = async (action, data) => { calls.push([action, data]); return {}; };
     new Function('module', 'exports', 'require', modeCode)(modeModule, modeModule.exports, id => {
-        if (id === 'cc') return { Label, Graphics, Color, BlockInputEvents: class {} };
+        if (id === 'cc') return { Label, Graphics, Color, UIOpacity, Sprite, BlockInputEvents: class {} };
         if (id.endsWith('AppRoot')) return { AppRoot: { tryGet: () => app } };
         if (id.endsWith('CoopServiceMgr')) return { CoopServiceMgr: { inst: mgr } };
         if (id.endsWith('CoopModeConfig')) return require('../cloudfunctions/coopService/runtime/CoopModeConfig');
         if (id.endsWith('CoopPanelController')) return loaded.exports;
-        if (id.endsWith('PixelPosterPreviewRenderer')) return { releasePixelPosterPreviewTree() {}, renderPixelPosterPreview: (...args) => images.push(args) };
+        if (id.endsWith('BoardSlotBatchRenderer')) return { BoardSlotBatchRenderer, BOARD_SLOT_BATCH_MAX_CELLS: 1024 };
+        if (id.endsWith('PixelPosterPreviewRenderer')) return { releasePixelPosterPreviewTree() {}, renderPixelPosterPreview: (...args) => {
+            images.push(args);
+            const preview = new Node(args[2].name);
+            args[0].addChild(preview);
+            return preview;
+        } };
         throw new Error(id);
     });
     const runtime = { requireCanvasUiRoot: () => root, unschedule() {}, _pchConveyorGameplayController: { pauseForSettlement() {} } };
@@ -123,13 +133,29 @@ async function main() {
     mgr.active.full = full;
     mgr.active.half = { boardWidth: full.boardWidth / 2 };
     runtime.boardNode = new Node('Board'); runtime.cellSize = 10; runtime.cellGap = 0;
+    const beanTexture = {}, slotTexture = {};
+    runtime.requireRenderReadySpriteFrame = frame => frame;
+    runtime.getBeanSpriteFrame = (colorId, locked) => ({ colorId, locked, texture: beanTexture });
+    runtime.getSlotSpriteFrame = colorId => ({ colorId, texture: slotTexture });
+    runtime.getBoardBeanVisualSize = runtime.getBoardSlotVisualSize = () => 10;
     const originalGrid = JSON.stringify(full.correctColorArr);
     runtime.mountCoopBoardPartner();
     let partner = runtime.boardNode.getChildByName('CoopPartnerHalf');
     assert.equal(partner.position.x, 320, 'creator sees the partner half on the right');
-    assert(partner.getChildByName('PartnerMask'), 'creator partner half is masked');
-    assert.equal(images.at(-1)[2].grayscale, true, 'creator sees a gray pattern underneath the mask');
-    assert.deepEqual(images.at(-1)[1], full.correctColorArr.map(row => row.slice(32)));
+    assert.equal(partner.getChildByName('PartnerMask'), undefined, 'no dark mask covers the partner half');
+    const beanPreview = partner.getChildByName('PartnerInitialBeans');
+    assert(beanPreview, 'unfinished partner half uses bean sprites');
+    const batches = beanPreview.children.filter(node => node.name.startsWith('Slots_')).map(node => node.getComponent(BoardSlotBatchRenderer));
+    assert(batches.every(batch => batch.color.a === 77), 'slots retain reduced opacity');
+    const beanNodes = beanPreview.children.filter(node => node.name.startsWith('Bean_'));
+    assert(beanNodes.length > 0);
+    assert(beanNodes.every(node => {
+        const [, row, col] = node.name.split('_').map(Number);
+        const sprite = node.getComponent(Sprite);
+        return sprite.color.a === 77 && sprite.sizeMode === Sprite.SizeMode.CUSTOM
+            && sprite.spriteFrame.colorId === full.initRandomColorArr[row][col + 32];
+    }), 'native bean sprites use the actual shuffled colors and reduced opacity');
+    assert.equal(partner.getChildByName('Text').getComponent(UIOpacity), undefined, 'caption stays independent of preview opacity');
     assert.equal(runtime.getCoopBoardContentBounds().maxCol, 63, 'fit includes both halves');
     runtime.mountCoopBoardPartner();
     assert.equal(partner.isValid, false, 'rebuild releases the old display');
@@ -139,6 +165,7 @@ async function main() {
     partner = runtime.boardNode.getChildByName('CoopPartnerHalf');
     assert.equal(partner.position.x, -320, 'collaborator sees completed creator half on the left');
     assert.equal(partner.getChildByName('PartnerMask'), undefined);
+    assert.equal(partner.getChildByName('PartnerCompletedPattern').getComponent(UIOpacity), undefined, 'completed partner half remains fully visible');
     assert.equal(images.at(-1)[2].grayscale, false, 'collaborator sees completed partner half in color');
     assert.deepEqual(images.at(-1)[1], full.correctColorArr.map(row => row.slice(0, 32)));
     assert.equal(runtime.getCoopBoardContentBounds().minCol, -32);
@@ -182,6 +209,7 @@ async function main() {
     runtime.isGameEnd = false;
     const blocked = [];
     runtime._pchConveyorGameplayController = { isActive: () => true, isSettingsPaused: () => false,
+        isCoopOpening: () => false,
         isPresentationPaused: () => false, setExternalInputBlocked: value => blocked.push(value),
         pauseForSettings() {}, resumeAfterSettings() {} };
     runtime.updateCoopClock(10);

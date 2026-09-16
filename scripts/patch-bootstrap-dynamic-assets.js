@@ -18,6 +18,7 @@ const gameAssetsBundleName = 'gameAssets';
 const homeAssetsBundleName = 'homeAssets';
 const bootstrapImageAllowlist = new Set([
 	'Beans/bean-atlas',
+	'Effects/GuideBeanRing/guang_quan',
 	'GameUI/Atlases/GameSceneSmall/gameplay_skill_slot_background',
 	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_0',
 	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_1',
@@ -73,6 +74,13 @@ const criticalGameAssetsPathMap = new Map([
     ['Audio/lose', 'Audio/lose'],
     ['Audio/winColor', 'Audio/winColor'],
     ['Audio/winSettlement', 'Audio/winSettlement'],
+    ['Audio/Judgment/SFX_color_complete', 'Audio/Judgment/SFX_color_complete'],
+    ['Audio/Judgment/SFX_Female_great', 'Audio/Judgment/SFX_Female_great'],
+    ['Audio/Judgment/SFX_Female_excellent', 'Audio/Judgment/SFX_Female_excellent'],
+    ['Audio/Judgment/SFX_Female_awesome', 'Audio/Judgment/SFX_Female_awesome'],
+    ['Audio/Judgment/SFX_Female_amazing', 'Audio/Judgment/SFX_Female_amazing'],
+    ['Audio/Judgment/SFX_Female_perfect', 'Audio/Judgment/SFX_Female_perfect'],
+    ['Audio/Judgment/SFX_Female_unbelievable', 'Audio/Judgment/SFX_Female_unbelievable'],
     ['UI/Prefabs/Panels/WinPanel', 'UI/Prefabs/Panels/WinPanel'],
     ['UI/Prefabs/Panels/RevivePanel', 'UI/Prefabs/Panels/RevivePanel'],
     ['UI/Prefabs/Panels/BufferFullRevivePanel', 'UI/Prefabs/Panels/BufferFullRevivePanel'],
@@ -631,7 +639,7 @@ function copyGameAssetNativeArtifacts(gameAssetsRoot, uuid, targetRoot = bootstr
     ensureDir(destDir);
     for (const src of sources) {
         const dest = path.join(destDir, path.basename(src));
-        if (!fs.existsSync(dest)) fs.copyFileSync(src, dest);
+        if (!fs.existsSync(dest)) fs.cpSync(src, dest, { recursive: true });
     }
     return true;
 }

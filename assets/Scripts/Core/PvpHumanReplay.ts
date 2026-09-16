@@ -1,6 +1,6 @@
 import { BoardModel } from './BoardModel';
 import { PchConveyorRules } from './PchConveyorRules';
-import { conveyorExitProgress } from './PchConveyorGeometry';
+import { conveyorEntranceCarrier, conveyorExitProgress } from './PchConveyorGeometry';
 import { pixelLevelHash } from './PvpBotReplay';
 import type { LevelData } from './LevelConfig';
 
@@ -175,13 +175,7 @@ export class PvpHumanReplay {
             if (!this.pendingReady.length || time + 34 < this.pendingReady[0]) throw new Error('premature replay arrival');
             this.pendingReady.shift();
             if (this.rules.markQueuedBeansReady(1) !== 1) throw new Error('invalid replay arrival');
-            let nearest = 0;
-            let distance = Infinity;
-            for (let index = 0; index < this.rules.carrierCount; index++) {
-                const progress = ((index + this.travel) / this.rules.carrierCount) % 1;
-                const delta = Math.min(progress, 1 - progress);
-                if (delta < distance) { nearest = index; distance = delta; }
-            }
+            const { index: nearest, distance } = conveyorEntranceCarrier(this.travel, this.rules.carrierCount);
             if (distance <= 0.032) this.rules.transferReadyBeansToCarrier(nearest);
         } else if (kind === 1) {
             if (a < this.travel) throw new Error('reversed replay belt');

@@ -20,8 +20,9 @@ const profile = shuffle.learnProfile(levels);
 assert.equal(profile.count, 182);
 const aggregate = { old: [], firstPrototype: [], next: [] };
 for (const level of levels) {
-    const generated = shuffle.generate(level.correctColorArr, { levelId: level.levelId, profile, outlineGrid: level.initRandomColorArr });
-    const repeated = shuffle.generate(level.correctColorArr, { levelId: level.levelId, profile, outlineGrid: level.initRandomColorArr });
+    // Keep the legacy cohesion mode covered independently of the new default.
+    const generated = shuffle.generate(level.correctColorArr, { levelId: level.levelId, profile, outlineGrid: level.initRandomColorArr, preserveStructure: false });
+    const repeated = shuffle.generate(level.correctColorArr, { levelId: level.levelId, profile, outlineGrid: level.initRandomColorArr, preserveStructure: false });
     assert.deepEqual(generated, repeated, `level ${level.levelId} must be deterministic`);
     assert.deepEqual(inventoryObject(generated), inventoryObject(level.correctColorArr), `level ${level.levelId} inventory`);
     assert.doesNotThrow(() => shuffle.assertOutline(level.initRandomColorArr, generated), `level ${level.levelId} outline`);

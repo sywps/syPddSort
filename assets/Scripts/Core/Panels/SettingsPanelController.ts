@@ -380,9 +380,9 @@ export class SettingsPanelController {
                 AppRoot.ensure('Game');
             }
             if (typeof runtime.requestHomeRoute === 'function') {
-                return Promise.resolve(runtime.requestHomeRoute('settings', 'none'));
+                return Promise.resolve(runtime.requestHomeRoute('settings', 'auto'));
             }
-            return AppRoot.inst.requestHomeRoute('settings', 'none');
+            return AppRoot.inst.requestHomeRoute('settings', 'auto');
         };
 
         const reportHomeRouteFailure = (error: unknown) => {

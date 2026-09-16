@@ -32,8 +32,8 @@ assert.ok(
     'only mainline level 1 should use the tutorial transition chain',
 );
 assert.ok(
-    settlement.includes('this.scheduleOnce(() => {\n                requestChurnLevel(this, nextId);\n                this.loadLevel(nextId);\n            }, 0.08);'),
-    'level-1 transition must invoke the shared loadLevel entrypoint',
+    settlement.includes('continueTutorialToSlotIntro(nextId: number) {\n            requestChurnLevel(this, nextId);\n            void this.requestLevelTransition(nextId);'),
+    'level-1 transition must preserve churn telemetry and use the shared covered level request',
 );
 assert.ok(
     levelFlow.includes('this._loadLevelDataFromConfiguredSource(levelId, prefix, (levelData, source, err) => {'),

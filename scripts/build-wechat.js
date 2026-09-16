@@ -788,7 +788,7 @@ assertRuntimeLocalBundleAbsent(runtimeDir, 'preview', 'PreviewBundle 只属于�
 assertRuntimeTextAbsent(runtimeDir, ['PreviewController', 'UIPreview', 'Panel Preview', 'Fx Preview'], '微信包不应包含 Preview 代码或场景');
 assertRuntimeBundleConfig(runtimeInfo.mainDir, 'cocosCore/main', [], startSceneUrl);
 assertRuntimeBundleNoDeps(runtimeInfo.mainDir, 'cocosCore/main', ['bootstrap', 'homeAssets', 'gameAssets']);
-assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas', 'GameUI/Atlases/BoardEffects/block_bright_pindd/spriteFrame'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
+assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['LevelData/level_1', 'LevelData/B', 'LevelData/C', 'Beans/bean-atlas', 'GameUI/Atlases/BoardEffects/block_bright_pindd/spriteFrame'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
 assertRuntimeJsonArtifactContainsAll(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', [
     'TutorialGuideHands',
     'GuideHandSingle',

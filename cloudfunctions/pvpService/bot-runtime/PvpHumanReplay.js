@@ -208,16 +208,7 @@ class PvpHumanReplay {
             this.pendingReady.shift();
             if (this.rules.markQueuedBeansReady(1) !== 1)
                 throw new Error('invalid replay arrival');
-            let nearest = 0;
-            let distance = Infinity;
-            for (let index = 0; index < this.rules.carrierCount; index++) {
-                const progress = ((index + this.travel) / this.rules.carrierCount) % 1;
-                const delta = Math.min(progress, 1 - progress);
-                if (delta < distance) {
-                    nearest = index;
-                    distance = delta;
-                }
-            }
+            const { index: nearest, distance } = (0, PchConveyorGeometry_1.conveyorEntranceCarrier)(this.travel, this.rules.carrierCount);
             if (distance <= 0.032)
                 this.rules.transferReadyBeansToCarrier(nearest);
         }

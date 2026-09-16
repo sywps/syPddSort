@@ -1,0 +1,47 @@
+[
+  {
+    "left": 27,
+    "right": 124,
+    "kind": "相近图案（待目视）",
+    "transform": "旋转0度",
+    "shape": 0.9987,
+    "mapped": 0.9987,
+    "direct": 0.9987
+  },
+  {
+    "left": 53,
+    "right": 228,
+    "kind": "相近图案（待目视）",
+    "transform": "旋转0度",
+    "shape": 1.0,
+    "mapped": 0.9785,
+    "direct": 0.8271
+  },
+  {
+    "left": 79,
+    "right": 127,
+    "kind": "相近图案（待目视）",
+    "transform": "旋转0度",
+    "shape": 1.0,
+    "mapped": 0.971,
+    "direct": 0.9218
+  },
+  {
+    "left": 192,
+    "right": 298,
+    "kind": "相近图案（待目视）",
+    "transform": "旋转0度",
+    "shape": 1.0,
+    "mapped": 0.9558,
+    "direct": 0.9467
+  },
+  {
+    "left": 198,
+    "right": 276,
+    "kind": "相近图案（待目视）",
+    "transform": "旋转0度",
+    "shape": 1.0,
+    "mapped": 0.953,
+    "direct": 0.7879
+  }
+]

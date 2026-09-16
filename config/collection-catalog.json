@@ -4,7 +4,7 @@
     {
       "prefix": "level_",
       "from": 1,
-      "to": 300,
+      "to": 600,
       "unlockLevelFrom": 1
     }
   ]

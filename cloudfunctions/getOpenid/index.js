@@ -1,4 +1,6 @@
 const cloud = require('wx-server-sdk');
+const { resolveAssignment } = require('./first-level-experiment');
+const { resolveAssignment: resolveBeanSelection } = require('./bean-selection-experiment');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
@@ -92,6 +94,8 @@ exports.main = async (event = {}) => {
   try {
     const collection = db.collection(USER_PROFILE_COLLECTION);
     const current = await findUserProfile(openid);
+    const firstLevelExperiment = resolveAssignment(openid, current, event.firstLevelExperiment, now);
+    const beanSelectionExperiment = resolveBeanSelection(openid, current, event.beanSelectionExperiment, now);
 
     if (!current) {
       const profile = {
@@ -104,6 +108,8 @@ exports.main = async (event = {}) => {
         totalPlayTimes: 0,
         isPay: false,
         createTime: now,
+        firstLevelExperiment,
+        beanSelectionExperiment,
         ...buildStarterInventoryFields(),
       };
 
@@ -112,6 +118,8 @@ exports.main = async (event = {}) => {
         ok: true,
         openid,
         isNewUser: true,
+        firstLevelExperiment,
+        beanSelectionExperiment,
         profile,
       };
     }
@@ -120,8 +128,16 @@ exports.main = async (event = {}) => {
       lastLoginTime: now,
       ...buildInventoryPatch(current),
     };
+    if (event.firstLevelExperiment?.test !== true && event.firstLevelExperiment?.exclusionReason
+        && current.firstLevelExperiment?.status === 'enrolled') {
+      patch.firstLevelExperiment = firstLevelExperiment;
+    }
 
     if (channel && channel !== current.channel) patch.channel = channel;
+    if (event.beanSelectionExperiment?.id === beanSelectionExperiment.id && event.beanSelectionExperiment?.test !== true
+        && (!current.beanSelectionExperiment || event.beanSelectionExperiment.exclusionReason)) {
+      patch.beanSelectionExperiment = beanSelectionExperiment;
+    }
     if (device && device !== current.device) patch.device = device;
     if (system && system !== current.system) patch.system = system;
 
@@ -131,6 +147,8 @@ exports.main = async (event = {}) => {
       ok: true,
       openid,
       isNewUser: false,
+      firstLevelExperiment,
+      beanSelectionExperiment,
       profile: {
         ...current,
         ...patch,

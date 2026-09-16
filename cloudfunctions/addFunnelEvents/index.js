@@ -64,7 +64,8 @@ function sanitizeExtraValue(value, allowNested, depth) {
 function sanitizeExtra(value, allowNested = false, depth = 0) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const result = {};
-  for (const [key, raw] of Object.entries(value).slice(0, 30)) {
+  // Preserve the existing 30-field budget plus five independent selection-experiment fields.
+  for (const [key, raw] of Object.entries(value).slice(0, 35)) {
     const safeKey = cleanString(key, 64);
     if (!safeKey) continue;
     const safeValue = sanitizeExtraValue(raw, allowNested, depth);
@@ -87,6 +88,7 @@ function normalizeEvent(raw, openid, defaultSessionId, receivedAt) {
   return {
     openid,
     sessionId,
+    roundId: cleanString(raw.roundId, 120),
     eventSeq,
     dedupeKey: `${openid}:${sessionId}:${eventSeq}`,
     eventName,
@@ -102,8 +104,12 @@ function normalizeEvent(raw, openid, defaultSessionId, receivedAt) {
     duration: normalizeNonNegative(raw.duration),
     abId: cleanString(raw.abId, 64),
     abBucket: cleanString(raw.abBucket, 64),
+    experimentId: cleanString(raw.experimentId || raw.abId, 64),
+    experimentBucket: cleanString(raw.experimentBucket || raw.abBucket, 64),
     logicalLevelId: normalizeLevelId(raw.logicalLevelId),
     physicalLevelId: normalizeLevelId(raw.physicalLevelId),
+    clientBuildId: cleanString(raw.clientBuildId, 80),
+    levelDataSource: cleanString(raw.levelDataSource, 48),
     elapsedMsFromLaunch: normalizeNonNegative(raw.elapsedMsFromLaunch),
     elapsedMsFromLevelReady: normalizeNonNegative(raw.elapsedMsFromLevelReady),
     timestamp: normalizeNonNegative(raw.timestamp) || receivedAt,

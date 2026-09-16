@@ -1,3 +1,5 @@
+import { getBrowserLevelPreview } from './BrowserLevelPreview';
+import { disposeFeedbackPanel } from './Panels/FeedbackPanelController';
 import {
     AnalyticsMgr,
     AudioMgr,
@@ -120,18 +122,34 @@ export class GameSceneRuntimeController {
             console.error('[StartupLoading] game startup failed:', error);
             if (!this.runtime.node?.isValid) return;
             const loading = AppRoot.tryGet()?.startupLoading;
-            if (loading?.node.active) loading.fail('游戏初始化失败');
-            else this.runtime.showRemoteLoadFatalError('startup', 'startup_failed', String(error));
+            try {
+                if (loading?.node.active) loading.fail('游戏初始化失败');
+                else this.runtime.showRemoteLoadFatalError('startup', 'startup_failed', String(error));
+            } finally {
+                AppRoot.tryGet()?.completeAppTransitionAfterDraw('Game', error);
+            }
         });
     }
 
     startHomeSceneRuntime(): void {
         const appRoot = AppRoot.ensure('Home');
+        try {
+            this.initializeHomeSceneRuntime(appRoot);
+        } catch (error) {
+            appRoot.completeAppTransitionAfterDraw('Home', error);
+            throw error;
+        }
+    }
+
+    private initializeHomeSceneRuntime(appRoot: AppRoot): void {
         debugPerfSnapshot('runtime.home.start', this.runtime);
         appRoot.router.logTransitionTrace(
             '[SceneSplitTrace] GameCtrl:startHomeSceneRuntime',
         );
         appRoot.markHomeVisible('Home');
+        void appRoot.ensureAppTransition().catch((error) => {
+            console.error('[AppTransition] Home prewarm failed:', error);
+        });
         this.prepareSceneFrame('Home');
         AudioMgr.inst.init(this.runtime.node);
         this.runtime.bindUserStateLifecycle();
@@ -140,7 +158,13 @@ export class GameSceneRuntimeController {
         this.runtime.requireCanvasUiRoot('OverlayRoot');
         this.runtime.requireCanvasUiRoot('FxRoot');
         appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:beforeShowMainMenu');
+        if (getBrowserLevelPreview().error) {
+            this.runtime.showRemoteLoadFatalError('level', 'invalid_preview_level', getBrowserLevelPreview().error);
+            appRoot.completeAppTransitionAfterDraw('Home');
+            return;
+        }
         this.runtime.showMainMenu();
+        appRoot.completeAppTransitionAfterDraw('Home');
         this.runtime.startRenderResourceDiagnostics?.('home-start');
         appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:afterShowMainMenu', {
             hasMainMenuNode: !!this.runtime.mainMenuNode,
@@ -253,7 +277,8 @@ export class GameSceneRuntimeController {
         if (pendingGameplayRequest) {
             this.primePendingGameplayShell(pendingGameplayRequest);
         }
-        await this.bindExistingGameLoadingOverlay(!suppressGameplayEntryCover);
+        const appTransitionCoversGameplay = appRoot.isAppTransitionTargeting('Game');
+        await this.bindExistingGameLoadingOverlay(!suppressGameplayEntryCover && !appTransitionCoversGameplay);
         if (!this.runtime.node?.isValid) return;
         if (!suppressGameplayEntryCover) {
             this.runtime.scheduleRewardedAdPreload?.('loading:game-start', 0);
@@ -261,7 +286,9 @@ export class GameSceneRuntimeController {
         appRoot.clearRouteCover(suppressGameplayEntryCover ? 'gameplay-entry-no-cover' : 'game-direct-start');
         appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:skipRouteCover', {
             entryCoverMode: pendingGameplayRequest?.entryCoverMode || 'auto',
-            reason: explicitGameplayEntryCover ? 'route-cover-retired' : (suppressGameplayEntryCover ? 'no-cover-entry' : 'no-explicit-cover'),
+            reason: appTransitionCoversGameplay
+                ? 'app-transition-active'
+                : (explicitGameplayEntryCover ? 'route-cover-retired' : (suppressGameplayEntryCover ? 'no-cover-entry' : 'no-explicit-cover')),
         });
         debugPerfSnapshot('runtime.game.beforeContinueStartup', this.runtime, {
             pendingGameplayRequest: !!pendingGameplayRequest,
@@ -363,6 +390,10 @@ export class GameSceneRuntimeController {
     }
 
     destroy(): void {
+        if (this.runtime._gameplayTransitionPromise) {
+            AppRoot.tryGet()?.completeAppTransitionAfterDraw('Game', new Error('[AppTransition] gameplay runtime destroyed'));
+        }
+        disposeFeedbackPanel(this.runtime);
         this.runtime.disposeCoop?.();
         director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
         this.runtime.stopPostPlayableWarmup?.();

@@ -23,10 +23,15 @@ function loadMethods(relativePath, names, globals) {
     return sandbox.methods;
 }
 
+const releaseModule = { exports: {} };
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root, 'assets/Scripts/Core/RuntimeAssetRelease.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: releaseModule.exports, require: () => ({}) });
+const { ensureRuntimeAssetReleaseId } = releaseModule.exports;
+
 const assetMethods = loadMethods('assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts', [
     '_cacheSpriteFrame', '_addCacheRef', '_decCacheRef', '_retainSpriteFrameCacheResource',
     '_releaseSpriteFrameCacheResource', 'releaseSceneScopedSpriteFrames',
 ], {
+    ensureRuntimeAssetReleaseId,
     SPRITE_FRAME_SCOPE_DYNAMIC: 'dynamic', SPRITE_FRAME_SCOPE_SHARED_UI: 'shared-ui',
     SPRITE_FRAME_SCOPE_SCENE_HOME: 'scene-home', SPRITE_FRAME_SCOPE_SCENE_GAME: 'scene-game',
     SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP: 'startup-bootstrap', debugPerfSnapshot() {},

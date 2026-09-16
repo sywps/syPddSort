@@ -3,6 +3,7 @@
  */
 
 import { _decorator, Component } from 'cc';
+import { getCachedWeChatDeviceInfo } from '../Core/WeChatDeviceInfo';
 import {
     getRewardedAdProvider,
     type RewardedAdHooks,
@@ -162,19 +163,13 @@ export class AdConfig extends Component {
     private static isWeChatDeveloperToolRuntime(): boolean {
         const api = getWeChatMiniGameRuntime();
         try {
-            const deviceInfo = api?.getDeviceInfo?.() || {};
-            const systemInfo = api?.getSystemInfoSync?.() || {};
+            const deviceInfo = getCachedWeChatDeviceInfo(api);
             const markers = [
                 deviceInfo.platform,
                 deviceInfo.environment,
                 deviceInfo.appName,
                 deviceInfo.system,
                 deviceInfo.model,
-                systemInfo.platform,
-                systemInfo.environment,
-                systemInfo.appName,
-                systemInfo.system,
-                systemInfo.model,
             ].map((value) => String(value || '').toLowerCase());
             return markers.some((value) => {
                 // `windows` / `mac` / `ohos_pc` are real WeChat clients, not DevTools.

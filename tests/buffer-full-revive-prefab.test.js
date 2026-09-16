@@ -54,16 +54,16 @@ const bufferReviveAction = extractMethod(controllerSource, 'runBufferFullReviveA
 const resultProgressSync = extractMethod(controllerSource, 'private syncResultProgressWidget(panel: Node, ratio: number = 0, allowStaticSummary: boolean = false): void');
 const settlementHudSource = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 assert.ok(
-    resultProgressSync.includes("const completionSummary = box.getChildByName('Label');"),
-    'revive-panel creation must recognize the Prefab-controlled text completion summary',
+    resultProgressSync.includes("const completionSummary = box.getChildByName('CompletionSummary') ?? box.getChildByName('Label');"),
+    'revive-panel creation must recognize the explicit Prefab-controlled completion summary',
 );
 assert.ok(
     resultProgressSync.includes('if (hasTextCompletionSummary) return;'),
     'text completion summary must bypass only the obsolete bar-layout contract',
 );
 assert.ok(
-    resultProgressSync.includes('const hasTextCompletionSummary = allowStaticSummary && !!completionSummary?.getComponent(Label);'),
-    'only explicitly identified revive panels may use the static summary layout',
+    resultProgressSync.includes("completionSummary?.getChildByName('CompletionPercent')?.getComponent(Label)"),
+    'only explicitly identified revive panels may use the two-label completion summary layout',
 );
 assert.ok(
     settlementHudSource.includes('syncSettlementCompletionSummary(panel: Node | null | undefined, percent: number): boolean'),
@@ -79,8 +79,14 @@ const settlementCompletionSummary = extractMethod(
 );
 assert.ok(
     settlementCompletionSummary.includes("panel?.name === 'ReviveSettlementOverlay'")
-        && settlementCompletionSummary.includes("panel?.name === 'BufferFullSettlementOverlay'"),
-    'runtime-named revive overlays must preserve their static prompt instead of receiving a completion percentage',
+        && settlementCompletionSummary.includes("panel?.name === 'BufferFullSettlementOverlay'")
+        && settlementCompletionSummary.includes("?.getChildByName('CompletionSummary')")
+        && settlementCompletionSummary.includes("?.getChildByName('CompletionPercent')"),
+    'runtime-named revive overlays must update their explicit completion percentage',
+);
+assert.ok(
+    settlementCompletionSummary.includes('revivePercentLabel.string = `${percent}%`;'),
+    'revive completion percentage must use the shared settlement calculation result',
 );
 assert.ok(
     settlementHudSource.includes('this._gameplayResultPanelController?.captureReviveFailure?.(reason);'),
@@ -293,6 +299,26 @@ for (const prefab of [timeoutPrefab, bufferPrefab]) {
         'legacy completion caption must not remain serialized',
     );
     assert.ok(!JSON.stringify(prefab).includes('"_string":"86%"'), 'revive prefab must not retain a visible completion percentage');
+
+    const completionSummary = findNode(prefab, 'CompletionSummary');
+    const completionSummaryUi = componentsOf(prefab, completionSummary.node).find((component) => component.__type__ === 'cc.UITransform');
+    assert.strictEqual(byId(prefab, completionSummary.node._parent)?._name, 'Box');
+    assert.deepStrictEqual([completionSummary.node._lpos?.x, completionSummary.node._lpos?.y], [0, 220]);
+    assert.deepStrictEqual([completionSummaryUi?._contentSize?.width, completionSummaryUi?._contentSize?.height], [500, 58]);
+    assert.strictEqual(componentsOf(prefab, completionSummary.node).some((component) => component.__type__ === 'cc.Sprite'), false, 'completion summary must not add a white pill background');
+
+    const completionPrefix = findNode(prefab, 'CompletionPrefix');
+    const completionPercent = findNode(prefab, 'CompletionPercent');
+    const prefixLabel = componentsOf(prefab, completionPrefix.node).find((component) => component.__type__ === 'cc.Label');
+    const percentLabel = componentsOf(prefab, completionPercent.node).find((component) => component.__type__ === 'cc.Label');
+    assert.strictEqual(byId(prefab, completionPrefix.node._parent)?._name, 'CompletionSummary');
+    assert.strictEqual(byId(prefab, completionPercent.node._parent)?._name, 'CompletionSummary');
+    assert.strictEqual(prefixLabel?._string, '关卡已完成');
+    assert.deepStrictEqual([prefixLabel?._color?.r, prefixLabel?._color?.g, prefixLabel?._color?.b], [255, 255, 255]);
+    assert.deepStrictEqual([prefixLabel?._outlineColor?.r, prefixLabel?._outlineColor?.g, prefixLabel?._outlineColor?.b, prefixLabel?._outlineWidth], [55, 75, 98, 3]);
+    assert.strictEqual(percentLabel?._string, '0%');
+    assert.deepStrictEqual([percentLabel?._color?.r, percentLabel?._color?.g, percentLabel?._color?.b], [255, 195, 42]);
+    assert.deepStrictEqual([percentLabel?._outlineColor?.r, percentLabel?._outlineColor?.g, percentLabel?._outlineColor?.b, percentLabel?._outlineWidth], [55, 75, 98, 3]);
 }
 
 for (const prefab of [timeoutPrefab, bufferPrefab]) {

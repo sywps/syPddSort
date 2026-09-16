@@ -1,4 +1,4 @@
-const MAIN_LEVEL_MAX_ID = 300;
+const MAIN_LEVEL_MAX_ID = 600;
 
 export function normalizeMainLevelId(levelId: unknown): number {
     return Math.max(1, Math.floor(Number(levelId) || 1));

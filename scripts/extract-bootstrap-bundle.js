@@ -21,6 +21,13 @@ const BOOTSTRAP_PATH_MAP = (() => {
         'Audio/lose',
         'Audio/winColor',
         'Audio/winSettlement',
+        'Audio/Judgment/SFX_color_complete',
+        'Audio/Judgment/SFX_Female_great',
+        'Audio/Judgment/SFX_Female_excellent',
+        'Audio/Judgment/SFX_Female_awesome',
+        'Audio/Judgment/SFX_Female_amazing',
+        'Audio/Judgment/SFX_Female_perfect',
+        'Audio/Judgment/SFX_Female_unbelievable',
     ]) {
         map.set(audioPath, audioPath);
     }

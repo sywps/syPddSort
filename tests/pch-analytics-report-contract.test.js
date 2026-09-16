@@ -69,6 +69,11 @@ const oldSummary = {
             enterUv: 9,
             passUv: 5,
             recordCount: 8,
+            pchStatsRecordCount: 1,
+            avgPeakBufferRatio: 0.8,
+            capacityExpandCount: 0,
+            avgValidActionCount: 10,
+            avgFinalProgressRatio: 0.7,
             selectionAttempts: 99,
             magnetMovedBeans: 88,
             manual2xUsed: true,
@@ -76,6 +81,24 @@ const oldSummary = {
         adPerformance: {
             overall: { showNum: 8, clickNum: 4, finishNum: 2, userNum: 3, clickRate: 0.5 },
             topByShow: [{ adType: 'rewarded', page: 'level_revive', showNum: 8, clickNum: 4, finishNum: 2, userNum: 3, clickRate: 0.5 }],
+        },
+        capacityAdRoundFunnel: {
+            scope: 'openid + sessionId + roundId + clientBuildId + experiment',
+            rows: [{
+                logicalLevelId: 4,
+                experimentId: 'level-layout-v1',
+                bucket: 'BASE',
+                clientBuildId: 'build-report',
+                roundCount: 1,
+                eligibleRounds: 1,
+                shownRounds: 1,
+                clickedRounds: 1,
+                rewardedRounds: 1,
+                followupRounds: 1,
+                passedRounds: 1,
+                rewardedPassedRounds: 1,
+                avgFollowupDelayMs: 500,
+            }],
         },
         dataQuality: {
             firstLevelFunnelRecords: 19,
@@ -146,10 +169,33 @@ const newSummary = {
             magnetUses: 2,
             brushUses: 3,
             freezeUses: 4,
+            pchStatsRecordCount: 2,
+            avgPeakBufferRatio: 0.9,
+            capacityExpandCount: 3,
+            avgValidActionCount: 20,
+            avgFinalProgressRatio: 0.95,
         }],
         adPerformance: {
             overall: { showNum: 6, clickNum: 5, finishNum: 4, userNum: 4, showRate: 1.2 },
             topByShow: [{ adType: 'rewarded', page: 'level_revive', showNum: 6, clickNum: 5, finishNum: 4, userNum: 4, showRate: 1.2 }],
+        },
+        capacityAdRoundFunnel: {
+            scope: 'openid + sessionId + roundId + clientBuildId + experiment',
+            rows: [{
+                logicalLevelId: 4,
+                experimentId: 'level-layout-v1',
+                bucket: 'BASE',
+                clientBuildId: 'build-report',
+                roundCount: 1,
+                eligibleRounds: 1,
+                shownRounds: 1,
+                clickedRounds: 1,
+                rewardedRounds: 1,
+                followupRounds: 1,
+                passedRounds: 1,
+                rewardedPassedRounds: 1,
+                avgFollowupDelayMs: 700,
+            }],
         },
         dataQuality: {
             pchFunnelScope: 'logical_levels=1,2,3',
@@ -202,9 +248,19 @@ try {
         [levelOne.magnetUses, levelOne.brushUses, levelOne.freezeUses],
         [2, 3, 4],
     );
+    assert.deepStrictEqual(
+        [levelOne.pchStatsRecordCount, levelOne.avgPeakBufferRatio, levelOne.capacityExpandCount, levelOne.avgValidActionCount, levelOne.avgFinalProgressRatio],
+        [3, 0.87, 3, 16.67, 0.87],
+    );
     assert.ok(!Object.hasOwn(levelOne, 'selectionAttempts'));
     assert.ok(!Object.hasOwn(levelOne, 'magnetMovedBeans'));
     assert.ok(!Object.hasOwn(levelOne, 'manual2xUsed'));
+    const capacityRound = diagnosis.capacityAdRoundFunnel.rows[0];
+    assert.deepStrictEqual(
+        [capacityRound.roundCount, capacityRound.eligibleRounds, capacityRound.shownRounds, capacityRound.clickedRounds, capacityRound.rewardedRounds, capacityRound.followupRounds, capacityRound.rewardedPassedRounds],
+        [2, 2, 2, 2, 2, 2, 2],
+    );
+    assert.strictEqual(capacityRound.avgFollowupDelayMs, 600);
     assert.strictEqual(output.collections.user_behavior.summary.showRate, 1.5556);
     assert.ok(!Object.hasOwn(output.collections.user_behavior.summary, 'clickRate'));
     assert.strictEqual(fs.readFileSync(oldInput.filePath, 'utf8'), oldInput.text, 'old source summary must stay unchanged');

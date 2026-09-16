@@ -1,6 +1,6 @@
-import { _decorator, Component, ResolutionPolicy, SpriteFrame, view } from 'cc';
+import { _decorator, Component, profiler, ResolutionPolicy, SpriteFrame, view } from 'cc';
 import { AppRoot } from './AppRoot';
-import { debugPerfTrace } from './DebugPerfTrace';
+import { debugPerfTrace, isDebugPerfTraceEnabled } from './DebugPerfTrace';
 import { resolveStartupRouteDecision } from './StartupRouteService';
 import { markStartupTrace } from './StartupTrace';
 const { ccclass, property } = _decorator;
@@ -14,6 +14,7 @@ export class BootSceneCtrl extends Component {
     protected loadingCover: SpriteFrame | null = null;
 
     start() {
+        if (isDebugPerfTraceEnabled()) profiler.showStats();
         const appRoot = AppRoot.ensure('Boot');
         const bootRouteKey = String((this.node as any)?.uuid || (this.node as any)?._id || 'Boot');
         appRoot.session.resetBootRouteGuard(bootRouteKey);

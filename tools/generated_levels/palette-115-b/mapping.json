@@ -1,0 +1,28 @@
+[
+  {
+    "level": 115,
+    "source": "tools/competitors/拼成彩虹-新版1478关/levels/main/lv_0249.json",
+    "mapping": {
+      "4": 9,
+      "10": 20,
+      "12": 14,
+      "13": 12,
+      "14": 10,
+      "15": 3,
+      "20": 16,
+      "21": 11,
+      "26": 13,
+      "35": 6,
+      "36": 13,
+      "38": 13,
+      "40": 17,
+      "42": 16,
+      "43": 17
+    },
+    "beans": 1406,
+    "originalColors": 15,
+    "colors": 11,
+    "method": "Independent CIELAB nearest color with brown/wine/pink hue-family corrections",
+    "formalChanged": false
+  }
+]

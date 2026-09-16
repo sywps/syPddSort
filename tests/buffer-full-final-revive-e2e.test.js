@@ -67,9 +67,12 @@ function loadHomeAdInstaller() {
                     },
                     AnalyticsMgr: {
                         inst: {
+                            getCurrentRoundId() { return 'buffer-full-round'; },
+                            getSessionId() { return 'buffer-full-session'; },
                             trackAdClick() {},
                             trackAdShow() {},
                             trackAdFinish() {},
+                            trackAdRewardSuccess() {},
                             markAdRevive() {},
                             trackReviveSuccess() {},
                         },
@@ -118,6 +121,7 @@ function loadResultPanelController(pchController) {
                     BlockInputEvents,
                     Button,
                     Bundle: class {},
+                    Component: class {},
                     Color: class {},
                     Graphics: class {},
                     Label,
@@ -132,6 +136,7 @@ function loadResultPanelController(pchController) {
                     Vec2: class {},
                     Vec3: class {},
                     assetManager: {},
+                    ccclass: () => (target) => target,
                     GAME_ASSETS_BUNDLE_NAME: 'gameAssets',
                     LOCAL_BOOTSTRAP_BUNDLE_NAME: 'bootstrap',
                     instantiate() {},
@@ -171,6 +176,9 @@ function loadPchRules() {
                     },
                     validatePchSingleSelectionLimit(value) {
                         return Math.max(1, Math.floor(Number(value) || 18));
+                    },
+                    validateAutoConveyorFinishSpeed(value) {
+                        return value === undefined || value === null ? true : value === true;
                     },
                 };
             }
@@ -295,6 +303,8 @@ async function main() {
         resumeAfterSettlement() { this.settlementPaused = false; },
         updateSphereFlyEffects() {},
         updateExitArrowAnimation() {},
+        updateCapacityHint() {},
+        maybeShowCapacityPressureGuide() {},
         getEffectiveBeltSpeedMultiplier: () => 1,
         didCarrierCrossProgress: () => false,
         handleCarrierAtEntrance() {},

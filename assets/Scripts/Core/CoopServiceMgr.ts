@@ -8,6 +8,8 @@ import { PvpHumanReplay, type PvpRuleEvent } from './PvpHumanReplay';
 import { COOP_MAX_ELAPSED_MS, COOP_RULES_VERSION, coopHalfLevel, coopLevelHash,
     type CoopPost, type CoopRun, type CoopLevelEntry, type CoopOverview, type CoopPendingSave } from './CoopModeConfig';
 import type { LevelData } from './LevelConfig';
+import { createBrowserCoopService } from './CoopBrowserRuntime';
+import { createCoopBrowserStore } from './CoopBrowserStore';
 
 export type CoopActive = { post: CoopPost; run: CoopRun; full: LevelData; half: LevelData;
     replay: PvpHumanReplay; events: PvpRuleEvent[]; pending: CoopPendingSave | null;
@@ -26,17 +28,32 @@ export class CoopServiceMgr {
     localInvitation(): string { return this.isLocalSimulation() ? sys.localStorage.getItem('coop-local-invitation') || '' : ''; }
     private catalogCache: CoopLevelEntry[] | null = null;
     private readonly levels = new Map<number, LevelData>();
+    private localRuntime: any = null;
+    private localService: Promise<ReturnType<typeof createBrowserCoopService>> | null = null;
+
+    private browserService(): Promise<ReturnType<typeof createBrowserCoopService>> {
+        if (!this.localService) {
+            this.localService = (async () => {
+                if (!this.localRuntime) throw new Error('请先打开合作图案目录');
+                const levels = await this.catalog(this.localRuntime);
+                await Promise.all(levels.map(entry => this.fullLevel(this.localRuntime, entry.levelId)));
+                return createBrowserCoopService(createCoopBrowserStore(sys.localStorage), { levels }, (id: number) => {
+                    const level = this.levels.get(id);
+                    if (!level) throw new Error('合作关卡资源缺失');
+                    return level;
+                });
+            })().catch(error => { this.localService = null; throw error; });
+        }
+        return this.localService;
+    }
 
     async call<T>(action: string, data: Record<string, unknown> = {}): Promise<T> {
         if (this.isLocalSimulation()) {
-            let response: Response;
-            try {
-                response = await fetch('http://127.0.0.1:7559/coop', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ player: this.localPlayer, event: { ...data, action, rulesVersion: COOP_RULES_VERSION } }) });
-            } catch (_) { throw new Error('本地合作服务未连接，请先运行 npm run coop:local'); }
-            const result = await response.json();
-            if (!response.ok || !result?.ok) throw new Error(result?.errorMessage || '本地合作服务返回异常');
-            return result as T;
+            const player = this.localPlayer;
+            const execute = await this.browserService();
+            return await execute(`local-player-${player}`, {
+                ...data, action, rulesVersion: COOP_RULES_VERSION, displayName: `模拟玩家 ${player}`,
+            }) as T;
         }
         if (PlatformCloudMgr.inst.getPlatform() !== 'wechat') throw new Error('合作模式需要微信云服务，请在微信中体验');
         if (!await PlatformCloudMgr.inst.init()) throw new Error('合作云服务不可用，请重试');
@@ -58,6 +75,7 @@ export class CoopServiceMgr {
     }
 
     async catalog(runtime: any): Promise<CoopLevelEntry[]> {
+        if (this.isLocalSimulation()) this.localRuntime = runtime;
         if (!this.catalogCache) {
             const manifest = await this.loadAsset<{ levels: CoopLevelEntry[] }>(runtime, 'coop-manifest');
             if (!Array.isArray(manifest.levels) || !manifest.levels.length
@@ -170,7 +188,10 @@ export class CoopServiceMgr {
         }
         const wx = getWeChatMiniGameRuntime();
         if (!wx?.shareAppMessage) throw new Error('当前环境不支持微信分享');
-        wx.shareAppMessage(applyLocalWeChatShareMaterial({ title: '我的部分拼好了，剩下的交给你！', query: `coopPost=${post.id}` }));
+        wx.shareAppMessage({
+            ...applyLocalWeChatShareMaterial({ query: `coopPost=${post.id}` }),
+            title: '我的部分拼好了，剩下的交给你！',
+        });
     }
 
     overview(): Promise<{ overview: CoopOverview }> { return this.call('overview'); }

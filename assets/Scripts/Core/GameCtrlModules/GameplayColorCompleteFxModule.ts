@@ -3,24 +3,21 @@ import {
     AudioMgr,
     Bundle,
     GAME_ASSETS_BUNDLE_NAME,
-    Graphics,
     Layers,
-    Mask,
     Node,
     sp,
     Sprite,
-    SpriteFrame,
-    tween,
+    Prefab,
     UIOpacity,
     UITransform,
-    Vec3,
-    createHorizontalAlphaFadeSpriteFrame,
 } from '../GameCtrlShared';
+import { PatternCompleteWaveFx, getPatternWaveDuration, type PatternWaveCell } from '../PatternCompleteWaveFx';
 import { debugPerfTrace, reportRuntimeMemorySnapshot } from '../DebugPerfTrace';
 
 const PINDD_SPINE_FX_PATH = 'Spine/PinddFx/zhuanshi';
 const SPINE_WASM_SUBPACKAGE_NAME = 'spineWasm';
 const PINDD_SPINE_FX_NODE_NAME = 'PinddSpineFx';
+const PINDD_COLOR_COMPLETE_ROOT_NAME = 'ColorCompleteSpineFxRoot';
 const PINDD_SPINE_PATTERN_COMPLETE_ROOT_NAME = 'PatternCompleteMatchFxRoot';
 const PINDD_SPINE_FX_SOURCE_HEIGHT = 43.27;
 const PINDD_SPINE_FX_SCALE = 1;
@@ -29,9 +26,7 @@ const PINDD_SPINE_FX_POOL_LIMIT = 80;
 const PINDD_SPINE_FX_BATCH_CONCURRENCY = 24;
 const PINDD_SPINE_FX_BATCH_RETRY_SECONDS = 0.033;
 const PINDD_SPINE_FX_BATCH_ACTIVE_LIMIT_RETRY_SECONDS = 0.033;
-const PINDD_PATTERN_COMPLETE_SWEEP_DURATION = 1;
-const PINDD_PATTERN_COMPLETE_SWEEP_FADE_IN_DURATION = 0.12;
-const PINDD_PATTERN_COMPLETE_SWEEP_FADE_OUT_DURATION = 0.26;
+const PATTERN_COMPLETE_PREFAB_PATH = 'UI/Prefabs/Fx/PatternCompleteBean';
 const PINDD_SPINE_FX_ANIMATION = {
     settle: 'a1_1',
     colorComplete: 'b1_1',
@@ -43,6 +38,7 @@ const PINDD_SPINE_FX_DURATION: Record<PinddSpineFxAnimationName, number> = {
 
 type PinddSpineFxAnimationName = typeof PINDD_SPINE_FX_ANIMATION[keyof typeof PINDD_SPINE_FX_ANIMATION];
 type PinddSpineFxPlayOptions = {
+    fxParent?: Node;
     retryOnActiveLimit?: boolean;
     batchSeq?: number;
     allowActiveLimitOverride?: boolean;
@@ -63,15 +59,6 @@ const PINDD_SPINE_FX_OPACITY_BY_ANIMATION: Record<PinddSpineFxAnimationName, num
     a1_1: 230,
     b1_1: 245,
 };
-
-let patternCompleteSweepFrame: SpriteFrame | null = null;
-
-function getPatternCompleteSweepFrame(): SpriteFrame {
-    if (!patternCompleteSweepFrame) {
-        patternCompleteSweepFrame = createHorizontalAlphaFadeSpriteFrame(64, 2, 0.32);
-    }
-    return patternCompleteSweepFrame;
-}
 
 function setFxLayerDeep(node: Node, layer: number): void {
     node.layer = layer;
@@ -158,6 +145,15 @@ function selectPinddSpineFxBatchNodes(nodes: Node[], maxNodes?: number): Node[] 
 
 export function installGameplayColorCompleteFxMethods(target: any): void {
     Object.assign(target, {
+        failGameplayFxPrewarm(error: Error): never {
+            if (this._pinddSpineFxPrewarmLoading) {
+                this._pinddSpineFxPrewarmLoading = false;
+                this._pinddSpineFxPrewarmCallbacks = [];
+                this._stopGameplayEntryWithFatalError('gameplay-fx', 'gameplay_fx_prewarm_failed', error.message);
+            }
+            throw error;
+        },
+
         ensurePinddSpineFxSkeletonData(onDone: (data: sp.SkeletonData) => void): void {
             const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
             const skeletonDataCtor = (sp as any)?.SkeletonData;
@@ -187,14 +183,14 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 if (!bundle) {
                     this._pinddSpineFxSkeletonDataLoading = false;
                     this._pinddSpineFxSkeletonDataCallbacks = [];
-                    throw createPinddSpineFxError('gameAssets bundle unavailable');
+                    this.failGameplayFxPrewarm(createPinddSpineFxError('gameAssets bundle unavailable'));
                     return;
                 }
                 bundle.load(PINDD_SPINE_FX_PATH, skeletonDataCtor, (err: Error | null, data: sp.SkeletonData | null) => {
                     if (err || !data) {
                         this._pinddSpineFxSkeletonDataLoading = false;
                         this._pinddSpineFxSkeletonDataCallbacks = [];
-                        throw createPinddSpineFxError(`missing required SkeletonData ${PINDD_SPINE_FX_PATH}: ${err?.message || 'asset missing'}`);
+                        this.failGameplayFxPrewarm(createPinddSpineFxError(`missing required SkeletonData ${PINDD_SPINE_FX_PATH}: ${err?.message || 'asset missing'}`));
                         return;
                     }
                     finish(data);
@@ -212,7 +208,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     if (err || !bundle) {
                         this._pinddSpineFxSkeletonDataLoading = false;
                         this._pinddSpineFxSkeletonDataCallbacks = [];
-                        throw createPinddSpineFxError(`gameAssets bundle unavailable: ${err?.message || 'missing bundle'}`);
+                        this.failGameplayFxPrewarm(createPinddSpineFxError(`gameAssets bundle unavailable: ${err?.message || 'missing bundle'}`));
                         return;
                     }
                     this.gameAssetsBundle = bundle;
@@ -227,7 +223,23 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 if (!isRuntimeAlive()) return;
                 this._pinddSpineFxSkeletonDataLoading = false;
                 this._pinddSpineFxSkeletonDataCallbacks = [];
-                throw err;
+                this.failGameplayFxPrewarm(err);
+            });
+        },
+
+        ensurePatternCompleteFxPrefab(onDone: (prefab: Prefab) => void): void {
+            if (this._patternCompleteWavePrefab?.isValid) {
+                onDone(this._patternCompleteWavePrefab);
+                return;
+            }
+            this._withGameAssetsBundle((bundle: Bundle | null) => {
+                if (!bundle) this.failGameplayFxPrewarm(new Error('[pattern-wave-fx] gameAssets bundle unavailable'));
+                bundle.load(PATTERN_COMPLETE_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                    if (!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid)) return;
+                    if (err || !prefab) this.failGameplayFxPrewarm(new Error(`[pattern-wave-fx] required prefab load failed: ${err?.message || PATTERN_COMPLETE_PREFAB_PATH}`));
+                    this._patternCompleteWavePrefab = prefab;
+                    onDone(prefab);
+                });
             });
         },
 
@@ -256,11 +268,9 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     const { node, skeleton } = this.acquirePinddSpineFxNode(true);
                     skeleton.skeletonData = skeletonData;
                     this.recyclePinddSpineFxNode(node);
-                    finish();
+                    this.ensurePatternCompleteFxPrefab(() => finish());
                 } catch (error) {
-                    this._pinddSpineFxPrewarmLoading = false;
-                    this._pinddSpineFxPrewarmCallbacks = [];
-                    throw error;
+                    this.failGameplayFxPrewarm(error instanceof Error ? error : new Error(String(error)));
                 }
             });
         },
@@ -420,10 +430,18 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 beanNode.addChild(node);
                 setFxLayerDeep(node, Layers.Enum.UI_2D);
                 node.setPosition(0, 0, 0);
+                node.setRotationFromEuler(0, 0, 0);
                 const scale = this.getPinddSpineFxScaleForBean(beanNode, animationName);
                 node.setScale(scale, scale, 1);
                 const opacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
                 opacity.opacity = PINDD_SPINE_FX_OPACITY_BY_ANIMATION[animationName] ?? 255;
+                if (options?.fxParent) {
+                    // Keep the settled bean's transform, but render all color FX after the cells.
+                    // The board remains the shared ancestor for zoom, opacity and clipping.
+                    opacity.opacity *= (beanNode.getComponent(UIOpacity)?.opacity ?? 255) / 255
+                        * (beanNode.getComponent(Sprite)?.color.a ?? 255) / 255;
+                    node.setParent(options.fxParent, true);
+                }
 
                 let completed = false;
                 const completeOnce = () => {
@@ -577,6 +595,21 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 allowActiveLimitOverride,
             });
             this.ensurePinddSpineFxSkeletonData(() => {
+                let fxParent: Node | undefined;
+                if (animationName === PINDD_SPINE_FX_ANIMATION.colorComplete) {
+                    const boardNode = this.boardNode as Node;
+                    if (!boardNode?.isValid || nodes.some((node) => node.parent !== boardNode)) {
+                        throw createPinddSpineFxError('color-complete beans must belong to the board');
+                    }
+                    fxParent = boardNode.getChildByName(PINDD_COLOR_COMPLETE_ROOT_NAME) || undefined;
+                    if (!fxParent) {
+                        fxParent = new Node(PINDD_COLOR_COMPLETE_ROOT_NAME);
+                        fxParent.layer = Layers.Enum.UI_2D;
+                        fxParent.addComponent(UITransform);
+                        boardNode.addChild(fxParent);
+                    }
+                    fxParent.setSiblingIndex(boardNode.children.length - 1);
+                }
                 let remaining = total;
                 let done = false;
                 const finishOne = () => {
@@ -590,6 +623,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 for (const beanNode of nodes) {
                     this.playPinddSpineFxOnBean(beanNode, animationName, finishOne, {
                         allowActiveLimitOverride,
+                        fxParent,
                     });
                 }
                 if (total >= 128) reportRuntimeMemorySnapshot('color-fx.peak', this);
@@ -618,42 +652,9 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 Math.max(1, Number(boardTransform.contentSize.width || 1)),
                 Math.max(1, Number(boardTransform.contentSize.height || 1)),
             );
-            const mask = root.getComponent(Mask) || root.addComponent(Mask);
-            const graphics = root.getComponent(Graphics) || root.addComponent(Graphics);
-            this.drawPatternCompleteMatchFxMask(graphics);
-            mask.type = Mask.Type.GRAPHICS_STENCIL;
             setFxLayerDeep(root, Layers.Enum.UI_2D);
             root.setSiblingIndex(Math.max(0, boardNode.children.length - 1));
             return root;
-        },
-
-        drawPatternCompleteMatchFxMask(graphics: Graphics): void {
-            const boardModel = this.boardModel;
-            const boardWidth = Math.max(0, Number(this.levelData?.boardWidth || boardModel?.width) || 0);
-            const boardHeight = Math.max(0, Number(this.levelData?.boardHeight || boardModel?.height) || 0);
-            const cellSize = Number(this.getBoardSlotVisualSize?.() || this.cellSize);
-            if (!boardModel?.correctColors || boardWidth <= 0 || boardHeight <= 0 || !Number.isFinite(cellSize) || cellSize <= 0) {
-                throw createPinddSpineFxError('board pattern data unavailable for pattern-complete sweep mask');
-            }
-            if (typeof this.getBoardCellCenterLocal !== 'function') {
-                throw createPinddSpineFxError('board cell center API unavailable for pattern-complete sweep mask');
-            }
-            graphics.clear();
-            const halfCellSize = cellSize / 2;
-            let patternCellCount = 0;
-            for (let row = 0; row < boardHeight; row++) {
-                for (let col = 0; col < boardWidth; col++) {
-                    if (Number(boardModel.correctColors[row]?.[col]) <= 0) continue;
-                    const center = this.getBoardCellCenterLocal(row, col);
-                    graphics.rect(center.x - halfCellSize, center.y - halfCellSize, cellSize, cellSize);
-                    patternCellCount++;
-                }
-            }
-            if (patternCellCount <= 0) {
-                throw createPinddSpineFxError('board has no pattern cells for pattern-complete sweep mask');
-            }
-            graphics.fill();
-            debugPerfTrace('pinddSweepFx.patternMask', { patternCellCount, boardWidth, boardHeight });
         },
 
         clearPatternCompleteMatchFx(): void {
@@ -668,10 +669,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 this._patternCompleteMatchFxRoot = null;
                 return;
             }
-            for (const child of [...root.children]) {
-                child.removeFromParent();
-                child.destroy();
-            }
+            root.getComponent(PatternCompleteWaveFx)?.stop();
         },
 
         clearBeanSettleMatchFx(): void {
@@ -751,70 +749,38 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             );
         },
 
-        playPatternCompleteMatchFx(onDone?: () => void): void {
-            const finish = () => {
-                if (typeof onDone === 'function') onDone();
-            };
-            const boardNode = this.boardNode?.isValid ? this.boardNode : null;
-            const boardTransform = boardNode?.getComponent(UITransform);
-            if (!boardNode || !boardTransform) {
-                finish();
-                return;
+        getPatternCompleteWaveCells(): PatternWaveCell[] {
+            const cells: PatternWaveCell[] = [];
+            const board = this.boardModel;
+            if (!board?.correctColors || !this.boardNode?.isValid) {
+                throw new Error('[pattern-wave-fx] board unavailable');
             }
+            for (let row = 0; row < board.correctColors.length; row++) {
+                for (let col = 0; col < board.correctColors[row].length; col++) {
+                    if (Number(board.correctColors[row][col]) <= 0) continue;
+                    const bean = this.cellNodes[row]?.[col] as Node;
+                    if (!bean?.isValid || bean.parent !== this.boardNode) {
+                        throw new Error(`[pattern-wave-fx] missing pattern bean ${row},${col}`);
+                    }
+                    cells.push({ row, col, x: bean.position.x, y: bean.position.y, size: this.getBoardBeanVisualSize() });
+                }
+            }
+            return cells;
+        },
+
+        getPatternCompleteMatchFxDuration(): number {
+            return getPatternWaveDuration(this.getPatternCompleteWaveCells());
+        },
+
+        playPatternCompleteMatchFx(onDone?: () => void): void {
+            const prefab = this._patternCompleteWavePrefab as Prefab | null;
+            if (!prefab?.isValid) throw new Error('[pattern-wave-fx] prefab was not preloaded');
+            const cells = this.getPatternCompleteWaveCells();
             this.clearPatternCompleteMatchFx();
             const fxRoot = this.getPatternCompleteMatchFxRoot();
-            const boardWidth = Math.max(1, Number(boardTransform.contentSize.width || 1));
-            const boardHeight = Math.max(1, Number(boardTransform.contentSize.height || 1));
-            const diagonal = Math.sqrt(boardWidth * boardWidth + boardHeight * boardHeight);
-            const bandLength = Math.max(1, diagonal * 1.5);
-            const baseBandWidth = Math.max(24, diagonal * 0.12);
-            const travel = Math.max(1, (boardWidth + boardHeight) / 4 + baseBandWidth);
-            const sweep = new Node('PatternCompleteDiagonalSweepFx');
-            fxRoot.addChild(sweep);
-            sweep.layer = Layers.Enum.UI_2D;
-            sweep.angle = -45;
-            sweep.setPosition(-travel, travel, 0);
-            const sweepOpacity = sweep.addComponent(UIOpacity);
-            sweepOpacity.opacity = 0;
-            const frame = getPatternCompleteSweepFrame();
-            const bandSpecs = [
-                { name: 'Core', width: baseBandWidth * 0.52, opacity: 176 },
-            ];
-            for (const spec of bandSpecs) {
-                const band = new Node(`PatternCompleteSweep${spec.name}`);
-                sweep.addChild(band);
-                band.layer = Layers.Enum.UI_2D;
-                const transform = band.addComponent(UITransform);
-                transform.setContentSize(spec.width, bandLength);
-                const sprite = band.addComponent(Sprite);
-                sprite.type = Sprite.Type.SIMPLE;
-                sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-                sprite.spriteFrame = frame;
-                const opacity = band.addComponent(UIOpacity);
-                opacity.opacity = spec.opacity;
-            }
-            setFxLayerDeep(sweep, Layers.Enum.UI_2D);
-            debugPerfTrace('pinddSweepFx.patternComplete', {
-                boardWidth,
-                boardHeight,
-                bandCount: bandSpecs.length,
-            });
-            let completed = false;
-            const completeOnce = () => {
-                if (completed) return;
-                completed = true;
-                if (sweep?.isValid) sweep.destroy();
-                finish();
-            };
-            tween(sweepOpacity)
-                .to(PINDD_PATTERN_COMPLETE_SWEEP_FADE_IN_DURATION, { opacity: 255 })
-                .delay(Math.max(0, PINDD_PATTERN_COMPLETE_SWEEP_DURATION - PINDD_PATTERN_COMPLETE_SWEEP_FADE_IN_DURATION - PINDD_PATTERN_COMPLETE_SWEEP_FADE_OUT_DURATION))
-                .to(PINDD_PATTERN_COMPLETE_SWEEP_FADE_OUT_DURATION, { opacity: 0 })
-                .start();
-            tween(sweep)
-                .to(PINDD_PATTERN_COMPLETE_SWEEP_DURATION, { position: new Vec3(travel, -travel, 0) }, { easing: 'sineInOut' })
-                .call(completeOnce)
-                .start();
+            const player = fxRoot.getComponent(PatternCompleteWaveFx) || fxRoot.addComponent(PatternCompleteWaveFx);
+            debugPerfTrace('patternWaveFx.patternComplete', { cellCount: cells.length, duration: getPatternWaveDuration(cells) });
+            player.play(prefab, cells, onDone);
         },
 
         enqueueColorCompleteEffect(colorId: number, playSound: boolean = true): void {
@@ -851,33 +817,26 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             }
             const entries = Array.from(pending.entries());
             pending.clear();
-            const gap = Math.max(0, Number(gapSeconds) || 0);
-            let nextIndex = 0;
-            const playNext = () => {
-                const entry = entries[nextIndex++];
-                if (!entry) {
-                    onDone?.();
-                    return;
-                }
-                const [colorId] = entry;
-                this.playColorCompleteEffect(colorId, true, () => {
-                    if (nextIndex >= entries.length) {
-                        onDone?.();
-                        return;
-                    }
-                    if (gap > 0 && typeof this.scheduleOnce === 'function') {
-                        this.scheduleOnce(playNext, gap);
-                    } else {
-                        playNext();
-                    }
-                });
+            void gapSeconds;
+            let remaining = entries.length;
+            const completeOne = () => {
+                remaining -= 1;
+                if (remaining <= 0) onDone?.();
             };
-            playNext();
+            for (const [colorId] of entries) {
+                this.playColorCompleteEffect(colorId, true, completeOne);
+            }
         },
 
         playColorCompleteEffect(colorId: number, playSound: boolean = true, onDone?: () => void): void {
-            if (playSound) AudioMgr.inst.play('winColor');
-            this.playColorCompleteMatchFxForColor(colorId, onDone);
+            if (playSound) {
+                AudioMgr.inst.play('winColor');
+                this.requestGameplayJudgmentFeedback();
+            }
+            const complete = playSound && onDone
+                ? () => this.waitForGameplayJudgmentFeedback(onDone)
+                : onDone;
+            this.playColorCompleteMatchFxForColor(colorId, complete);
         },
 
         playColorCompleteEffectOnCells(
@@ -885,8 +844,14 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             playSound: boolean = true,
             onDone?: () => void,
         ): void {
-            if (playSound) AudioMgr.inst.play('winColor');
-            this.playColorCompleteMatchFxOnCells(targets, onDone);
+            if (playSound) {
+                AudioMgr.inst.play('winColor');
+                this.requestGameplayJudgmentFeedback();
+            }
+            const complete = playSound && onDone
+                ? () => this.waitForGameplayJudgmentFeedback(onDone)
+                : onDone;
+            this.playColorCompleteMatchFxOnCells(targets, complete);
         },
     });
 }

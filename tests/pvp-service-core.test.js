@@ -93,7 +93,7 @@ assert(source.includes("where({ playerAOpenid: openid, status: command.in(status
 assert(source.includes("where({ playerBOpenid: openid, status: command.in(statuses) })"), 'active match lookup must use the deployed player B/status/updatedAt index');
 assert(source.includes(".filter((row) => row.levelPrefix === LEVEL_PREFIX && row.rulesVersion === RULES_VERSION)"), 'active match namespace and rules must remain server-filtered');
 assert(!source.includes("async function createRankedMatch(event, openid, profile) {\n  if (await getActiveMatch(openid)) throw new Error('active match already exists');"), 'ranked matchmaking must not reject a recoverable active match');
-const matcherSource = fs.readFileSync(path.join(__dirname, '../cloudfunctions/pvpService/matchmaking.js'), 'utf8');
+const matcherSource = fs.readFileSync(path.join(__dirname, '../cloudfunctions/pvpService/matchmaking.js'), 'utf8').replace(/\r\n/g, '\n');
 assert(matcherSource.includes('HUMAN_REPLAY_VERIFICATION') && matcherSource.includes('row.completeRun === true'), 'historical candidates must require complete rule-verified replays');
 assert(matcherSource.includes("where({ levelId, rulesVersion: RULES_VERSION,\n      verified: true, eligibleForMatchmaking: true })"), 'replay lookup must use the deployed level/rules/verified/eligible/createdAt index');
 assert(!matcherSource.includes('ratingBucket: db.command.in'), 'replay lookup must not require an undeployed rating-bucket index before bot fallback');
@@ -123,6 +123,8 @@ assert(!opponentStateSource.includes('COLLECTIONS.checkpoints'), 'opponent state
 assert(opponentStateSource.includes("freshness: 'frozen'"), 'opponent state must be an immutable asynchronous run');
 
 const uiSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/GameCtrlModules/PvpModeModule.ts'), 'utf8');
+const lobbyViewSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/Panels/PixelPuzzleLobbyView.ts'), 'utf8');
+const lobbyPrefabSource = fs.readFileSync(path.join(__dirname, '../assets/GameAssetsBundle/UI/Prefabs/Panels/PixelPuzzleLobby.prefab'), 'utf8');
 const pvpServiceSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/PvpServiceMgr.ts'), 'utf8');
 const conveyorSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/PchConveyorGameplayController.ts'), 'utf8');
 const boardViewportSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts'), 'utf8');
@@ -202,25 +204,27 @@ assert(boardViewportSource.includes('if (!conveyorActive && this.shouldShowSlotA
 assert(boardViewportSource.includes('if (this.isRankedPvpMode?.() !== true)'), 'cooperation keeps normal skill space while ranked disables skills');
 assert(uiSource.includes("addAvatar(this, hud, 'SelfAvatar', context.self, -230, 507"), 'self portrait must overlap the left identity plate');
 assert(uiSource.includes("addAvatar(this, hud, 'OpponentAvatar', context.opponent, 8, 507"), 'opponent portrait must overlap the coral identity plate');
-for (const lobbyNode of ['LobbyBackdropDecor', 'SeasonPill', 'RankStage', 'RankMedalWings', 'RankCrest', 'StartMatch', 'PvpLeaderboard', 'History', 'Rules']) {
-  assert(uiSource.includes(lobbyNode), `optimized ranked lobby is missing ${lobbyNode}`);
+for (const lobbyNode of ['SeasonPill', 'RankStage', 'RankMedalWings', 'RankCrest', 'StartMatch', 'PvpLeaderboard', 'History', 'Rules']) {
+  assert(lobbyPrefabSource.includes(`"_name": "${lobbyNode}"`), `optimized ranked lobby prefab is missing ${lobbyNode}`);
 }
 for (const friendBattleNode of ['FriendChallenge', 'PvpFriendBattleOverlay', 'JoinFriendCard', 'JoinFriendChallenge', 'CreateFriendCard', 'CreateFriendChallenge']) {
   assert(uiSource.includes(friendBattleNode), `asynchronous friend battle UI is missing ${friendBattleNode}`);
 }
-assert(uiSource.includes("addButton(coopCard, 'CoopEntry', '开始合作'"), 'cooperation has its own mode card');
+assert(lobbyPrefabSource.includes('"_name": "CoopEntry"')
+  && uiSource.includes("bindLobbyButton(overlay, 'Content/ModeArea/CoopCard/CoopEntry'"), 'cooperation has its own bound mode card');
 assert(uiSource.includes('if (!this._pvpMatchStarting) this.openCoopLobby();'), 'cooperation entry opens the cooperative lobby when no match is starting');
 assert(uiSource.includes('回放好友已完成并保存的真实成绩'), 'join path must explain that the opponent result is frozen');
 assert(uiSource.includes('你先完成一局，成绩保存后再分享给好友'), 'create path must explain the creator-run-first flow');
 assert(uiSource.includes('getLaunchChallengeCode()'), 'friend battle panel must recognize a received share-card challenge code');
 assert(uiSource.includes('joinFriendChallenge(launchCode)'), 'friend battle join path must call the authoritative cloud service');
 assert(uiSource.includes('createFriendChallenge(levelId)'), 'friend battle create path must call the authoritative cloud service');
-assert(uiSource.includes('new Color(238, 241, 255, 255)'), 'ranked lobby must use an opaque high-contrast background');
-assert(uiSource.includes("addLobbySurface(overlay, 'RankedCard', 0, -411, 620, 344"), 'ranked card must enclose its secondary actions');
-assert(uiSource.includes("addButton(rankedCard, 'PvpLeaderboard', '排行榜', -210, -131"), 'leaderboard must stay inside the aligned ranked-card row');
-assert(uiSource.includes("addButton(rankedCard, 'History', '对战记录', 0, -131"), 'battle history must stay inside the aligned ranked-card row');
-assert(uiSource.includes("addButton(rankedCard, 'Rules', '玩法规则', 210, -131"), 'rules must stay inside the aligned ranked-card row');
-assert(uiSource.includes("'ChapterTitle', '闯关模式'"), 'unified lobby must expose chapter mode');
+assert(lobbyViewSource.includes("const PREFAB_PATH = 'UI/Prefabs/Panels/PixelPuzzleLobby'"), 'ranked lobby must load its owned prefab');
+assert(lobbyPrefabSource.includes('"_name": "Background"'), 'ranked lobby prefab must retain its background');
+assert(lobbyPrefabSource.includes('"_name": "RankedCard"'), 'ranked card must enclose its secondary actions');
+assert(uiSource.includes("bindLobbyButton(overlay, 'Content/Footer/PvpLeaderboard'"), 'leaderboard must stay bound inside the lobby footer');
+assert(uiSource.includes("bindLobbyButton(overlay, 'Content/Footer/History'"), 'battle history must stay bound inside the lobby footer');
+assert(uiSource.includes("bindLobbyButton(overlay, 'Content/Footer/Rules'"), 'rules must stay bound inside the lobby footer');
+assert(lobbyPrefabSource.includes('"_name": "ChapterTitle"'), 'unified lobby must expose chapter mode');
 assert(uiSource.includes('this.startThemeLevel(chapterLevelId, { suppressFailureToast: true })'), 'chapter entry must retain theme gameplay and vigor checks');
 assert(uiSource.includes('persistedBattle?.matchId === match.matchId'), 'resume must not merge elapsed time from another match');
 assert(!uiSource.includes('drawPvpEntry(parent'), 'separate ranked home entry must be removed');

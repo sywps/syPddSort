@@ -1,0 +1,18 @@
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const ts = require('typescript');
+const source = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/GameCtrlModules/GameplayColorCompleteFxModule.ts'), 'utf8');
+const result = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2020 }, reportDiagnostics: true });
+assert.deepStrictEqual(result.diagnostics, [], 'FX module must transpile');
+assert.ok(source.includes("animationName === PINDD_SPINE_FX_ANIMATION.colorComplete"));
+assert.ok(source.includes('node.parent !== boardNode'), 'reject unexpected cell hierarchy');
+assert.ok(source.includes('node.setParent(options.fxParent, true)'), 'preserve world transform');
+assert.ok(source.includes('node.setRotationFromEuler(0, 0, 0)'), 'reset pooled rotation before playback');
+assert.ok(source.includes('beanNode.getComponent(UIOpacity)?.opacity'), 'preserve bean opacity');
+assert.ok(source.includes('beanNode.getComponent(Sprite)?.color.a'), 'preserve sprite alpha inheritance');
+assert.ok(source.includes('fxParent.setSiblingIndex(boardNode.children.length - 1)'), 'render FX after cells');
+assert.ok(source.includes('for (const beanNode of nodes)'), 'retain same-frame loop');
+const layerCreation = source.slice(source.indexOf('let fxParent: Node | undefined;'), source.indexOf('let remaining = total;', source.indexOf('let fxParent: Node | undefined;')));
+assert.ok(!layerCreation.includes('Mask'), 'do not reuse pattern sweep stencil');
+console.log('color-complete-fx-layer.test.js passed (static contracts and TS transpilation; not renderer validation)');

@@ -158,6 +158,8 @@ const audioManifestMock = {
     AUDIO_BOOTSTRAP_SFX_NAMES: [
         'select', 'settle', 'fly', 'button', 'tick', 'lose',
         'winColor', 'winAll', 'winSettlement', 'revivePop',
+        'judgmentGreat', 'judgmentExcellent', 'judgmentAwesome',
+        'judgmentAmazing', 'judgmentPerfect', 'judgmentUnbelievable',
     ],
     AUDIO_SFX_RESOURCE_PATH: {
         select: 'Audio/select',
@@ -170,11 +172,19 @@ const audioManifestMock = {
         winAll: 'Audio/win-all',
         winSettlement: 'Audio/win-settlement',
         revivePop: 'Audio/revive-pop',
+        judgmentGreat: 'Audio/judgment-great',
+        judgmentExcellent: 'Audio/judgment-excellent',
+        judgmentAwesome: 'Audio/judgment-awesome',
+        judgmentAmazing: 'Audio/judgment-amazing',
+        judgmentPerfect: 'Audio/judgment-perfect',
+        judgmentUnbelievable: 'Audio/judgment-unbelievable',
     },
     AUDIO_SFX_VOLUME: {
         select: 0.55, button: 0.52, place: 0.72, settle: 0.72, fly: 0.4, return: 0.22,
         tick: 0.4, coin: 0.42, win: 0.52, lose: 0.44, winColor: 0.5,
         winAll: 0.5, winSettlement: 0.62, revivePop: 0.32,
+        judgmentGreat: 0.56, judgmentExcellent: 0.56, judgmentAwesome: 0.56,
+        judgmentAmazing: 0.56, judgmentPerfect: 0.56, judgmentUnbelievable: 0.56,
     },
     AUDIO_SFX_VOLUME_VARIANCE: {},
 };
@@ -212,7 +222,11 @@ const gameSceneAllowlistMatch = audioMgrSource.match(/const GAME_SCENE_SFX_ALLOW
 assert.ok(gameSceneAllowlistMatch, 'AudioMgr must declare an explicit Game-scene SFX allowlist');
 assert.deepStrictEqual(
     [...gameSceneAllowlistMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1]),
-    ['settle', 'button', 'tick', 'winColor', 'winAll', 'winSettlement', 'lose', 'revivePop'],
+    [
+        'settle', 'button', 'tick', 'winColor', 'winAll', 'winSettlement', 'lose', 'revivePop',
+        'judgmentGreat', 'judgmentExcellent', 'judgmentAwesome',
+        'judgmentAmazing', 'judgmentPerfect', 'judgmentUnbelievable',
+    ],
     'Game-scene SFX allowlist must match the approved gameplay policy',
 );
 assert.strictEqual(
@@ -332,17 +346,29 @@ assert.ok(audioMgr.sfxSources.some((source) => source.playing), 'SFX playback mu
 const settleClip = { _nativeAsset: { url: 'settle.mp3' } };
 audioMgr.sfxClips.set('settle', settleClip);
 audioClockMs = 10_000;
-for (let i = 0; i < 9; i++) audioMgr.play('settle');
+for (let i = 0; i < 10; i++) {
+    audioMgr.play('settle');
+    audioClockMs += 50;
+}
 const settleSources = [...audioMgr.placeOneShotSources];
-assert.strictEqual(settleSources.length, 1, 'active settlement cue must suppress overlapping settlement one-shots');
-assert.ok(settleSources[0].playing, 'the first settlement one-shot must continue playing');
-audioClockMs += 99;
+assert.strictEqual(settleSources.length, 10, 'ten arrivals at 50ms intervals must all start a sound');
+assert.ok(settleSources.every(source => source.playCount === 1 && source.playing && source.stopCount === 0), 'later arrivals must not interrupt previous sounds');
+for (let i = 0; i < 3; i++) audioMgr.play('settle');
+assert.strictEqual(audioMgr.placeOneShotSources.size, 13, 'arrivals sharing a frame must not be dropped');
+settleSources[0].complete();
+assert.strictEqual(audioMgr.placeOneShotSources.size, 12, 'completion must release only its own source');
+assert.strictEqual(settleSources[0].destroyCount, 1);
+assert.strictEqual(settleSources[0].node.isValid, false);
+assert.ok(settleSources.slice(1).every(source => source.playing && source.stopCount === 0));
+const remainingSettleSources = [...audioMgr.placeOneShotSources];
+audioMgr.setSfxEnabled(false);
+assert.strictEqual(audioMgr.placeOneShotSources.size, 0, 'mute must release all overlapping sources');
+assert.ok(remainingSettleSources.every(source => !source.playing && source.destroyCount === 1 && !source.node.isValid));
 audioMgr.play('settle');
-assert.strictEqual(audioMgr.placeOneShotSources.size, 1, 'settlement cue must remain locked before 100ms');
-audioClockMs += 1;
+assert.strictEqual(audioMgr.placeOneShotSources.size, 0, 'muted arrivals must stay silent');
+audioMgr.setSfxEnabled(true);
 audioMgr.play('settle');
-assert.strictEqual(audioMgr.placeOneShotSources.size, 1, 'new settlement cue must replace the finished audible window at 100ms');
-assert.ok(settleSources[0].stopCount >= 1, 'starting the next settlement cue must release the prior silent tail');
+assert.strictEqual(audioMgr.placeOneShotSources.size, 1, 'reenabling sound must allow next arrival');
 audioMgr.stopSfx();
 
 const toggleHandler = settingsSource.match(/toggle\.on\(Button\.EventType\.CLICK, \(\) => \{([\s\S]*?)\n    \}, runtime\);/);
@@ -388,6 +414,8 @@ audioMgr.sfxClips.set('uiPanel', { _nativeAsset: { url: 'ui-panel.mp3' } });
 const allowedGameSfxNames = [
     'settle', 'button', 'tick', 'winColor', 'winAll',
     'winSettlement', 'lose', 'revivePop',
+    'judgmentGreat', 'judgmentExcellent', 'judgmentAwesome',
+    'judgmentAmazing', 'judgmentPerfect', 'judgmentUnbelievable',
 ];
 for (const name of allowedGameSfxNames) {
     audioMgr.sfxClips.set(name, { _nativeAsset: { url: `${name}.mp3` } });
