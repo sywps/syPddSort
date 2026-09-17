@@ -24,6 +24,7 @@ export type WeChatMiniGameWindowInfo = {
 };
 
 export type WeChatGameClubButtonHandle = {
+    style?: Partial<WeChatGameClubButtonStyle>;
     destroy?: () => void;
     hide?: () => void;
     show?: () => void;
@@ -279,8 +280,10 @@ export function createWeChatGameCircleButton(
     if (target) options.openlink = target;
     const button = wxRuntime.createGameClubButton(options);
     if (!button || typeof button.show !== 'function') {
+        button?.destroy?.();
         throw new Error('[GameCircle] wx.createGameClubButton did not return a valid button');
     }
+    try {
     if (typeof onTap === 'function') {
         if (typeof button.onTap !== 'function') {
             throw new Error('[GameCircle] GameClubButton.onTap is unavailable');
@@ -288,6 +291,10 @@ export function createWeChatGameCircleButton(
         button.onTap(onTap);
     }
     button.show();
+    } catch (error) {
+        button.destroy?.();
+        throw error;
+    }
     return {
         button,
         style: nativeStyle,
@@ -299,9 +306,11 @@ export function createWeChatGameCircleButton(
 
 export function destroyWeChatGameCircleButton(button: WeChatGameClubButtonHandle | null | undefined): void {
     if (!button) return;
-    button.hide?.();
-    if (typeof button.destroy !== 'function') {
-        throw new Error('[GameCircle] GameClubButton.destroy is unavailable');
+    try { button.hide?.(); }
+    finally {
+        if (typeof button.destroy !== 'function') {
+            throw new Error('[GameCircle] GameClubButton.destroy is unavailable');
+        }
+        button.destroy();
     }
-    button.destroy();
 }

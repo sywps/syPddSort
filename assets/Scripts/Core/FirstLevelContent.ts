@@ -14,7 +14,7 @@ export function getFirstLevelPreview(): FirstLevelContent | null {
         || query?.firstLevelContent;
     const raw = browserValue || launchValue;
     if (!raw) {
-        const previewKeys = ['level', 'levelfile', 'level_file', 'levelfileurl', 'theme', 'ab', 'pick', 'pvppreview', 'cooppost', 'pddWorkbenchOrigin'];
+        const previewKeys = ['level', 'levelfile', 'level_file', 'levelfileurl', 'theme', 'ab', 'pick', 'encourage', 'pvppreview', 'cooppost', 'pddWorkbenchOrigin'];
         return previewKeys.some(key => params?.has(key) || query?.[key]) ? 'A' : null;
     }
     const value = String(raw).trim().toUpperCase();

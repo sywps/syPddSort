@@ -614,7 +614,46 @@ function findArtifactsByDecodedUuid(bundleRoot, kind, decodedUuid) {
         .map((fileName) => path.join(dir, fileName));
 }
 
+function copyBuiltSpriteFrameArtifact(sourceRoot, uuid, targetRoot) {
+    const decoded = decodeUuid(uuid);
+    const config = readJson(path.join(sourceRoot, 'config.json'));
+    let built = null;
+    // Prefer the build pack even when a previous postbuild copied a library JSON beside it.
+    for (const [packUuid, members] of Object.entries(config.packs || {})) {
+        const position = members.findIndex((ref) => decodeUuid(resolveConfigUuid(config, ref)) === decoded);
+        if (position < 0) continue;
+        const packPath = findArtifactByDecodedUuid(sourceRoot, 'import', decodeUuid(packUuid));
+        if (!packPath) throw new Error(`SpriteFrame build pack missing: ${decoded}`);
+        const pack = readJson(packPath);
+        if (!Array.isArray(pack) || !Array.isArray(pack[5]) || pack[5].length !== members.length) {
+            throw new Error(`SpriteFrame build pack invalid: ${decoded}`);
+        }
+        // Creator unpackJSONs prepends these five shared tables to each section.
+        built = [...pack.slice(0, 5), ...pack[5][position]];
+        break;
+    }
+    if (!built) {
+        const source = findArtifactByDecodedUuid(sourceRoot, 'import', decoded);
+        if (source) built = readJson(source);
+    }
+    if (!Array.isArray(built) || built.length !== 11) {
+        throw new Error(`SpriteFrame requires compiled import; editor cache forbidden: ${decoded}`);
+    }
+    const directory = path.join(targetRoot, 'import', decoded.slice(0, 2));
+    ensureDir(directory);
+    const targets = new Set([
+        ...findArtifactsByDecodedUuid(targetRoot, 'import', decoded),
+        ...findArtifactsByDecodedUuid(sourceRoot, 'import', decoded).map((file) => path.join(directory, path.basename(file))),
+        path.join(directory, `${decoded}.json`),
+    ]);
+    for (const target of targets) writeJson(target, built);
+    return true;
+}
+
 function copyGameAssetImportArtifacts(gameAssetsRoot, uuid, targetRoot = bootstrapOutputRoot) {
+    if (String(uuid).endsWith('@f9941')) {
+        return copyBuiltSpriteFrameArtifact(gameAssetsRoot, uuid, targetRoot);
+    }
     const decoded = decodeUuid(uuid);
     const sources = findArtifactsByDecodedUuid(gameAssetsRoot, 'import', decoded);
     if (sources.length === 0) return false;
@@ -1193,6 +1232,7 @@ console.log(`[bootstrap] dynamic assets patched: images=${copiedNative.size}, im
 if (require.main === module) main();
 
 module.exports = {
+    copyBuiltSpriteFrameArtifact,
     buildBundleSourceRecord,
     ensureStandaloneCconExtensionMap,
     localizeRedirectedBundleEntries,

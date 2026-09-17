@@ -49,6 +49,9 @@ function loadAdConfig({ buildMode, platform, query = {} }) {
                     getWeChatMiniGameRuntime: () => wxRuntime,
                 };
             }
+            if (id === '../Core/WeChatDeviceInfo') {
+                return { getCachedWeChatDeviceInfo: () => wxRuntime.getDeviceInfo() };
+            }
             throw new Error(`unexpected require: ${id}`);
         },
         console,

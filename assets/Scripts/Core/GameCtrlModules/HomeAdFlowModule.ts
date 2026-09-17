@@ -46,6 +46,40 @@ const DEFAULT_AFTER_GRANT_TIMEOUT_MS = 15000;
 const GRANT_TIMEOUT_TOAST = '奖励处理超时，请稍后查看到账结果';
 const REWARDED_AD_PRELOAD_RETRY_SECONDS = [2, 5, 15, 30] as const;
 
+type RewardedAdTraceContext = {
+    failureId?: string;
+    page: string;
+    levelId: number;
+    roundId: string;
+    clientBuildId: string;
+    adTransactionId: string;
+    triggerSource: string;
+    gameplayEntryMode: string;
+};
+
+function trackRewardedAdTrace(
+    context: RewardedAdTraceContext,
+    eventName: string,
+    success: boolean,
+    extra: Record<string, string | number | boolean> = {},
+): void {
+    AnalyticsMgr.inst.trackFunnelEvent?.({
+        eventName,
+        page: context.page,
+        levelId: context.levelId,
+        logicalLevelId: context.levelId,
+        roundId: context.roundId,
+        clientBuildId: context.clientBuildId,
+        source: 'rewarded_ad_transaction',
+        success,
+        extra: { ...context, ...extra },
+    });
+    if (eventName === 'rewarded_ad_outcome' || eventName === 'rewarded_ad_reward_success'
+        || eventName === 'rewarded_ad_cancel' || eventName.endsWith('_failed')) {
+        AnalyticsMgr.inst.flushFunnelEvents?.();
+    }
+}
+
 function resolveGrantTimeoutMs(value: number | undefined, fallback: number): number {
     const normalized = Math.floor(Number(value));
     return Number.isFinite(normalized) && normalized > 0 ? normalized : fallback;
@@ -80,6 +114,7 @@ type RewardedGrantRuntimeTransaction = {
     page: string;
     analyticsTransactionId: string;
     analyticsTriggerSource: string;
+    traceContext: RewardedAdTraceContext;
     attemptId: number;
     phase: 'ad' | 'recoverable' | 'grant' | 'after_grant';
     grantStage?: 'grant' | 'afterGrant';
@@ -171,13 +206,20 @@ export function installHomeAdFlowModule(target: any): void {
             } catch (error) {
                 console.error(`[RewardedGrant] provider cancellation failed: ${reason}`, error);
             }
-            if (providerCancelled) {
+            if (providerCancelled && !transaction) {
                 AnalyticsMgr.inst.trackFunnelEvent?.({
-                    eventName: wasRecoverable ? 'rewarded_ad_wait_cancel' : 'rewarded_ad_load_cancel',
+                    eventName: 'rewarded_ad_provider_cancel',
                     page: transaction?.page || this.getAnalyticsPage?.() || 'level_game',
-                    levelId: this.getAnalyticsLevelId?.() || 0,
+                    levelId: transaction?.traceContext?.levelId ?? this.getAnalyticsLevelId?.() ?? 0,
                     source: reason,
                     success: true,
+                    roundId: transaction?.traceContext?.roundId,
+                    clientBuildId: transaction?.traceContext?.clientBuildId,
+                    extra: {
+                        ...(transaction?.traceContext || {}),
+                        attemptId: transaction?.attemptId || 0,
+                        cancelReason: reason,
+                    },
                 });
                 AnalyticsMgr.inst.flushFunnelEvents?.();
             }
@@ -254,6 +296,7 @@ export function installHomeAdFlowModule(target: any): void {
                         success = false;
                     }
                     if (!eventName) return;
+                    if (eventName === 'rewarded_ad_show_success' || eventName === 'rewarded_ad_wait_shown') return;
                     const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
                     AnalyticsMgr.inst.trackFunnelEvent?.({
                         eventName,
@@ -413,6 +456,8 @@ export function installHomeAdFlowModule(target: any): void {
                 gameplayEntryMode?: string;
                 analyticsTransactionId?: string;
                 analyticsTriggerSource?: string;
+                analyticsRoundId?: string;
+                analyticsClientBuildId?: string;
                 onShow?: (attemptId: number) => void;
                 onRecoverable?: () => void;
             } = {},
@@ -420,12 +465,27 @@ export function installHomeAdFlowModule(target: any): void {
             const adType = `rewardedVideo:${page}`;
             const levelId = options.levelId ?? this.getAnalyticsLevelId();
             const gameplayEntryMode = resolveActiveGameplayEntryMode(this, options.gameplayEntryMode);
+            const traceContext: RewardedAdTraceContext = {
+                failureId: AnalyticsMgr.inst.getCurrentFailureId?.() || '',
+                page, levelId, gameplayEntryMode,
+                roundId: options.analyticsRoundId ?? AnalyticsMgr.inst.getCurrentRoundId(),
+                clientBuildId: options.analyticsClientBuildId ?? AnalyticsMgr.inst.getClientBuildId?.() ?? '',
+                adTransactionId: options.analyticsTransactionId || '',
+                triggerSource: options.analyticsTriggerSource || '',
+            };
             let interactionReleased = false;
             const adAudioReason = `rewarded:${page}`;
             this.ensureRewardedAdStateTelemetry();
             this._rewardedAdTelemetryPage = page;
             this._rewardedAdTelemetryLevelId = levelId;
             const inventoryAtClick = AdConfig.getRewardedAdState();
+            trackRewardedAdTrace(traceContext, 'rewarded_ad_request', true, {
+                providerStatus: inventoryAtClick.status,
+                generation: inventoryAtClick.generation,
+                inventoryReason: inventoryAtClick.reason,
+                loadOrigin: String(inventoryAtClick.reason || '').startsWith('after-ad-') ? 'replenishment' : 'preload_or_other',
+                adProvider: AdConfig.getRewardedAdMode?.() || 'unknown',
+            });
             AnalyticsMgr.inst.trackFunnelEvent?.({
                 eventName: 'rewarded_ad_inventory_at_click',
                 page,
@@ -435,6 +495,7 @@ export function installHomeAdFlowModule(target: any): void {
                 errorCode: '',
                 extra: {
                     providerStatus: inventoryAtClick.status,
+                    observationType: 'inventory_state_not_final_failure',
                     reason: inventoryAtClick.reason,
                     generation: inventoryAtClick.generation,
                     inventoryAgeMs: Math.max(0, Date.now() - inventoryAtClick.changedAt),
@@ -457,6 +518,12 @@ export function installHomeAdFlowModule(target: any): void {
             try {
                 AdConfig.showRewardedAd((outcome: RewardedAdOutcome) => {
                     const success = outcome.status === 'verified_complete';
+                    trackRewardedAdTrace(traceContext, 'rewarded_ad_outcome', success, {
+                        attemptId: outcome.attemptId,
+                        outcomeStatus: outcome.status,
+                        outcomeReason: String(outcome.reason || '').slice(0, 120),
+                        errorCode: String((outcome.error as any)?.errCode ?? (outcome.error as any)?.code ?? '').slice(0, 80),
+                    });
                     releaseInteraction(`complete-${outcome.status}`);
                     if (success) {
                         AnalyticsMgr.inst.trackAdFinish(adType, page, levelId, gameplayEntryMode, {
@@ -482,6 +549,7 @@ export function installHomeAdFlowModule(target: any): void {
                                 triggerSource: options.analyticsTriggerSource || '',
                                 previousGeneration: inventoryAtClick.generation,
                                 outcomeStatus: outcome.status,
+                                outcomeReason: outcome.reason || '',
                             },
                         });
                         if (this._rewardedAdTelemetryPage === page) {
@@ -492,6 +560,7 @@ export function installHomeAdFlowModule(target: any): void {
                     }
                 }, {
                     onShow: (attemptId: number) => {
+                        trackRewardedAdTrace(traceContext, 'rewarded_ad_show', true, { attemptId });
                         AnalyticsMgr.inst.trackAdShow(adType, page, levelId, gameplayEntryMode, {
                             transactionId: options.analyticsTransactionId,
                             attemptId,
@@ -500,7 +569,17 @@ export function installHomeAdFlowModule(target: any): void {
                         SySDKMgr.inst.reportAdShow(page);
                         options.onShow?.(attemptId);
                     },
-                    onRecoverable: () => {
+                    onClose: (result: any, attemptId: number) => {
+                        const hasIsEnded = typeof result?.isEnded === 'boolean';
+                        trackRewardedAdTrace(traceContext, 'rewarded_ad_close', hasIsEnded && result.isEnded, {
+                            attemptId, hasIsEnded,
+                            ...(hasIsEnded ? { isEnded: result.isEnded } : {}),
+                        });
+                    },
+                    onRecoverable: (attemptId: number) => {
+                        trackRewardedAdTrace(traceContext, 'rewarded_ad_recoverable', false, {
+                            attemptId, reason: 'foreground-before-close',
+                        });
                         releaseInteraction('recoverable');
                         options.onRecoverable?.();
                     },
@@ -756,6 +835,20 @@ export function installHomeAdFlowModule(target: any): void {
                 claimOptions.analyticsTriggerSource
                 || (page.includes('revive') ? 'revive' : 'manual_button'),
             ).slice(0, 64);
+            const traceContext: RewardedAdTraceContext = {
+                page, levelId: analyticsLevelId, roundId: analyticsRoundId, gameplayEntryMode,
+                failureId: AnalyticsMgr.inst.getCurrentFailureId?.() || '',
+                clientBuildId: AnalyticsMgr.inst.getClientBuildId?.() || '',
+                adTransactionId: analyticsTransactionId, triggerSource: analyticsTriggerSource,
+            };
+            const traceGrant = (eventName: string, success: boolean, reason: string) => {
+                trackRewardedAdTrace(traceContext, eventName, success, {
+                    attemptId: resolvedAttemptId, reason,
+                });
+            };
+            if (analyticsTriggerSource === 'revive') trackRewardedAdTrace(traceContext, 'revive_choice', true, {
+                method: 'ad', reviveAttemptId: analyticsTransactionId,
+            });
             const clearBusy = () => {
                 if (busyFlag) {
                     this[busyFlag] = false;
@@ -833,6 +926,7 @@ export function installHomeAdFlowModule(target: any): void {
             };
             const cancelTransaction = (reason: string) => {
                 if (finalized) return;
+                traceGrant('rewarded_ad_cancel', false, reason);
                 quarantineGrantStage();
                 cancelled = true;
                 attemptGeneration++;
@@ -853,6 +947,7 @@ export function installHomeAdFlowModule(target: any): void {
                 page,
                 analyticsTransactionId,
                 analyticsTriggerSource,
+                traceContext,
                 attemptId: 0,
                 phase: 'ad',
                 deadlineAt: 0,
@@ -873,6 +968,7 @@ export function installHomeAdFlowModule(target: any): void {
                 grantStageTimer = setTimeout(() => {
                     if (!isActive() || !grantStagePending || grantStagePromise !== promise) return;
                     console.error(`[RewardedGrant] ${page} ${stage} timed out after ${timeoutMs}ms`);
+                    traceGrant(stage === 'grant' ? 'rewarded_ad_grant_failed' : 'rewarded_ad_after_grant_failed', false, `${stage}-timeout`);
                     showRewardedGrantToast(
                         this,
                         stage === 'afterGrant'
@@ -900,6 +996,7 @@ export function installHomeAdFlowModule(target: any): void {
                 grantStarted = true;
                 clearRecoverableTimeoutTimer();
                 transaction.phase = 'grant';
+                traceGrant('rewarded_ad_grant_start', true, 'verified-complete');
                 PerformanceMgr.inst.markUserActivity(6000);
 
                 let grantResult: RewardedGrantResult;
@@ -907,6 +1004,7 @@ export function installHomeAdFlowModule(target: any): void {
                     grantResult = claimGrant();
                 } catch (error) {
                     console.error(`[RewardedGrant] ${page} grant failed:`, error);
+                    traceGrant('rewarded_ad_grant_failed', false, 'grant-threw');
                     showRewardedGrantToast(this, claimOptions.grantFailToast);
                     runFinally();
                     return;
@@ -923,10 +1021,12 @@ export function installHomeAdFlowModule(target: any): void {
                         if (!isGrantStageActive(grantPromise)) return;
                         clearGrantStage(grantPromise);
                         if (resolvedGrantResult === false) {
+                            traceGrant('rewarded_ad_grant_failed', false, 'grant-returned-false');
                             console.warn(`[RewardedGrant] ${page} grant returned false`);
                             showRewardedGrantToast(this, claimOptions.grantFailToast);
                             return;
                         }
+                        traceGrant('rewarded_ad_reward_success', true, 'grant-complete');
                         AnalyticsMgr.inst.trackAdRewardSuccess(
                             `rewardedVideo:${page}`,
                             page,
@@ -965,12 +1065,14 @@ export function installHomeAdFlowModule(target: any): void {
                             clearGrantStage(afterGrantPromise);
                             if (afterResult === false) {
                                 console.warn(`[RewardedGrant] ${page} afterGrant returned false`);
+                                traceGrant('rewarded_ad_after_grant_failed', false, 'after-grant-returned-false');
                                 showRewardedGrantToast(this, claimOptions.afterGrantFailToast || claimOptions.grantFailToast);
                             }
                         } catch (error) {
                             if (!isGrantStageActive(afterGrantPromise)) return;
                             clearGrantStage(afterGrantPromise);
                             console.error(`[RewardedGrant] ${page} afterGrant failed:`, error);
+                            traceGrant('rewarded_ad_after_grant_failed', false, 'after-grant-rejected');
                             showRewardedGrantToast(this, claimOptions.afterGrantFailToast || claimOptions.grantFailToast);
                         }
                     })
@@ -978,6 +1080,7 @@ export function installHomeAdFlowModule(target: any): void {
                         if (!isGrantStageActive(grantPromise)) return;
                         clearGrantStage(grantPromise);
                         console.error(`[RewardedGrant] ${page} grant failed:`, error);
+                        traceGrant('rewarded_ad_grant_failed', false, 'grant-rejected');
                         showRewardedGrantToast(this, claimOptions.grantFailToast);
                     })
                     .then(runFinally, runFinally);
@@ -1021,8 +1124,10 @@ export function installHomeAdFlowModule(target: any): void {
                         if (!isCurrentAttempt()
                             || transaction.phase !== 'recoverable'
                             || grantStarted) return;
-                        showRewardedGrantToast(this, '广告结果确认失败，请重试');
-                        this.cancelRewardedGrantInteraction?.('recoverable-timeout');
+                        // Foreground is not a close result. Keep the current listener alive
+                        // until native close, an explicit retry, or lifecycle cancellation.
+                        traceGrant('rewarded_ad_wait_pending', false, 'foreground-close-pending');
+                        // Waiting is observable in telemetry; do not interrupt the player with a timed toast.
                     }, 1000);
                 };
                 releaseCurrentAttemptInteraction = releaseAttemptInteraction;
@@ -1070,6 +1175,8 @@ export function installHomeAdFlowModule(target: any): void {
                         gameplayEntryMode,
                         analyticsTransactionId,
                         analyticsTriggerSource,
+                        analyticsRoundId,
+                        analyticsClientBuildId: traceContext.clientBuildId,
                         onShow: (attemptId: number) => {
                             resolvedAttemptId = Math.max(0, Math.floor(Number(attemptId) || 0));
                             transaction.attemptId = resolvedAttemptId;

@@ -29,18 +29,52 @@ const STARTUP_TRACE_KEY = '__PDD_STARTUP_TRACE__';
 const RUNTIME_ENTRY_AT_KEY = '__PDD_RUNTIME_ENTRY_AT__';
 const MAX_STARTUP_TRACE_EVENTS = 40;
 let weChatStartupPlayableReported = false;
+let playableAttempts = 0;
+let playableRetryAt = 0;
+let playableTerminal = false;
+let diagnosticRequestId = 0;
 
-export function reportWeChatStartupPlayable(wxRuntime: { reportScene?: (options: { sceneId: number }) => void } | null): void {
-    if (!wxRuntime || weChatStartupPlayableReported) return;
-    if (typeof wxRuntime.reportScene !== 'function') {
+// Local diagnostic switch only: no analytics upload and no engine object retention.
+export function recordStartupDiagnostic(event: string, extra: Record<string, string | number | boolean | null> = {}): void {
+    const host = getTraceHost();
+    if (host.__PDD_STARTUP_DIAGNOSTIC__ !== true) return;
+    const events = host.__PDD_STARTUP_DIAGNOSTIC_EVENTS__ ||= [];
+    if (events.length >= 240) return;
+    const timestamp = Date.now();
+    events.push({ event, timestamp, elapsedMs: timestamp - getTraceState().startedAt, ...extra });
+}
+
+export function beginStartupRequestDiagnostic(resource: string): number {
+    const id = ++diagnosticRequestId;
+    recordStartupDiagnostic('cdn_request_start', { id, resource: resource.split('?')[0], cacheHit: null, transferBytes: null });
+    return id;
+}
+
+export type StartupPlayableReportResult = 'reported' | 'already-reported' | 'retry' | 'unavailable' | 'failed';
+
+export function reportWeChatStartupPlayable(wxRuntime: { reportScene?: (options: { sceneId: number }) => void } | null): StartupPlayableReportResult {
+    if (weChatStartupPlayableReported) return 'already-reported';
+    if (playableTerminal) return 'failed';
+    if (!wxRuntime || typeof wxRuntime.reportScene !== 'function') {
+        playableTerminal = true;
+        recordStartupDiagnostic('playable_report_unavailable');
         console.warn('[StartupTrace] wx.reportScene unavailable; startup playable was not reported');
-        return;
+        return 'unavailable';
     }
+    if (Date.now() < playableRetryAt) return 'retry';
+    playableAttempts++;
+    recordStartupDiagnostic('playable_report_attempt', { attempt: playableAttempts, sceneId: 7 });
     try {
         wxRuntime.reportScene({ sceneId: 7 });
         weChatStartupPlayableReported = true;
+        recordStartupDiagnostic('playable_report_returned', { attempt: playableAttempts });
+        return 'reported';
     } catch (error) {
         console.error('[StartupTrace] startup playable report failed:', error);
+        playableTerminal = playableAttempts >= 3;
+        playableRetryAt = Date.now() + (playableAttempts === 1 ? 500 : 1000);
+        recordStartupDiagnostic('playable_report_error', { attempt: playableAttempts, terminal: playableTerminal, message: String(error).slice(0, 200) });
+        return playableTerminal ? 'failed' : 'retry';
     }
 }
 
@@ -74,6 +108,7 @@ function getTraceState(): StartupTraceState {
 export function markStartupTrace(eventName: string, extra: StartupTraceExtra = {}): void {
     const name = String(eventName || '').trim();
     if (!name) return;
+    recordStartupDiagnostic(name);
     const state = getTraceState();
     if (state.flushed) return;
     const now = Date.now();
@@ -96,12 +131,21 @@ export function flushStartupTrace(
     if (state.flushed) return;
     state.flushed = true;
     const events = state.events.slice();
+    const elapsed: Record<string, number> = {};
+    for (const event of events) elapsed[event.eventName] = event.elapsedMs;
+    track({ eventName: 'startup_summary', page: 'startup', source: 'startup_trace',
+        success: events.some(e => e.eventName === 'startup_first_playable_ready'),
+        duration: events[events.length - 1]?.elapsedMs || 0, ...context,
+        extra: { startupStartedAt: state.startedAt, stages: JSON.stringify(elapsed), stageCount: events.length } });
     for (const event of events) {
+        if (!['app_launch', 'startup_runtime_entry', 'startup_first_playable_ready'].includes(event.eventName)
+            && !/failed|error/.test(event.eventName)
+            && !(getTraceHost().__PDD_ANALYTICS_DIAGNOSTIC__ === true)) continue;
         track({
             eventName: event.eventName,
             page: 'startup',
             source: 'startup_trace',
-            success: true,
+            success: !/failed|error/.test(event.eventName),
             duration: event.elapsedMs,
             ...context,
             extra: {

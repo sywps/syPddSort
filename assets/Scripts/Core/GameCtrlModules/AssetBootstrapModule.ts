@@ -3128,6 +3128,8 @@ export function installAssetBootstrapModule(target: any): void {
 
         handleGameHideFlushUserState(): void {
             this._gameForeground = false;
+            this._pchConveyorGameplayController?.reportLevelThreeLeave?.('background');
+            this._pchConveyorGameplayController?.resetCapacityAdGesture?.();
             this.flushCoopOnHide?.();
             this.resetTouchState?.();
             this.pauseGuideReminderForLifecycle?.();
@@ -3138,12 +3140,17 @@ export function installAssetBootstrapModule(target: any): void {
 
         handleGameShowLifecycle(): void {
             this._gameForeground = true;
+            this._pchConveyorGameplayController?.resumeAnalyticsMeasurement?.();
+            this._pchConveyorGameplayController?.resetCapacityAdGesture?.();
             this.checkCoopInvitation?.();
             this.ensureRewardedAdWarmSlot?.('app-foreground');
             this.resetTouchState?.();
             this.auditRuntimeOwnersAfterForeground?.();
             this.resumeGuideReminderForLifecycle?.();
             this.reportFirstLevelReleaseState?.('app_show');
+            if (this._csdInteractionReady && !this._firstLevelReleaseAfterDrawSeen) {
+                this.scheduleFirstLevelReleaseDiagnostics?.();
+            }
             this.refreshVigorUI?.();
             this.refreshGoldUI?.();
             this.syncSkillButtonRuntimeStates?.();

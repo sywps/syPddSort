@@ -126,11 +126,13 @@ const gameCtrlSharedMock = {
     UITransform: class {},
     Vec3: class {},
 };
+let encouragementEnabled = true;
 vm.runInNewContext(compiled, {
     module: moduleRecord,
     exports: moduleRecord.exports,
     require: (request) => {
         if (request === '../GameCtrlShared') return gameCtrlSharedMock;
+        if (request === '../EncouragementFeedbackPolicy') return { isEncouragementEnabled: () => encouragementEnabled };
         throw new Error(`unexpected module: ${request}`);
     },
     console,
@@ -187,4 +189,11 @@ clockMs = 4201;
 scheduled.shift().callback.call(runtime);
 assert.strictEqual(judgmentWaitCompleted, true, 'final flow must resume after the central visual ends');
 
+encouragementEnabled = false;
+const disabled = { isValid: true, scheduleOnce() { throw Error('B must not schedule feedback'); }, getSF() { throw Error('B must not build text'); } };
+moduleRecord.exports.installGameplayJudgmentFeedbackMethods(disabled);
+disabled.requestGameplayJudgmentFeedback();
+disabled.playGameplayJudgmentFeedback(moduleRecord.exports.GAMEPLAY_JUDGMENT_ENTRIES[0]);
+assert.strictEqual(disabled._gameplayJudgmentVoiceLockedUntilMs, undefined);
+assert.strictEqual(disabled._gameplayJudgmentVisualEndsAtMs, undefined);
 console.log('gameplay-judgment-feedback.test.js passed');

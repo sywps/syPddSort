@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const cloud = require('wx-server-sdk');
 
 cloud.init({
@@ -64,8 +65,8 @@ function sanitizeExtraValue(value, allowNested, depth) {
 function sanitizeExtra(value, allowNested = false, depth = 0) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const result = {};
-  // Preserve the existing 30-field budget plus five independent selection-experiment fields.
-  for (const [key, raw] of Object.entries(value).slice(0, 35)) {
+  // Preserve the existing budget plus selection and encouragement experiment fields.
+  for (const [key, raw] of Object.entries(value).slice(0, 40)) {
     const safeKey = cleanString(key, 64);
     if (!safeKey) continue;
     const safeValue = sanitizeExtraValue(raw, allowNested, depth);
@@ -87,6 +88,11 @@ function normalizeEvent(raw, openid, defaultSessionId, receivedAt) {
   const errorCode = cleanString(raw.errorCode, 64);
   return {
     openid,
+    analyticsSchemaVersion: normalizeNonNegative(raw.analyticsSchemaVersion),
+    csdVersion: normalizeNonNegative(raw.csdVersion),
+    analyticsEnvironment: cleanString(raw.analyticsEnvironment, 32),
+    eventId: cleanString(raw.eventId, 160),
+    gameplayEntryMode: cleanString(raw.gameplayEntryMode, 24),
     sessionId,
     roundId: cleanString(raw.roundId, 120),
     eventSeq,
@@ -100,6 +106,7 @@ function normalizeEvent(raw, openid, defaultSessionId, receivedAt) {
     source: cleanString(raw.source, 64),
     success: normalizeBoolean(raw.success),
     errorCode,
+    extraDroppedKeyCount: Math.max(0, Object.keys(raw.extra || {}).length - 40),
     errorMessage: cleanString(raw.errorMessage, 256),
     duration: normalizeNonNegative(raw.duration),
     abId: cleanString(raw.abId, 64),
@@ -111,10 +118,14 @@ function normalizeEvent(raw, openid, defaultSessionId, receivedAt) {
     clientBuildId: cleanString(raw.clientBuildId, 80),
     levelDataSource: cleanString(raw.levelDataSource, 48),
     elapsedMsFromLaunch: normalizeNonNegative(raw.elapsedMsFromLaunch),
+    elapsedMsFromRoundStart: normalizeNonNegative(raw.elapsedMsFromRoundStart),
     elapsedMsFromLevelReady: normalizeNonNegative(raw.elapsedMsFromLevelReady),
     timestamp: normalizeNonNegative(raw.timestamp) || receivedAt,
     receivedAt,
-    extra: sanitizeExtra(raw.extra, isSystemErrorLikeEvent(eventName, errorCode)),
+    extra: {
+      ...sanitizeExtra(raw.extra, eventName === 'guide_step_summary' || isSystemErrorLikeEvent(eventName, errorCode)),
+      ...(eventName === 'startup_summary' ? { stages: cleanString(raw.extra?.stages, 4096) } : {}),
+    },
   };
 }
 
@@ -137,12 +148,15 @@ exports.main = async (event = {}) => {
   }
 
   const receivedAt = Date.now();
+  if (rawEvents.some(item => Number(item?.csdVersion) >= 3 && item.analyticsEnvironment !== 'wechat_release')) {
+    return { ok: false, errorMessage: 'CSD requires confirmed release analytics environment' };
+  }
   const defaultSessionId = cleanString(event.sessionId, 96) || `${openid}:${receivedAt}`;
   const events = rawEvents
     .map((item) => normalizeEvent(item || {}, openid, defaultSessionId, receivedAt))
     .filter(Boolean);
 
-  if (events.length === 0) {
+  if (events.length === 0 || events.length !== rawEvents.length) {
     return {
       ok: false,
       errorMessage: 'no valid events',
@@ -151,7 +165,13 @@ exports.main = async (event = {}) => {
 
   try {
     const collection = db.collection(FUNNEL_COLLECTION);
-    const results = await Promise.all(events.map((item) => collection.add({ data: item })));
+    const results = await Promise.all(events.map(async item => {
+      const key = item.eventId || (item.sessionId && item.eventSeq > 0 ? item.dedupeKey : '');
+      if (!key) return collection.add({ data: item });
+      const id = crypto.createHash('sha256').update(openid + ':' + key).digest('hex');
+      await collection.doc(id).set({ data: item });
+      return { _id: id };
+    }));
     return {
       ok: true,
       count: results.length,

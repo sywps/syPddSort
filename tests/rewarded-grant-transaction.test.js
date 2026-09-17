@@ -73,6 +73,7 @@ function loadInstaller(timerApi = {}, adApi = {}) {
                 return { releasePixelPosterPreviewTree() {} };
             }
             if (id === '../RuntimeLog') return { runtimeLog() {} };
+            if (id === '../Panels/FeedbackPanelController') return { openFeedbackPanel() {} };
             if (id === '../../Platform/WeChatShareReturnService') {
                 return { weChatShareReturnService: { start: () => ({ started: false, reason: 'unavailable' }) } };
             }
@@ -378,6 +379,7 @@ async function main() {
         },
     });
     let recoverableTimeoutHook = null;
+    let recoverableTimeoutComplete = null;
     const recoverableTimeoutRuntime = {
         _skillActive: false,
         showToast: (text) => recoverableTimeoutEvents.push(`toast:${text}`),
@@ -385,6 +387,7 @@ async function main() {
     installRecoverableTimeoutFlow(recoverableTimeoutRuntime);
     recoverableTimeoutRuntime.showTrackedRewardedAd = (_page, _onComplete, options) => {
         recoverableTimeoutHook = options.onRecoverable;
+        recoverableTimeoutComplete = _onComplete;
     };
     recoverableTimeoutRuntime.runRewardedGrant('unlock_slot_row', () => {
         recoverableTimeoutEvents.push('grant');
@@ -397,16 +400,20 @@ async function main() {
     });
     recoverableTimeoutHook();
     const timeoutTimer = recoverableTimers.find((timer) => timer.delay === 1000 && !timer.cleared);
-    assert.ok(timeoutTimer, 'recoverable result confirmation must use only a one-second grace period');
+    assert.ok(timeoutTimer, 'pending confirmation must remain observable after one second');
     timeoutTimer.callback();
     assert.deepStrictEqual(recoverableTimeoutEvents, [
         'recoverable',
-        'toast:广告结果确认失败，请重试',
-        'finally',
-        'provider-end:recoverable-timeout',
     ]);
-    assert.strictEqual(recoverableTimeoutRuntime._rewardedGrantTransaction, null);
+    assert.strictEqual(recoverableTimeoutRuntime._rewardedGrantTransaction.phase, 'recoverable');
     assert.strictEqual(recoverableTimeoutRuntime._skillActive, false);
+    recoverableTimeoutComplete(adOutcome('verified_complete', 1));
+    recoverableTimeoutComplete(adOutcome('verified_complete', 1));
+    await flushMicrotasks();
+    assert.deepStrictEqual(recoverableTimeoutEvents, [
+        'recoverable', 'grant', 'finally',
+    ], 'a verified close after the silent waiting interval grants exactly once without destroying the listener');
+    assert.strictEqual(recoverableTimeoutRuntime._rewardedGrantTransaction, null);
 
     const pendingEvents = [];
     const pendingCallbacks = [];
@@ -730,6 +737,7 @@ async function main() {
 
     const trackedCallbacks = [];
     const trackedAnalyticsStages = [];
+    const trackedFunnelStages = [];
     let trackedAudioRefs = 0;
     const installTrackedFlow = loadInstaller({}, {
         showRewardedAd(callback, hooks) {
@@ -746,6 +754,8 @@ async function main() {
         AnalyticsMgr: {
             inst: {
                 getCurrentRoundId() { return 'tracked-round'; },
+                getClientBuildId() { return 'tracked-build'; },
+                trackFunnelEvent(event) { trackedFunnelStages.push(event); },
                 trackAdClick(...args) { trackedAnalyticsStages.push({ stage: 'click', attribution: args[4] }); },
                 trackAdShow(...args) { trackedAnalyticsStages.push({ stage: 'show', attribution: args[4] }); },
                 trackAdFinish(...args) { trackedAnalyticsStages.push({ stage: 'finish', attribution: args[4] }); },
@@ -781,6 +791,7 @@ async function main() {
         const trackedAttempt = trackedCallbacks.shift();
         assert.ok(trackedAttempt, 'shared provider callback must be registered');
         trackedAttempt.hooks.onShow(attempt);
+        trackedAttempt.hooks.onClose({ isEnded: true }, attempt);
         trackedAttempt.callback(adOutcome('verified_complete', attempt, { closeResult: { isEnded: true } }));
         assert.strictEqual(trackedGrantCount, attempt, 'verified close must invoke the concrete grant in the same turn');
         assert.strictEqual(trackedAudioRefs, 0, 'verified close must release shared audio before later lifecycle work');
@@ -805,6 +816,66 @@ async function main() {
             'all ad stages must preserve one trigger source',
         );
     }
+
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const events = trackedFunnelStages.filter(e => e.source === 'rewarded_ad_transaction'
+            && e.extra.adTransactionId === `tracked-round:ad:${attempt}`);
+        assert.deepStrictEqual(events.map(e => e.eventName), [
+            'rewarded_ad_request', 'rewarded_ad_show', 'rewarded_ad_close',
+            'rewarded_ad_outcome', 'rewarded_ad_grant_start', 'rewarded_ad_reward_success',
+        ]);
+        assert.ok(events.every(e => e.roundId === 'tracked-round' && e.clientBuildId === 'tracked-build'
+            && e.levelId === 165 && e.page === 'unlock_slot_row'));
+        assert.ok(events.slice(1).every(e => e.extra.attemptId === attempt));
+        assert.strictEqual(events[2].extra.hasIsEnded, true);
+        assert.strictEqual(events[2].extra.isEnded, true);
+    }
+
+    for (const [result, status] of [[{ isEnded: false }, 'verified_incomplete'], [{}, 'unknown']]) {
+        trackedRuntime.runRewardedGrant('pch_conveyor_expand', () => {
+            throw new Error('unverified close must not grant');
+        });
+        const pending = trackedCallbacks.shift();
+        pending.hooks.onShow(3);
+        pending.hooks.onClose(result, 3);
+        pending.callback(adOutcome(status, 3, { reason: 'test-close', closeResult: result }));
+        await flushMicrotasks();
+        const close = trackedFunnelStages.filter(e => e.eventName === 'rewarded_ad_close').at(-1);
+        assert.strictEqual(close.extra.hasIsEnded, typeof result.isEnded === 'boolean');
+        if (status === 'unknown') assert.strictEqual('isEnded' in close.extra, false);
+        const outcome = trackedFunnelStages.filter(e => e.eventName === 'rewarded_ad_outcome').at(-1);
+        assert.strictEqual(outcome.extra.outcomeStatus, status);
+        assert.strictEqual(outcome.extra.outcomeReason, 'test-close');
+    }
+    trackedRuntime.runRewardedGrant('pch_conveyor_expand', () => Promise.reject(new Error('grant rejected')));
+    const rejected = trackedCallbacks.shift();
+    rejected.callback(adOutcome('verified_complete', 4));
+    await flushMicrotasks();
+    assert.ok(trackedFunnelStages.some(e => e.eventName === 'rewarded_ad_grant_failed'
+        && e.extra.reason === 'grant-rejected' && e.extra.attemptId === 4));
+
+    // Validate the real cloud sanitizer preserves the trace, without deploying or writing remotely.
+    const writes = [];
+    const cloudBox = { exports: {}, console, require(id) {
+        if (id === 'crypto') return require('crypto');
+        assert.equal(id, 'wx-server-sdk');
+        return { init() {}, getWXContext: () => ({ OPENID: 'test-player' }),
+            database: () => ({ collection: () => ({ add: async ({ data }) => {
+                writes.push(data); return { _id: String(writes.length) };
+            }, doc: () => ({ set: async ({ data }) => { writes.push(data); return {}; } }) }) }) };
+    } };
+    vm.runInNewContext(fs.readFileSync(path.join(root, 'cloudfunctions/addFunnelEvents/index.js'), 'utf8'), cloudBox);
+    const traces = trackedFunnelStages.filter(e => e.source === 'rewarded_ad_transaction').slice(0, 6);
+    const saved = await cloudBox.exports.main({ sessionId: 'test-session', events: traces.map((e, i) => ({ ...e, eventSeq: i + 1 })) });
+    assert.equal(saved.ok, true);
+    assert.equal(writes.length, 6);
+    assert.ok(writes.every(e => e.roundId === 'tracked-round' && e.extra.adTransactionId === 'tracked-round:ad:1'));
+    assert.equal(writes[2].extra.hasIsEnded, true);
+    assert.equal(writes[2].extra.isEnded, true);
+    const { buildRewardedAdAudit } = require('../scripts/rewarded-ad-audit');
+    const reconciliation = buildRewardedAdAudit([], JSON.parse(JSON.stringify(writes)));
+    assert.equal(reconciliation.transactionCount, 1);
+    assert.deepEqual(reconciliation.transactions[0].attempts[0].issues, []);
 
     console.log('rewarded-grant-transaction.test.js passed');
 }

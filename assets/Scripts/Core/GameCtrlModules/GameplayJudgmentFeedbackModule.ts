@@ -11,6 +11,7 @@ import {
     Vec3,
 } from '../GameCtrlShared';
 import type { SfxName } from '../AudioManifest';
+import { isEncouragementEnabled } from '../EncouragementFeedbackPolicy';
 
 export const GAMEPLAY_JUDGMENT_DURATION_SECONDS = 1;
 export const GAMEPLAY_JUDGMENT_VOICE_LOCK_MS = 1180;
@@ -102,6 +103,7 @@ export function installGameplayJudgmentFeedbackMethods(target: any): void {
         },
 
         requestGameplayJudgmentFeedback(): void {
+            if (!isEncouragementEnabled(this)) return;
             const requestTimeMs = Date.now();
             if (requestTimeMs < Math.max(0, Number(this._gameplayJudgmentVoiceLockedUntilMs) || 0)) return;
             this._gameplayJudgmentPending = true;
@@ -143,6 +145,7 @@ export function installGameplayJudgmentFeedbackMethods(target: any): void {
         },
 
         playGameplayJudgmentFeedback(entry: GameplayJudgmentEntry): void {
+            if (!isEncouragementEnabled(this)) return;
             const wordFrame = this.getSF?.(entry.textureName) as SpriteFrame | null;
             if (!wordFrame) {
                 throw createGameplayJudgmentError(`required SpriteFrame missing: ${entry.textureName}`);

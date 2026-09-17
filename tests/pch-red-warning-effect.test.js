@@ -120,10 +120,16 @@ function tween(target) {
 }
 const Harness = new Function('Tween', 'tween', 'Vec3', 'Color', code + '\nreturn WarningHarness;')(Tween, tween, Vec3, class Color {});
 const h = new Harness();
+let hasReturnableMatch = false;
+h.rules = { hasReturnableCarrierMatch: () => hasReturnableMatch };
 Object.assign(h, { runtime: { isGameEnd: false }, warningPulseGeneration: 0,
     warningOverlayRunning: false, capacityWarningActive: false,
     warningOverlayOpacity: { isValid: true, opacity: 0 },
     warningOverlay: { isValid: true, active: false, setScale(x, y, z) { this.scale = new Vec3(x, y, z); } } });
+hasReturnableMatch = true;
+h.syncWarningOverlay(10);
+assert.equal(jobs.length, 0, 'a matching carrier bean must suppress the overlay at low capacity');
+hasReturnableMatch = false;
 h.syncWarningOverlay(11);
 assert.equal(jobs.length, 0);
 h.syncWarningOverlay(10);
@@ -173,6 +179,17 @@ assert.equal(jobs.length, firstPulse + 3, 'remaining low must not restart after 
 h.syncWarningOverlay(11);
 h.syncWarningOverlay(10);
 assert.equal(jobs.length, firstPulse + 4, 'recovery must rearm the three-pulse warning');
+const interruptedPulse = jobs[jobs.length - 1];
+hasReturnableMatch = true;
+h.syncWarningOverlay(8);
+assert.equal(h.warningOverlay.active, false, 'a new matching bean must stop an active warning');
+assert.equal(interruptedPulse.cancelled, true);
+const interruptedJobCount = jobs.length;
+interruptedPulse.callback();
+assert.equal(jobs.length, interruptedJobCount, 'cancelled callbacks must not restart the warning');
+hasReturnableMatch = false;
+h.syncWarningOverlay(8);
+assert.equal(jobs.length, interruptedJobCount + 1, 'loss of the match at low capacity must allow a new warning');
 h.resetCapacityWarning();
 h.capacityWarningAnimation = { play() { numberPlays++; }, stop() {} };
 h.syncCapacityWarning(true);

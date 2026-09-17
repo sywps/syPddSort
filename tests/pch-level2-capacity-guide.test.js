@@ -70,7 +70,7 @@ assert.ok(
 assert.ok(
     source.includes('logicalLevelId === 3 && this.adButton?.isValid')
         && source.includes("'PchLevelThreeCapacityGuide'")
-        && source.includes("'传送带满了就会失败哦\\n点击扩容可以增加传送带容量'")
+        && source.includes("'点击扩容可以增加传送带容量\\n传送带满了就会失败哦'")
         && source.includes('const isStarterOpeningGuide = isLevelOneBoardGuide || isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;')
         && source.includes('this.createOpeningGuideCapacityFocusMask(parent, targetLocal, targetWidth, targetHeight);'),
     'mainline level 3 must retain its capacity guide with a dedicated conveyor-and-button dim mask',

@@ -98,6 +98,8 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         isFirstLevelReleaseDiagnosticsActive(): boolean {
+            if (this.isGameEnd || this._pchConveyorGameplayController?.isFinishCommitted?.()) return false;
+            if (this._pchConveyorGameplayController?.isSettlementPaused?.()) return false;
             if ((Number(this._firstLevelReleaseDiagStartedAt) || 0) <= 0) return false;
             if (this._isThemeLevel || this._activeGameplayEntryMode !== 'main') return false;
             return Math.max(1, Math.floor(Number(this.getActiveLogicalLevelId?.()) || 1)) === 1;
@@ -408,7 +410,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 || phase === 'native_touch_capture'
                 || phase.indexOf('no_guide_touch_') === 0;
             const blockers = shouldScanBlockers ? collectActiveBlockInputEvents() : [];
-            const loadingAllowed = phase === 'diagnostic_start'
+            const loadingAllowed = !this._csdInteractionReady || phase === 'diagnostic_start'
                 || phase === 'before_ui_build'
                 || phase === 'before_loading_hide';
             const modalFocusActive = (Number(this._modalFocusRefs) || 0) > 0;
@@ -418,6 +420,7 @@ export function installFirstLevelRouteModule(target: any): void {
             const unexpectedBlockers = blockers.filter((entry) => {
                 const path = String(entry.path || '');
                 if (path.includes('/GuideLayer')) return false;
+                if (this._pchConveyorGameplayController?.isExpectedGuideBlocker?.(path)) return false;
                 if (loadingAllowed && path.includes('/StartupLoadingUI')) return false;
                 if (modalFocusActive && this.isExpectedModalBlockerPath?.(path)) return false;
                 return true;
@@ -439,15 +442,15 @@ export function installFirstLevelRouteModule(target: any): void {
                 .slice(0, 240);
             const rawGuideStep = Number(this._guideStep);
             const guideStep = Number.isFinite(rawGuideStep) ? Math.floor(rawGuideStep) : -1;
-            const guideExpected = this._guideMode === 'level_1' && guideStep >= 0;
+            const guideExpected = this._csdInteractionReady && this._guideMode === 'level_1' && guideStep >= 0;
             const foreground = this._gameForeground !== false;
             const guideActionEnabled = this._guideStatus === 'awaiting_action'
                 && (Number(this._guideActionEnabledAt) || 0) > 0;
             const nativeTouchCount = Math.max(0, Number(this._firstLevelReleaseNativeTouchCount) || 0);
             const canvasTouchCount = Math.max(0, Number(this._firstLevelReleaseCanvasTouchCount) || 0);
-            let errorCode = phase === 'after_draw_missing' || phase === 'tutorial_missing' ? phase : '';
+            let errorCode = foreground && (phase === 'after_draw_missing' || phase === 'tutorial_missing') ? phase : '';
             if (!errorCode && foreground && !loadingAllowed && loadingActive) errorCode = 'loading_overlay_active';
-            if (!errorCode && foreground && unexpectedBlockers.length > 0) errorCode = 'unexpected_input_blocker';
+            if (!errorCode && foreground && this._csdInteractionReady && unexpectedBlockers.length > 0) errorCode = 'unexpected_input_blocker';
             if (!errorCode && foreground && guideExpected && !modalFocusActive && !guideLayerActive) {
                 errorCode = 'guide_layer_inactive';
             }
@@ -494,6 +497,8 @@ export function installFirstLevelRouteModule(target: any): void {
                     diagSeq: nextSeq,
                     msFromDiagStart: Math.max(0, Date.now() - (Number(this._firstLevelReleaseDiagStartedAt) || Date.now())),
                     gameForeground: foreground,
+                    interactionReady: !!this._csdInteractionReady,
+                    observationScope: 'instant_snapshot_not_sustained_failure',
                     inputTrace: [
                         this._firstLevelReleaseNativeTouchObserverState || 'unavailable',
                         nativeTouchCount,
@@ -557,8 +562,13 @@ export function installFirstLevelRouteModule(target: any): void {
             if (!this.isFirstLevelReleaseDiagnosticsActive?.()) return;
             const token = Number(this._firstLevelReleaseDiagToken) || 0;
             const afterDrawEvent = (Director as any)?.EVENT_AFTER_DRAW;
+            if (this._firstLevelReleaseAfterDrawFallbackTimer) clearTimeout(this._firstLevelReleaseAfterDrawFallbackTimer);
+            if (this._firstLevelReleaseAfterDrawHandler && afterDrawEvent) {
+                director.off(afterDrawEvent, this._firstLevelReleaseAfterDrawHandler, this);
+            }
             const reportAfterDraw = (): void => {
                 if (token !== (Number(this._firstLevelReleaseDiagToken) || 0)) return;
+                if (this._gameForeground === false || !this.isFirstLevelReleaseDiagnosticsActive?.()) return;
                 if (this._firstLevelReleaseAfterDrawSeen) return;
                 this._firstLevelReleaseAfterDrawSeen = true;
                 this._firstLevelReleaseAfterDrawHandler = null;
@@ -586,6 +596,7 @@ export function installFirstLevelRouteModule(target: any): void {
                         }
                         this._firstLevelReleaseAfterDrawHandler = null;
                         this._firstLevelReleaseAfterDrawFallbackTimer = null;
+                        if (this._gameForeground === false || !this.isFirstLevelReleaseDiagnosticsActive?.()) return;
                         this.reportFirstLevelReleaseState?.('after_draw_missing');
                     }, 1000);
                 } catch (_) {
@@ -597,6 +608,8 @@ export function installFirstLevelRouteModule(target: any): void {
                 this.reportFirstLevelReleaseState?.('after_draw_missing');
             }
 
+            if (this._csdDelayedDiagnosticsToken === token) return;
+            this._csdDelayedDiagnosticsToken = token;
             const delayedHandlers: Array<() => void> = [];
             for (const [delaySeconds, phase] of [[0.5, 'no_guide_touch_500ms'], [2, 'no_guide_touch_2000ms'], [5, 'no_guide_touch_5000ms']] as Array<[number, string]>) {
                 const handler = (): void => {
@@ -1100,9 +1113,9 @@ export function installFirstLevelRouteModule(target: any): void {
                 && (urlLevel === 1 || (urlLevel <= 0 && initialDefaultEntryLevel <= 1
                     && !(Number(pendingSceneGameplayRequest?.levelId) > 1)))) {
                 AppRoot.tryGet()?.startupLoading?.setStage('正在准备关卡…');
-                await Promise.all([AnalyticsMgr.inst.prepareFirstLevelExperiment(), AnalyticsMgr.inst.prepareBeanSelectionExperiment()]);
+                await Promise.all([AnalyticsMgr.inst.prepareFirstLevelExperiment(), AnalyticsMgr.inst.prepareBeanSelectionExperiment(), AnalyticsMgr.inst.prepareEncouragementExperiment()]);
             } else if (!pixelPvpRequest && !urlLevelFile && !urlTheme) {
-                await AnalyticsMgr.inst.prepareBeanSelectionExperiment();
+                await Promise.all([AnalyticsMgr.inst.prepareBeanSelectionExperiment(), AnalyticsMgr.inst.prepareEncouragementExperiment()]);
             }
             const pendingMainGameplayRequest = !urlLevelFile
                 && urlLevel <= 0

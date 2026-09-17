@@ -168,6 +168,25 @@ export class GameplaySessionController {
             runtime.resetAdRewardHintState?.(dynamicTimeLimit);
             initStage = 'pch_core_gameplay';
             const pchController = ensurePchConveyorGameplayController(runtime);
+            const analyticsLevelId = runtime.getAnalyticsLevelId();
+            const analyticsPhysicalLevelId = runtime.getActivePhysicalLevelId();
+            initStage = 'level_analytics';
+            const experimentAnalyticsContext = gameplayEntryMode === 'main'
+                ? getFrontLevelExperimentAnalyticsContext(analyticsLevelId, 'level_')
+                : null;
+            AnalyticsMgr.inst.beginLevel(analyticsLevelId, runtime.getAnalyticsPage(), {
+                logicalLevelId: analyticsLevelId,
+                physicalLevelId: analyticsPhysicalLevelId,
+                abId: experimentAnalyticsContext?.abId,
+                abBucket: experimentAnalyticsContext?.abBucket,
+                gameplayMode: PCH_GAMEPLAY_MODE,
+                gameplayEntryMode,
+                gameplaySchemaVersion: PCH_GAMEPLAY_SCHEMA_VERSION,
+                levelDataSource,
+                effectiveTimeLimit: dynamicTimeLimit,
+                ddaFactor: Number(runtime._dynamicCountdownFactor) || 1,
+                ddaReason: String(runtime._dynamicCountdownReason || ''),
+            }, null);
             pchController.start();
             AnalyticsMgr.inst.setLevelContext({
                 logicalLevelId: activeLogicalLevelId,
@@ -201,7 +220,7 @@ export class GameplaySessionController {
                     this.clearGameplayReadyRouteCover();
                     const startupTracePhysicalLevel = runtime.getActivePhysicalLevelId();
                     const startupTraceLogicalLevel = runtime.getActiveLogicalLevelId();
-                    debugPerfSnapshot('runtime.game.firstPlayable', runtime, {
+                    debugPerfSnapshot('runtime.game.uiBuilt', runtime, {
                         levelId: startupTraceLogicalLevel,
                         physicalLevelId: startupTracePhysicalLevel,
                         entryMode: gameplayEntryMode,
@@ -216,16 +235,6 @@ export class GameplaySessionController {
                         });
                         runtime.reportFirstLevelReleaseState?.('ui_ready_emitted');
                     }
-                    markStartupTrace('startup_first_playable_ready', {
-                        levelId: startupTraceLogicalLevel,
-                        physicalLevelId: startupTracePhysicalLevel,
-                        entryMode: gameplayEntryMode,
-                    });
-                    flushStartupTrace((event) => AnalyticsMgr.inst.trackFunnelEvent(event), {
-                        levelId: startupTraceLogicalLevel,
-                        logicalLevelId: startupTraceLogicalLevel,
-                        physicalLevelId: startupTracePhysicalLevel,
-                    });
                     AnalyticsMgr.inst.flushFunnelEvents();
                     initStage = 'startup_services';
                     runtime.scheduleRewardedAdPreload?.('gameplay-ready-fallback', 0);
@@ -236,25 +245,6 @@ export class GameplaySessionController {
                     runtime._timerStarted = false;
                     runtime._adTimerSuspended = false;
 
-                    const analyticsLevelId = runtime.getAnalyticsLevelId();
-                    const analyticsPhysicalLevelId = runtime.getActivePhysicalLevelId();
-                    initStage = 'level_analytics';
-                    const experimentAnalyticsContext = gameplayEntryMode === 'main'
-                        ? getFrontLevelExperimentAnalyticsContext(analyticsLevelId, 'level_')
-                        : null;
-                    AnalyticsMgr.inst.beginLevel(analyticsLevelId, runtime.getAnalyticsPage(), {
-                        logicalLevelId: analyticsLevelId,
-                        physicalLevelId: analyticsPhysicalLevelId,
-                        abId: experimentAnalyticsContext?.abId,
-                        abBucket: experimentAnalyticsContext?.abBucket,
-                        gameplayMode: PCH_GAMEPLAY_MODE,
-                        gameplayEntryMode,
-                        gameplaySchemaVersion: PCH_GAMEPLAY_SCHEMA_VERSION,
-                        levelDataSource,
-                        effectiveTimeLimit: dynamicTimeLimit,
-                        ddaFactor: Number(runtime._dynamicCountdownFactor) || 1,
-                        ddaReason: String(runtime._dynamicCountdownReason || ''),
-                    }, pchController.getAnalyticsSnapshot());
                     if (gameplayEntryMode === 'main' && analyticsLevelId >= 2
                         && !runtime.isRankedPvpMode?.() && !runtime.isCoopMode?.()) {
                         const bucket = pchController.getBeanSelectionBucket();
@@ -269,15 +259,25 @@ export class GameplaySessionController {
                     }
                     if (!isWorkbenchPreviewRequested() && !getBrowserLevelPreview().active) SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
                     initStage = 'interaction_ready';
-                    this.reportLevelInteractionReady(
-                        runtime,
-                        analyticsLevelId,
-                        analyticsPhysicalLevelId,
-                        gameplayEntryMode,
-                        tutorialMode,
-                    );
-                    runtime.reportFirstLevelReleaseState?.('interaction_ready_emitted');
-                    runtime.scheduleFirstLevelReleaseDiagnostics?.();
+                    runtime._csdOnInteractionReady = () => {
+                        if (initSeq !== Math.max(0, Number(runtime._gameplayInitSeq) || 0) || runtime.isGameEnd) return;
+                        debugPerfSnapshot('runtime.game.firstPlayable', runtime, {
+                            levelId: startupTraceLogicalLevel, physicalLevelId: startupTracePhysicalLevel,
+                            entryMode: gameplayEntryMode,
+                        });
+                        markStartupTrace('startup_first_playable_ready', {
+                            levelId: startupTraceLogicalLevel, physicalLevelId: startupTracePhysicalLevel,
+                            entryMode: gameplayEntryMode,
+                        });
+                        flushStartupTrace(event => AnalyticsMgr.inst.trackFunnelEvent(event), {
+                            levelId: startupTraceLogicalLevel, logicalLevelId: startupTraceLogicalLevel,
+                            physicalLevelId: startupTracePhysicalLevel,
+                        });
+                        this.reportLevelInteractionReady(runtime, analyticsLevelId, analyticsPhysicalLevelId,
+                            gameplayEntryMode, tutorialMode);
+                        runtime.reportFirstLevelReleaseState?.('interaction_ready_emitted');
+                        runtime.scheduleFirstLevelReleaseDiagnostics?.();
+                    };
                     if (isWorkbenchPreviewRequested()) {
                         if (WorkbenchPreviewService.inst.hasBackground() && !runtime.applyPreparedGameplayBackground()) throw new Error('[试玩] 背景应用失败');
                         void WorkbenchPreviewService.inst.ready(runtime, analyticsPhysicalLevelId)
@@ -398,6 +398,8 @@ export class GameplaySessionController {
             cleanupErrors: cleanupErrors.join('|'),
         };
         let fatalSurfaceAttempted = false;
+        markStartupTrace('startup_failed', { levelId, errorCode });
+        flushStartupTrace(event => AnalyticsMgr.inst.trackFunnelEvent(event), { levelId });
         if (typeof runtime.stopLevelDataLoadWithFatalError === 'function') {
             try {
                 fatalSurfaceAttempted = true;
@@ -456,7 +458,7 @@ export class GameplaySessionController {
         entryMode: string,
         tutorialMode: TutorialMode,
     ): void {
-        if (entryMode !== 'main' || logicalLevelId < 1 || logicalLevelId > 3) return;
+        if (entryMode !== 'main' || logicalLevelId < 1 || logicalLevelId > 10) return;
         const blockers = collectActiveBlockInputEvents();
         const modalFocusActive = (Number(runtime._modalFocusRefs) || 0) > 0;
         const expectedModalBlockers = modalFocusActive
@@ -464,6 +466,7 @@ export class GameplaySessionController {
             : [];
         const unexpectedBlockers = blockers.filter((entry) => {
             const path = String(entry.path || '');
+            if (runtime._pchConveyorGameplayController?.isExpectedGuideBlocker?.(path)) return false;
             if (modalFocusActive && runtime.isExpectedModalBlockerPath?.(path)) return false;
             return true;
         });
@@ -480,6 +483,7 @@ export class GameplaySessionController {
                 ? 'unexpected_input_blocker'
                 : (modalFocusMismatch ? 'modal_focus_without_expected_blocker' : ''),
             extra: {
+                interactionMode: runtime._pchConveyorGameplayController?.isOpeningGuideActive?.() ? 'guided' : 'free',
                 tutorialMode,
                 guideMode: runtime._guideMode || 'none',
                 guideStep: Math.max(-1, Math.floor(Number(runtime._guideStep) || 0)),

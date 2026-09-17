@@ -109,9 +109,10 @@ function createSettingsOverlay() {
     const box = new FakeNode('Box');
     box.addComponent(UITransform);
     overlay.addChild(box);
-    for (const name of ['XBtn', 'Home', 'Close']) {
+    for (const name of ['XBtn', 'Home', 'Restart', 'GameplayTip']) {
         box.addChild(new FakeNode(name));
     }
+    box.getChildByName('Restart').addChild(new FakeNode('VigorCostBadge'));
     for (let index = 0; index < 3; index += 1) {
         const row = new FakeNode(`SettingsRow${index}`);
         const toggle = new FakeNode('ToggleWrap');
@@ -220,6 +221,8 @@ function createBaseRuntime(events) {
             events.push(`end-modal:${token}`);
         },
         getRuntimeSceneName: () => 'Game',
+        getActiveLogicalLevelId: () => 3,
+        isTutorialVigorFreeLevel: (level, mode) => mode === 'main' && level <= 2,
         playPopupOpenAnim() {},
         _clearSpriteFramesBeforeDestroy() {
             events.push('visual-fallback-clear');
@@ -340,6 +343,49 @@ assert.strictEqual(
     'repeated Home clicks must share one route dispatch',
 );
 resolveHomeRoute();
+
+const restartEvents = [];
+const restartRuntime = createBaseRuntime(restartEvents);
+restartRuntime._withGameAssetsBundle = homeRuntime._withGameAssetsBundle;
+restartRuntime._closePanelWithTextureOwner = (node) => { node.isValid = false; };
+restartRuntime.restart = () => { restartEvents.push('restart'); };
+const restartController = new SettingsPanelController(restartRuntime);
+restartController.open();
+const restartBox = restartRuntime.popupRoot.getChildByName('SettingsOverlay').getChildByName('Box');
+assert.strictEqual(restartBox.getChildByName('GameplayTip').active, true);
+assert.strictEqual(restartBox.getChildByName('Restart').getChildByName('VigorCostBadge').active, true);
+restartBox.getChildByName('Restart').emit(Button.EventType.CLICK);
+restartBox.getChildByName('Restart').emit(Button.EventType.CLICK);
+assert.strictEqual(restartEvents.filter((event) => event === 'restart').length, 1, 'repeated clicks must restart only once');
+for (const event of ['resume:timer:1:settings', 'resume-conveyor', 'end-modal:modal:1:settings']) {
+    assert.ok(restartEvents.indexOf(event) < restartEvents.indexOf('restart') && restartEvents.includes(event), 'settings leases must release before restart');
+}
+
+const lobbyRuntime = createBaseRuntime([]);
+lobbyRuntime.getRuntimeSceneName = () => 'Home';
+lobbyRuntime._withGameAssetsBundle = homeRuntime._withGameAssetsBundle;
+lobbyRuntime._closePanelWithTextureOwner = (node) => { node.isValid = false; };
+const lobbyController = new SettingsPanelController(lobbyRuntime);
+lobbyController.open();
+const lobbyBox = lobbyRuntime.popupRoot.getChildByName('SettingsOverlay').getChildByName('Box');
+for (const name of ['Home', 'Restart', 'GameplayTip']) {
+    assert.strictEqual(lobbyBox.getChildByName(name).active, false, 'gameplay actions and tip must stay hidden in Home');
+}
+lobbyController.dispose();
+
+for (const [level, mode, coop, expected] of [[1, 'main', false, false], [2, 'main', false, false], [3, 'main', false, true], [1, 'theme', false, true], [3, 'theme', true, false]]) {
+    const runtime = createBaseRuntime([]);
+    runtime.getActiveLogicalLevelId = () => level;
+    runtime._activeGameplayEntryMode = mode;
+    runtime.isCoopMode = () => coop;
+    runtime._withGameAssetsBundle = homeRuntime._withGameAssetsBundle;
+    runtime._closePanelWithTextureOwner = (node) => { node.isValid = false; };
+    const controller = new SettingsPanelController(runtime);
+    controller.open();
+    const badge = runtime.popupRoot.getChildByName('SettingsOverlay').getChildByName('Box').getChildByName('Restart').getChildByName('VigorCostBadge');
+    assert.strictEqual(badge.active, expected, `cost badge: level=${level}, mode=${mode}, coop=${coop}`);
+    controller.dispose();
+}
 
 const failureEvents = [];
 const failureRuntime = createBaseRuntime(failureEvents);

@@ -30,6 +30,13 @@ export class CoopPanelController {
     private busy = false;
     constructor(private readonly runtime: any) {}
 
+    getStartupInteractionState(): 'inactive' | 'loading' | 'ready' {
+        if (!this.root?.isValid || !this.root.activeInHierarchy) return 'inactive';
+        const back = this.root.getChildByName('返回')?.getComponent(Button);
+        return !this.busy && back?.enabledInHierarchy && back.interactable && back.node.activeInHierarchy
+            ? 'ready' : 'loading';
+    }
+
     open(tab: 'mine' | 'square' | 'collection' = 'mine', postId = ''): void {
         this.close();
         const root = coopNode(this.runtime.requireCanvasUiRoot('OverlayRoot'), 'CoopLobby', 0, 0, 720, 1280);

@@ -35,8 +35,10 @@ assert.ok(panel.includes('resolveUiVisibleLowerLeft'), 'Game Circle panel must c
 assert.ok(panel.includes('rect.left >= -epsilon'), 'Game Circle native rect must first detect bottom-left Cocos UI coordinates');
 assert.ok(panel.includes('-visibleSize.width / 2'), 'Game Circle native rect must handle Canvas-centered UI coordinates');
 assert.ok(panel.includes('leftUi - visibleLowerLeft.x'), 'Game Circle native rect must be based on the resolved UI visible lower-left origin');
-assert.ok(panel.includes('runtime.bindPanelButton(enterBtn'), 'visible Game Circle button must detect missed native-button coverage');
-assert.ok(panel.includes('Cocos EnterBtn received the tap'), 'Cocos Game Circle button taps must report a placement/API error instead of opening a fallback path');
+assert.ok(!panel.includes('runtime.bindPanelButton(enterBtn'), 'Cocos EnterBtn is visual-only; native button owns interaction');
+assert.ok(!panel.includes('Cocos EnterBtn received the tap'), 'do not throw a synthetic runtime error from the visual-only button');
+assert.ok(panel.includes('onOpened:'), 'native button waits for popup animation completion');
+assert.ok(panel.includes('Director.EVENT_AFTER_DRAW'), 'native geometry follows completed layout');
 assert.ok(!panel.includes('openByPageManager'), 'Game Circle must not call PageManager from a Cocos button');
 assert.ok(!panel.includes('openWeChatGameCirclePage'), 'Game Circle panel must not trigger openPage directly');
 assert.ok(!panel.includes('runtimeWarn'), 'Game Circle platform failures must not be downgraded to warnings');

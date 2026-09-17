@@ -317,7 +317,8 @@ export class GameplaySkillUiController {
         const currentLevel = runtime.getActiveLogicalLevelId();
         const entryMode = runtime._activeGameplayEntryMode
             || (runtime._currentExternalLevelFilePath ? 'external' : (runtime._isThemeLevel ? 'theme' : 'main'));
-        if (!shouldShowGameplaySkillArea(currentLevel, entryMode)) {
+        root.active = shouldShowGameplaySkillArea(currentLevel, entryMode);
+        if (!root.active) {
             for (const kind of this.skillShellKinds) {
                 const node = root.getChildByName(this.getSkillShellName(kind));
                 if (!node?.isValid) continue;

@@ -2,6 +2,7 @@
 "use strict";
 
 const fs = require("fs");
+const { buildAnalyticsV2FromSummaries, renderAnalyticsV2 } = require('./analytics-v2-report');
 const { aggregateFirstLevelExperimentReports } = require('./first-level-experiment-report');
 const { aggregateBeanSelectionExperimentReports } = require('./bean-selection-experiment-report');
 const path = require("path");
@@ -13,6 +14,12 @@ const PCH_FUNNEL_EVENT_NAMES = new Set([
   "pch_guide_step_shown",
   "pch_guide_tap_result",
   "pch_guide_step_done",
+  "pch_level3_first_action_after_guide",
+  "pch_level3_progress_25",
+  "pch_level3_progress_50",
+  "pch_level3_progress_75",
+  "pch_level3_background_snapshot",
+  "pch_level3_leave_snapshot",
 ]);
 const RETIRED_PCH_STAT_FIELDS = [
   "selectionAttempts",
@@ -704,10 +711,12 @@ function main() {
     dailyDiagnosis: aggregateDailyDiagnosis(summaries, targetDate, dates),
     firstLevelExperiment: aggregateFirstLevelExperimentReports(summaries.map(item => item.firstLevelExperiment)),
     beanSelectionExperiment: aggregateBeanSelectionExperimentReports(summaries.map(item => item.beanSelectionExperiment)),
+    analyticsV2: buildAnalyticsV2FromSummaries(summaries),
   };
   output.dailyDiagnosis.coreMetrics.date = targetDate;
   const outDir = path.join(REPORT_ROOT, targetDate);
   fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, 'analytics_v2.md'), renderAnalyticsV2(output.analyticsV2));
   fs.writeFileSync(path.join(outDir, "combined_summary.json"), `${JSON.stringify(output, null, 2)}\n`);
   fs.writeFileSync(path.join(outDir, "combined_report.md"), buildMarkdown(output));
   console.log(`Wrote ${path.join(outDir, "combined_summary.json")}`);

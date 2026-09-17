@@ -1,9 +1,13 @@
 import { getBrowserLevelPreview } from './BrowserLevelPreview';
 import { _decorator, Game, game, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
+import { AnalyticsDelivery } from './AnalyticsDelivery';
+import { AnalyticsMeasurements } from './AnalyticsMeasurements';
+import { isOfficialAnalyticsRuntime, CSD_MEASUREMENT_VERSION } from './CsdAnalyticsPolicy';
 import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime, getMiniGameBuildPlatform } from './MiniGamePlatform';
 import { firstLevelExperiment } from './FirstLevelExperiment';
 import { beanSelectionExperiment } from './BeanSelectionExperiment';
+import { encouragementExperiment } from './EncouragementExperiment';
 import { getFirstLevelPreview } from './FirstLevelContent';
 import { runtimeLog } from './RuntimeLog';
 import { isWorkbenchPreviewRequested } from './WorkbenchPreviewService';
@@ -15,7 +19,8 @@ import {
 const { ccclass } = _decorator;
 
 const LS_ANALYTICS_OPENID = 'pdd.analytics.openid.v1';
-const LS_RUNTIME_CHECKPOINT = 'pdd.analytics.runtime_checkpoint.v1';
+const LS_RUNTIME_CHECKPOINT = 'pdd.analytics.runtime_checkpoint.release.v3';
+const LS_ACTIVE_ROUND = 'pdd.analytics.active_round.release.v3';
 const RUNTIME_CHECKPOINT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_RUNTIME_DIAGNOSTICS_PER_SESSION = 8;
 const MAX_RUNTIME_DIAGNOSTIC_MESSAGE_LENGTH = 240;
@@ -49,15 +54,19 @@ export type LevelSessionAnalyticsUpdate = {
 };
 
 type CloudResult = {
+    queued?: boolean;
     ok?: boolean;
     errorMessage?: string;
     openid?: string;
     isNewUser?: boolean;
     firstLevelExperiment?: unknown;
     beanSelectionExperiment?: unknown;
+    encouragementExperiment?: unknown;
 };
 
 export type ReportDataOptions = {
+    lifecycleReason?: string;
+    failureId?: string;
     eventName: string;
     levelId?: string | number;
     page?: string;
@@ -154,6 +163,7 @@ export type UpdateUserProfileAssetsOptions = {
 };
 
 type LevelSessionState = {
+    exitReason: string;
     sessionId: string;
     roundId: string;
     clientBuildId: string;
@@ -293,9 +303,9 @@ function resolveRuntimeDiagnosticMessage(payload: unknown): string {
     const reason = value.reason;
     const error = value.error;
     return sanitizeRuntimeDiagnosticText(
-        value.message
-        || (reason && typeof reason === 'object' ? reason.message : reason)
-        || (error && typeof error === 'object' ? error.message : error)
+        value.message || value.errMsg
+        || (reason && typeof reason === 'object' ? reason.message || reason.errMsg : reason)
+        || (error && typeof error === 'object' ? error.message || error.errMsg : error)
         || '',
     );
 }
@@ -347,32 +357,72 @@ export class AnalyticsMgr {
     private readonly appLaunchTime = Date.now();
     private funnelEventSeq = 0;
     private firstLevelReadyTime = 0;
-    private funnelQueue: Record<string, unknown>[] = [];
-    private funnelFlushTimer: any = null;
-    private funnelInFlight = false;
-    private funnelUploadDisabled = false;
-    private funnelUploadDisableWarned = false;
     private runtimeDiagnosticsBound = false;
     private rewardedAdLoadTelemetryBound = false;
     private runtimeDiagnosticCount = 0;
     private readonly runtimeDiagnosticFingerprints = new Set<string>();
     private lastRuntimeCheckpoint = 'analytics_created';
     private lastRuntimeCheckpointAt = this.appLaunchTime;
+    private delivery: AnalyticsDelivery;
+    private measurements: AnalyticsMeasurements;
+    private launchReported = false;
+    private failureSeq = 0;
+    private failureId = '';
+    isCollectionEnabled(): boolean {
+        return !isWorkbenchPreviewRequested() && !getBrowserLevelPreview().active
+            && isOfficialAnalyticsRuntime(getWeChatMiniGameRuntime());
+    }
     private constructor() {
         firstLevelExperiment.initialize(sys.localStorage,
             isWeChatMiniGameRuntime() || getMiniGameBuildPlatform() === 'wechat', getFirstLevelPreview());
         beanSelectionExperiment.initialize(sys.localStorage,
             isWeChatMiniGameRuntime() || getMiniGameBuildPlatform() === 'wechat', getFirstLevelPreview() !== null);
+        encouragementExperiment.initialize(sys.localStorage,
+            isWeChatMiniGameRuntime() || getMiniGameBuildPlatform() === 'wechat', getFirstLevelPreview() !== null);
         this.openid = this.readCachedOpenid();
+        this.delivery = new AnalyticsDelivery(sys.localStorage,
+            () => this.resolveDeliveryOwner(),
+            (name, data) => PlatformCloudMgr.inst.callFunction(name, data), () => this.isCollectionEnabled());
+        this.measurements = new AnalyticsMeasurements(sys.localStorage, event => {
+            return this.delivery.enqueue('addFunnelEvents', { ...event, eventSeq: ++this.funnelEventSeq }, event.owner ?? this.openid);
+        }, () => this.isCollectionEnabled());
+        this.measurements.flush('recovered');
+        try {
+            const previous = this.isCollectionEnabled() ? JSON.parse(sys.localStorage.getItem(LS_ACTIVE_ROUND) || 'null') : null;
+            if (previous?.roundId) {
+                const queued = this.delivery.enqueue('addFunnelEvents', { ...previous,
+                    eventName: 'level_unresolved_previous', success: false, timestamp: Date.now(),
+                    extra: { previousEventAt: previous.timestamp, reason: 'restart_without_terminal',
+                        previousState: previous.eventName } }, previous.owner || '');
+                if (queued) sys.localStorage.setItem(LS_ACTIVE_ROUND, 'null');
+            }
+        } catch (error) { console.error('[AnalyticsMgr] round recovery failed', error); }
         this.recoverPreviousRuntimeCheckpoint();
         this.markRuntimeCheckpoint('analytics_created', true, 'app', 0);
         this.bindRuntimeDiagnostics();
         this.bindRewardedAdLoadTelemetry();
         this.bindLifecycle();
+        this.trackFunnelEvent({ eventName: 'app_launch', page: 'app', source: 'analytics_created', success: true });
     }
 
     private firstLevelAssignmentReported = false;
     private beanSelectionPrepared: Promise<void> | null = null;
+    private encouragementPrepared: Promise<void> | null = null;
+
+    private async resolveDeliveryOwner(): Promise<string> {
+        let timer: ReturnType<typeof setTimeout>;
+        try {
+            return await Promise.race([
+                this.ensureReady().then(ready => ready ? this.openid : ''),
+                new Promise<string>((_, reject) => {
+                    timer = setTimeout(() => reject(new Error('analytics identity timeout')), 12000);
+                }),
+            ]);
+        } catch (error) {
+            this.readyPromise = null;
+            throw error;
+        } finally { clearTimeout(timer!); }
+    }
 
     prepareBeanSelectionExperiment(): Promise<void> {
         if (this.beanSelectionPrepared) return this.beanSelectionPrepared;
@@ -392,6 +442,26 @@ export class AnalyticsMgr {
                 success: beanSelectionExperiment.decision?.status === 'enrolled' });
         })();
         return this.beanSelectionPrepared;
+    }
+
+    prepareEncouragementExperiment(): Promise<void> {
+        if (this.encouragementPrepared) return this.encouragementPrepared;
+        this.encouragementPrepared = (async () => {
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            try {
+                if (encouragementExperiment.decision?.status !== 'test' && encouragementExperiment.decision?.status !== 'excluded') {
+                    await Promise.race([this.ensureReady(), new Promise<boolean>(resolve => {
+                        timer = setTimeout(() => resolve(false), 5000);
+                    })]);
+                }
+            } finally {
+                if (timer !== undefined) clearTimeout(timer);
+                encouragementExperiment.freeze();
+            }
+            this.trackFunnelEvent({ eventName: 'encouragement_experiment_assignment', source: 'encouragement_identity',
+                success: encouragementExperiment.decision?.status === 'enrolled' });
+        })();
+        return this.encouragementPrepared;
     }
 
     private reportFirstLevelAssignment(): void {
@@ -435,6 +505,8 @@ export class AnalyticsMgr {
         return resolveClientBuildIdentity().id;
     }
 
+    getCurrentFailureId(): string { return this.failureId; }
+
     async bootstrap(): Promise<boolean> {
         this.bindGlobalReporter();
         this.bindLifecycle();
@@ -446,15 +518,13 @@ export class AnalyticsMgr {
         this.bootstrapped = true;
         this.gameSessionStartTime = Date.now();
         this.exitReported = false;
-        const ready = await this.ensureReady();
-        if (ready) {
-            void this.wxReportData({
+        void this.wxReportData({
                 eventName: 'game_start',
+                lifecycleReason: 'cold_start',
                 page: 'app',
                 actionType: 1,
             });
-        }
-        return ready;
+        return this.ensureReady();
     }
 
     async ensureReady(): Promise<boolean> {
@@ -480,6 +550,7 @@ export class AnalyticsMgr {
                 system,
                 firstLevelExperiment: firstLevelExperiment.request(),
                 beanSelectionExperiment: beanSelectionExperiment.request(),
+                encouragementExperiment: encouragementExperiment.request(),
             });
 
             if (result?.ok === false) {
@@ -498,6 +569,15 @@ export class AnalyticsMgr {
                     }).then(response => {
                         if (response?.ok === false) throw new Error(response.errorMessage || 'exclusion sync failed');
                     }).catch(error => console.error('[BeanSelectionExperiment] exclusion sync failed:', error));
+                }
+                encouragementExperiment.accept(result.openid, result.encouragementExperiment);
+                if (encouragementExperiment.decision?.status === 'excluded'
+                    && (result.encouragementExperiment as any)?.status === 'enrolled') {
+                    void PlatformCloudMgr.inst.callFunction<CloudResult>('getOpenid', {
+                        encouragementExperiment: encouragementExperiment.request(),
+                    }).then(response => {
+                        if (response?.ok === false) throw new Error(response.errorMessage || 'exclusion sync failed');
+                    }).catch(error => console.error('[EncouragementExperiment] exclusion sync failed:', error));
                 }
                 this.reportFirstLevelAssignment();
                 // A late successful allocation must not re-enrol an already excluded local first play.
@@ -525,10 +605,13 @@ export class AnalyticsMgr {
             return false;
         });
 
-        return this.readyPromise;
+        const ready = await this.readyPromise;
+        if (!ready) this.readyPromise = null;
+        return ready;
     }
 
     async wxReportData(opt: ReportDataOptions): Promise<CloudResult | { ok: false; skipped: true }> {
+        if (!this.isCollectionEnabled()) return { ok: false, skipped: true };
         const activeSession = this.levelSession && !this.levelSession.finalized ? this.levelSession : null;
         const session = activeSession ? {
             sessionId: activeSession.sessionId,
@@ -549,17 +632,15 @@ export class AnalyticsMgr {
             || resolveClientBuildIdentity().id;
         const abId = normalizeAnalyticsText(opt.abId ?? session?.abId ?? levelContext.abId, 64);
         const abBucket = normalizeAnalyticsText(opt.abBucket ?? session?.abBucket ?? levelContext.abBucket, 64);
-        const firstLevelFields = { ...firstLevelExperiment.fields(), ...beanSelectionExperiment.fields() };
-        const ready = await this.ensureReady();
-        if (!ready) {
-            return { ok: false, skipped: true };
-        }
-
+        const firstLevelFields = { ...firstLevelExperiment.fields(), ...beanSelectionExperiment.fields(), ...encouragementExperiment.fields() };
         try {
-            return await PlatformCloudMgr.inst.callFunction<CloudResult>('addBehaviorData', {
+            if (!this.isCollectionEnabled()) return { ok: false, skipped: true };
+            const queued = this.delivery.enqueue('addBehaviorData', {
                 ...firstLevelFields,
                 openid: this.openid,
                 eventName: opt.eventName,
+                lifecycleReason: opt.lifecycleReason || '',
+                failureId: opt.failureId ?? this.failureId,
                 levelId: opt.levelId ?? 0,
                 page: opt.page || '',
                 actionType: opt.actionType ?? 1,
@@ -592,7 +673,8 @@ export class AnalyticsMgr {
                 adTransactionId: normalizeAnalyticsText(opt.adTransactionId, 160),
                 adAttemptId: normalizeAnalyticsText(opt.adAttemptId, 96),
                 triggerSource: normalizeAnalyticsText(opt.triggerSource, 64),
-            });
+            }, this.openid);
+            return queued ? { ok: false, queued: true } : { ok: false, skipped: true };
         } catch (error) {
             console.warn('[AnalyticsMgr] addBehaviorData failed:', error);
             return { ok: false, skipped: true };
@@ -600,17 +682,21 @@ export class AnalyticsMgr {
     }
 
     trackFunnelEvent(opt: FunnelEventOptions): void {
-        if (isWorkbenchPreviewRequested() || getBrowserLevelPreview().active) return;
-        if (this.funnelUploadDisabled) return;
+        if (!this.isCollectionEnabled()) return;
         const eventName = typeof opt.eventName === 'string' ? opt.eventName.trim() : '';
         if (!eventName) return;
+        if (eventName === 'app_launch') {
+            if (this.launchReported) return;
+            this.launchReported = true;
+        }
 
         const now = Date.now();
-        if (eventName === 'first_level_ui_ready' && this.firstLevelReadyTime <= 0) {
+        if (eventName === 'level_interaction_ready' || (eventName === 'first_level_ui_ready' && this.firstLevelReadyTime <= 0)) {
             this.firstLevelReadyTime = now;
         }
 
-        const session = this.levelSession && !this.levelSession.finalized ? this.levelSession : null;
+        const appScoped = opt.page === 'app' || opt.page === 'game_circle';
+        const session = !appScoped && this.levelSession && !this.levelSession.finalized ? this.levelSession : null;
         const logicalLevelId = opt.logicalLevelId ?? session?.logicalLevelId ?? this.levelContext.logicalLevelId ?? opt.levelId ?? 0;
         const physicalLevelId = opt.physicalLevelId ?? session?.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0;
         const abId = opt.abId ?? session?.abId ?? this.levelContext.abId ?? '';
@@ -621,7 +707,7 @@ export class AnalyticsMgr {
             gameplayMode,
         );
         const clientBuild = resolveClientBuildIdentity();
-        const roundId = normalizeAnalyticsText(opt.roundId, 120) || session?.roundId || '';
+        const roundId = appScoped ? '' : normalizeAnalyticsText(opt.roundId, 120) || session?.roundId || '';
         const experimentId = normalizeAnalyticsText(opt.experimentId, 64) || normalizeAnalyticsText(abId, 64);
         const experimentBucket = normalizeAnalyticsText(opt.experimentBucket, 64) || normalizeAnalyticsText(abBucket, 64);
         const event: Record<string, unknown> = {
@@ -629,6 +715,10 @@ export class AnalyticsMgr {
             roundId,
             eventSeq: ++this.funnelEventSeq,
             eventName,
+            analyticsSchemaVersion: 2,
+            csdVersion: CSD_MEASUREMENT_VERSION,
+            analyticsEnvironment: 'wechat_release',
+            gameplayEntryMode: opt.gameplayEntryMode ?? session?.gameplayEntryMode ?? this.levelContext.gameplayEntryMode ?? '',
             levelId: opt.levelId ?? logicalLevelId ?? 0,
             page: opt.page || '',
             stepId: opt.stepId ?? '',
@@ -651,12 +741,15 @@ export class AnalyticsMgr {
                 48,
             ),
             elapsedMsFromLaunch: Math.max(0, now - this.appLaunchTime),
+            elapsedMsFromRoundStart: session ? Math.max(0, now - session.startTime) : 0,
             elapsedMsFromLevelReady: this.firstLevelReadyTime > 0 ? Math.max(0, now - this.firstLevelReadyTime) : 0,
             timestamp: now,
         };
         event.extra = {
+            ...(opt.extra || {}),
             ...firstLevelExperiment.fields(),
             ...beanSelectionExperiment.fields(),
+            ...encouragementExperiment.fields(),
             clientBuildId: clientBuild.id,
             clientBuildIdSource: clientBuild.source,
             launchChannelAtEvent: this.resolveChannel(),
@@ -664,15 +757,8 @@ export class AnalyticsMgr {
             ...(gameplayMode ? { gameplayMode, gameplaySchemaVersion } : {}),
         };
 
-        this.funnelQueue.push(event);
-        if (this.funnelQueue.length > 200) {
-            this.funnelQueue.splice(0, this.funnelQueue.length - 200);
-        }
-        if (this.funnelQueue.length >= 5 || eventName === 'game_exit' || eventName === 'level_exit' || eventName === 'app_hide') {
-            this.flushFunnelEvents();
-        } else {
-            this.scheduleFunnelFlush();
-        }
+        if (this.measurements.accept({ ...event, owner: this.openid })) this.delivery.enqueue('addFunnelEvents', event, this.openid);
+        if (eventName === 'app_hide' || eventName === 'level_exit') this.flushFunnelEvents();
     }
 
     markFirstLevelReady(context?: Partial<Pick<FunnelEventOptions, 'levelId' | 'logicalLevelId' | 'physicalLevelId' | 'abId' | 'abBucket' | 'page' | 'source'>>): void {
@@ -696,63 +782,22 @@ export class AnalyticsMgr {
     }
 
     flushFunnelEvents(): void {
-        if (this.funnelFlushTimer) {
-            clearTimeout(this.funnelFlushTimer);
-            this.funnelFlushTimer = null;
-        }
-        if (this.funnelUploadDisabled) {
-            this.funnelQueue = [];
-            return;
-        }
-        if (this.funnelInFlight || this.funnelQueue.length === 0) {
-            return;
-        }
-        if (!PlatformCloudMgr.inst.canUseCloud()) {
-            return;
-        }
-
-        const batch = this.funnelQueue.splice(0, 20);
-        this.funnelInFlight = true;
-        const finishFlush = () => {
-            this.funnelInFlight = false;
-            if (!this.funnelUploadDisabled && this.funnelQueue.length > 0) {
-                this.scheduleFunnelFlush();
-            }
-        };
-        void PlatformCloudMgr.inst.callFunction<CloudResult>('addFunnelEvents', {
-            sessionId: this.funnelSessionId,
-            events: batch,
-        }).then(() => {
-            finishFlush();
-        }, (error) => {
-            if (this.isPermanentFunnelUploadFailure(error)) {
-                this.disableFunnelUpload('addFunnelEvents unavailable');
-            } else {
-                console.warn('[AnalyticsMgr] addFunnelEvents failed:', error);
-                this.funnelQueue = batch.concat(this.funnelQueue).slice(0, 200);
-            }
-            finishFlush();
-        });
+        void this.delivery.flush();
     }
 
-    private disableFunnelUpload(reason: string, error?: unknown): void {
-        this.funnelUploadDisabled = true;
-        this.funnelQueue = [];
-        if (!this.funnelUploadDisableWarned) {
-            this.funnelUploadDisableWarned = true;
-            if (typeof error === 'undefined') {
-                console.warn('[AnalyticsMgr] funnel upload disabled:', reason);
-            } else {
-                console.warn('[AnalyticsMgr] funnel upload disabled:', reason, error);
-            }
-        }
+    flushMeasurementSummaries(reason: string): void {
+        this.measurements.flush(reason);
     }
 
-    private isPermanentFunnelUploadFailure(error: unknown): boolean {
-        const message = String((error as any)?.message || error || '').toLowerCase();
-        return message.includes('function_not_found') ||
-            message.includes('functionname parameter could not be found') ||
-            message.includes('errcode: -501000');
+    private persistRound(eventName: string): void {
+        if (!this.isCollectionEnabled()) return;
+        const session = this.levelSession;
+        if (!session || session.finalized) return;
+        try { sys.localStorage.setItem(LS_ACTIVE_ROUND, JSON.stringify({ owner: this.openid,
+            eventName, sessionId: session.sessionId, roundId: session.roundId,
+            levelId: session.levelId, logicalLevelId: session.logicalLevelId, physicalLevelId: session.physicalLevelId,
+            gameplayEntryMode: session.gameplayEntryMode, clientBuildId: session.clientBuildId, timestamp: Date.now() })); }
+        catch (error) { console.error('[AnalyticsMgr] round checkpoint failed', error); }
     }
 
     setLevelContext(context: AnalyticsLevelContext): void {
@@ -814,6 +859,7 @@ export class AnalyticsMgr {
         }
 
         this.levelSession = {
+            exitReason: '',
             sessionId: this.funnelSessionId,
             roundId,
             clientBuildId,
@@ -841,6 +887,13 @@ export class AnalyticsMgr {
             ddaReason: normalizeAnalyticsText(this.levelContext.ddaReason, 64),
         };
 
+        this.failureId = '';
+        this.persistRound('begin');
+        this.trackFunnelEvent({ eventName: 'level_measurement_start', levelId: normalizedLevelId,
+            success: true, extra: { guideApplicable: gameplayEntryMode === 'main' && logicalLevelId <= 4,
+                guideExpectedSteps: logicalLevelId === 1 ? 2 : logicalLevelId <= 4 ? 1 : 0 } });
+
+        this.firstLevelReadyTime = now;
         this.markRuntimeCheckpoint('level_begin', true, normalizedPage, normalizedLevelId);
         void this.wxReportData({
             eventName: 'enter_level',
@@ -897,6 +950,9 @@ export class AnalyticsMgr {
         this.updateLevelSessionAnalytics(session, update);
         const levelId = session?.levelId ?? normalizePositiveLevelId(levelIdFallback);
         const currentPage = page || session?.page || 'game';
+        this.failureId = `${session?.roundId || this.funnelSessionId}:failure:${++this.failureSeq}`;
+        this.trackFunnelEvent({ eventName: 'level_failure_snapshot', levelId, success: false,
+            errorCode: session?.failureReason || '', extra: { failureId: this.failureId, ...(session?.gameplayStats || {}) } });
         if (session && !session.finalized) {
             session.pendingFailure = true;
         }
@@ -955,6 +1011,12 @@ export class AnalyticsMgr {
     abandonActiveLevel(update?: LevelSessionAnalyticsUpdate): void {
         this.updateLevelSessionAnalytics(this.levelSession, update);
         void this.finalizeActiveLevel(false, 'abandon');
+    }
+
+    trackLevelExitIntent(reason: string): void {
+        if (!this.levelSession || this.levelSession.finalized) return;
+        this.levelSession.exitReason = normalizeAnalyticsText(reason, 48);
+        this.trackFunnelEvent({ eventName: 'level_exit_intent', success: true, source: reason });
     }
 
     finalizePendingFailedLevel(update?: LevelSessionAnalyticsUpdate): void {
@@ -1036,6 +1098,8 @@ export class AnalyticsMgr {
     }
 
     trackShareClick(shareType: string, page: string, levelId?: number): void {
+        if (page.includes('revive')) this.trackFunnelEvent({ eventName: 'revive_choice', page, levelId,
+            success: true, extra: { method: 'share', failureId: this.failureId } });
         void this.wxReportData({
             eventName: 'share_click',
             levelId: levelId ?? this.levelSession?.levelId ?? 0,
@@ -1168,6 +1232,7 @@ export class AnalyticsMgr {
         eventName: 'runtime_error' | 'runtime_unhandled_rejection' | 'runtime_memory_warning',
         payload: unknown,
     ): void {
+        if (!this.isCollectionEnabled()) return;
         if (this.runtimeDiagnosticCount >= MAX_RUNTIME_DIAGNOSTICS_PER_SESSION) return;
         const message = resolveRuntimeDiagnosticMessage(payload);
         const errorCode = resolveRuntimeDiagnosticCode(payload);
@@ -1181,13 +1246,16 @@ export class AnalyticsMgr {
         this.runtimeDiagnosticFingerprints.add(fingerprint);
         this.runtimeDiagnosticCount += 1;
 
-        const levelId = this.levelSession?.levelId
-            ?? normalizePositiveLevelId(this.levelContext.logicalLevelId);
+        const activeSession = this.levelSession && !this.levelSession.finalized ? this.levelSession : null;
+        const levelId = activeSession?.levelId || 0;
         try {
             this.trackFunnelEvent({
                 eventName,
-                page: this.levelSession?.page || (levelId > 0 ? 'level_game' : 'app'),
+                page: activeSession?.page || 'app',
                 levelId,
+                logicalLevelId: levelId,
+                physicalLevelId: activeSession?.physicalLevelId || 0,
+                gameplayEntryMode: activeSession?.gameplayEntryMode || '',
                 source: 'wechat_runtime',
                 success: false,
                 errorCode: errorCode || eventName,
@@ -1198,6 +1266,9 @@ export class AnalyticsMgr {
                     checkpointAgeMs: Math.max(0, Date.now() - this.lastRuntimeCheckpointAt),
                     memoryWarningLevel,
                     diagnosticIndex: this.runtimeDiagnosticCount,
+                    gameForeground: !this.exitReported,
+                    stack: sanitizeRuntimeDiagnosticText((payload as any)?.stack
+                        || (payload as any)?.reason?.stack || (payload as any)?.error?.stack || ''),
                 },
             });
             this.flushFunnelEvents();
@@ -1207,6 +1278,7 @@ export class AnalyticsMgr {
     }
 
     private recoverPreviousRuntimeCheckpoint(): void {
+        if (!this.isCollectionEnabled()) return;
         const previous = this.readRuntimeCheckpoint();
         if (!previous || !previous.active || previous.sessionId === this.funnelSessionId) return;
         const ageMs = Date.now() - previous.timestamp;
@@ -1239,6 +1311,7 @@ export class AnalyticsMgr {
     ): void {
         const now = Date.now();
         const normalizedCheckpoint = String(checkpoint || 'unknown').trim().slice(0, 80) || 'unknown';
+        if (!this.isCollectionEnabled()) return;
         const normalizedLevelId = Math.max(
             0,
             Math.floor(Number(levelId ?? this.levelSession?.levelId ?? this.levelContext.logicalLevelId) || 0),
@@ -1306,18 +1379,13 @@ export class AnalyticsMgr {
         }
 
         session.finalized = true;
-        const ready = await this.ensureReady();
-        if (!ready) {
-            if (this.levelSession === session) {
-                this.levelSession = null;
-            }
-            return;
-        }
-
+        if (!this.isCollectionEnabled()) { this.levelSession = null; return; }
         try {
-            await PlatformCloudMgr.inst.callFunction('saveLevelRecord', {
+            this.flushMeasurementSummaries('level_end');
+            const queued = this.delivery.enqueue('saveLevelRecord', {
                 ...firstLevelExperiment.fields(),
                 ...beanSelectionExperiment.fields(),
+                ...encouragementExperiment.fields(),
                 openid: this.openid,
                 sessionId: session.sessionId,
                 roundId: session.roundId,
@@ -1333,6 +1401,7 @@ export class AnalyticsMgr {
                 tryCount: Math.max(1, Math.floor(session.tryCount || 1)),
                 passStatus,
                 endReason,
+                exitReason: session.exitReason,
                 useAdRevive: session.useAdRevive,
                 useShareRevive: session.useShareRevive,
                 startTime: session.startTime,
@@ -1345,11 +1414,13 @@ export class AnalyticsMgr {
                 effectiveTimeLimit: session.effectiveTimeLimit,
                 ddaFactor: session.ddaFactor,
                 ddaReason: session.ddaReason,
-            });
+            }, this.openid);
+            if (!queued) { session.finalized = false; return; }
+            sys.localStorage.setItem(LS_ACTIVE_ROUND, 'null');
         } catch (error) {
             console.warn('[AnalyticsMgr] saveLevelRecord failed:', error);
         } finally {
-            if (this.levelSession === session) {
+            if (session.finalized && this.levelSession === session) {
                 this.levelSession = null;
             }
         }
@@ -1360,6 +1431,10 @@ export class AnalyticsMgr {
             return;
         }
         this.exitReported = true;
+        this.persistRound('background');
+        this.flushMeasurementSummaries('background');
+        this.trackFunnelEvent({ eventName: 'analytics_quality', success: true,
+            extra: { ...this.delivery.quality, pending: this.delivery.size } });
         this.markRuntimeCheckpoint(
             'app_hide',
             false,
@@ -1373,7 +1448,8 @@ export class AnalyticsMgr {
         });
         this.flushFunnelEvents();
         void this.wxReportData({
-            eventName: 'game_exit',
+            eventName: 'app_background',
+            lifecycleReason: 'background',
             page: 'app',
             actionType: 1,
             duration: Math.max(0, Date.now() - this.gameSessionStartTime),
@@ -1386,6 +1462,7 @@ export class AnalyticsMgr {
         }
         this.exitReported = false;
         this.gameSessionStartTime = Date.now();
+        this.persistRound('resume');
         this.markRuntimeCheckpoint(
             'app_show',
             true,
@@ -1396,19 +1473,15 @@ export class AnalyticsMgr {
             eventName: 'app_show',
             page: 'app',
         });
+        if (this.levelSession && !this.levelSession.finalized) {
+            this.trackFunnelEvent({ eventName: 'level_resume', success: true, source: 'foreground_return' });
+        }
         void this.wxReportData({
-            eventName: 'game_start',
+            eventName: 'app_resume',
+            lifecycleReason: 'foreground_return',
             page: 'app',
             actionType: 1,
         });
-    }
-
-    private scheduleFunnelFlush(): void {
-        if (this.funnelFlushTimer) return;
-        this.funnelFlushTimer = setTimeout(() => {
-            this.funnelFlushTimer = null;
-            this.flushFunnelEvents();
-        }, 1200);
     }
 
     private createSessionId(): string {

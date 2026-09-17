@@ -67,7 +67,7 @@ export function installHomeCommerceModule(target: any): void {
             node.on(Button.EventType.CLICK, handler, this);
         },
 
-        playPopupOpenAnim(overlay: Node, box?: Node | null) {
+        playPopupOpenAnim(overlay: Node, box?: Node | null, onComplete?: () => void) {
             if (!overlay?.isValid) return;
             const target = box?.isValid ? box : (overlay.getChildByName('Box') || overlay);
             if (!target?.isValid) return;
@@ -96,6 +96,7 @@ export function installHomeCommerceModule(target: any): void {
             tween(target)
                 .to(0.24, { scale: new Vec3(baseScale.x * 1.045, baseScale.y * 1.045, baseScale.z) }, { easing: 'sineOut' })
                 .to(0.16, { scale: new Vec3(baseScale.x, baseScale.y, baseScale.z) }, { easing: 'sineOut' })
+                .call(() => { if (overlay.isValid && target.isValid) onComplete?.(); })
                 .start();
         },
 
@@ -133,6 +134,8 @@ export function installHomeCommerceModule(target: any): void {
             const btnSubLabel = btnSubNode.getComponent(Label);
             if (!btnSubLabel) throw new Error('[HomeScene] Home.scene is missing Label component on StartBtn/BtnSub');
             btnSubLabel.string = `第${level}关`;
+            this.requireUiChild(btn, 'VigorCostBadge', 'StartBtn/VigorCostBadge').active
+                = !this.isTutorialVigorFreeLevel(level, 'main');
 
             btn.targetOff(this);
             btn.getComponent(Button) || btn.addComponent(Button);

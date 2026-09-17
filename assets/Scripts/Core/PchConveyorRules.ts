@@ -544,7 +544,7 @@ export class PchConveyorRules {
         return !this.hasReturnableCarrierMatch();
     }
 
-    private hasReturnableCarrierMatch(): boolean {
+    hasReturnableCarrierMatch(): boolean {
         const returnableCarrierColors = new Set<number>();
         for (const stack of this.carriers) {
             for (const colorId of stack) {

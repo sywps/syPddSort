@@ -1,0 +1,55 @@
+CCEffect %{
+  techniques:
+  - passes:
+    - vert: guide-vs:vert
+      frag: guide-fs:frag
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: one
+          blendDst: one_minus_src_alpha
+          blendSrcAlpha: one
+          blendDstAlpha: one_minus_src_alpha
+      rasterizerState:
+        cullMode: none
+      depthStencilState:
+        depthTest: false
+        depthWrite: false
+      properties:
+        holeRect: { value: [0, 0, 100, 30] }
+        holeStyle: { value: [16, 1.5, 0, 0] }
+}%
+
+CCProgram guide-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+  in vec3 a_position;
+  in vec4 a_color;
+  out vec2 v_position;
+  out vec4 v_color;
+  vec4 vert () {
+    v_position = a_position.xy;
+    v_color = a_color;
+    return cc_matViewProj * cc_matWorld * vec4(a_position, 1.0);
+  }
+}%
+
+CCProgram guide-fs %{
+  precision highp float;
+  in vec2 v_position;
+  in vec4 v_color;
+  uniform GuideMask {
+    vec4 holeRect;
+    vec4 holeStyle;
+  };
+  vec4 frag () {
+    float radius = min(holeStyle.x, min(holeRect.z, holeRect.w));
+    vec2 q = abs(v_position - holeRect.xy) - holeRect.zw + radius;
+    float distanceToHole = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+    float coverage = smoothstep(0.0, max(holeStyle.y, 0.001), distanceToHole);
+    vec4 color = v_color;
+    color.rgb *= color.a;
+    return color * coverage;
+  }
+}%

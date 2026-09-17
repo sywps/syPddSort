@@ -26,6 +26,8 @@ function methodBody(marker) {
 
 const resetAnalytics = new Function(methodBody('private resetAnalyticsStats(): void'));
 const resetRuntime = {
+    levelThreeProgressSent: new Set(),
+    levelThreeLeaveSent: new Set(),
     rules: { cells: [{}, {}, {}] },
     analyticsStats: null,
     firstStoreEventSent: true,
@@ -77,23 +79,23 @@ const runtime = {
     getAnalyticsPage() { return 'level_game'; },
 };
 const controller = { runtime };
-for (const logicalLevelId of [1, 2, 3, 4, 99]) {
+for (const logicalLevelId of [0, 1, 2, 3, 4, 10, 11, 99]) {
     runtime.logicalLevelId = logicalLevelId;
     trackPch.call(controller, AnalyticsMgr, 'pch_conveyor', 1, 'pch_first_store_success', {});
 }
 assert.deepStrictEqual(
     tracked.map((event) => event.logicalLevelId),
-    [1, 2, 3],
-    'PCH milestone emission must be limited to logical L1-L3',
+    [1, 2, 3, 4, 10],
+    'PCH milestone emission must be limited to logical L1-L10',
 );
-for (const logicalLevelId of [4, 5, 99]) {
+for (const logicalLevelId of [4, 5, 10, 11, 99]) {
     runtime.logicalLevelId = logicalLevelId;
     trackPch.call(controller, AnalyticsMgr, 'pch_conveyor', 1, 'pch_capacity_soft_hint_shown', {});
 }
 assert.deepStrictEqual(
-    tracked.slice(3).map((event) => event.logicalLevelId),
-    [4, 5],
-    'capacity measurement events must extend to logical L4-L5 only',
+    tracked.slice(5).map((event) => event.logicalLevelId),
+    [4, 5, 10],
+    'capacity measurement events must extend to the first ten logical levels only',
 );
 
 for (const eventName of [

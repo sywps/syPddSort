@@ -104,7 +104,7 @@ async function buildDailyCore(dateStr) {
     if (item.openid) {
       activeUsers.add(item.openid);
     }
-    if (item.eventName === 'game_start') {
+    if (item.eventName === 'enter_level') {
       totalPlay += 1;
     }
   }

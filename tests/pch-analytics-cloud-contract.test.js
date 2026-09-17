@@ -32,6 +32,7 @@ function loadCloudFunction(relPath) {
                 },
                 doc() {
                     return {
+                        set: async ({ data }) => { writes.push({ collection: name, data: plain(data) }); return {}; },
                         update: async () => ({ stats: { updated: 1 } }),
                     };
                 },
@@ -224,6 +225,10 @@ async function main() {
     assert.strictEqual(invalidWrite.data.gameplayEntryMode, '', 'unknown entry modes must be normalized away');
     assert.strictEqual(invalidWrite.data.gameplayStats, null, 'unsupported schemas must not persist arbitrary stats');
 
+    const missingSnapshot = loadCloudFunction('cloudfunctions/saveLevelRecord/index.js');
+    await missingSnapshot.main({ levelId: 3, gameplayMode: 'pch_conveyor', gameplaySchemaVersion: 1 });
+    assert.strictEqual(missingSnapshot.writes.find(entry => entry.collection === 'level_record').data.gameplayStats,
+        null, 'missing snapshots must not become fabricated zero-action data');
     console.log('pch-analytics-cloud-contract.test.js passed');
 }
 

@@ -40,7 +40,7 @@ assert.ok(/\.to\(FLY_DURATION, \{[\s\S]*?position:[\s\S]*?scale:[\s\S]*?\}, \{ e
 assert.ok(!wandDump.includes("{ easing: 'circOut' }"), 'wand slot returns must not retain the old circOut travel');
 
 assert.ok(pch.includes('const PCH_RETURN_TRANSFER_SECONDS = 0.2;'), 'PCH automatic returns must use the approved 0.20-second flight');
-assert.ok(pch.includes('const PCH_RETURN_STAGGER_SECONDS = 0.08;'), 'PCH automatic returns must use the approved 0.08-second launch cadence');
+assert.ok(pch.includes('const PCH_RETURN_STAGGER_SECONDS = 0.11;'), 'PCH automatic returns must use the approved 0.11-second launch cadence');
 assert.ok(pch.includes('const PCH_RETURN_COMPLETE_DELAY_SECONDS = 0.01;'), 'PCH automatic returns must keep the package 0.01-second completion delay');
 assert.ok(pch.includes('const PCH_RETURN_SETTLE_FX_DURATION_SECONDS = 0.7;'), 'PCH final win must wait for the visible a1 settle feedback');
 assert.ok(pch.includes('const PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS = Math.max('), 'PCH color completion must wait only for the triggering bean a1 remainder');

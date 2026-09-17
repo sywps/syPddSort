@@ -29,6 +29,7 @@ function loadRemoteDataClient({ miniGameRuntime, hostname, search = '' }) {
         document: { referrer: '' },
         URLSearchParams,
         require(id) {
+            if (id === './StartupTrace') return { beginStartupRequestDiagnostic() { return 1; }, recordStartupDiagnostic() {} };
             if (id === './MiniGamePlatform') {
                 return {
                     getDouyinMiniGameRuntime: () => null,

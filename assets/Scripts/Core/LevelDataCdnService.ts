@@ -16,6 +16,7 @@ import {
     writeCdnStorageObject,
 } from './RemoteDataCdnClient';
 import { runtimeWarn } from './RuntimeLog';
+import { recordStartupDiagnostic } from './StartupTrace';
 
 type LevelPackEntry = {
     id: string;
@@ -480,12 +481,24 @@ export class LevelDataCdnService {
         if (!canUseCdn(baseUrl)) return null;
         const cacheKey = this.getPackCacheKey(context, packEntry);
         let promise = this.packPromises.get(cacheKey);
+        recordStartupDiagnostic('level_pack_lookup', { pack: packEntry.id, memoryEntry: !!promise, foregroundLoad });
         if (!promise) {
             const url = packEntry.hash
                 ? withCdnQuery(joinCdnUrl(baseUrl, packEntry.url), 'v', packEntry.hash.slice(0, 16))
                 : joinCdnUrl(baseUrl, packEntry.url);
             const cachedText = readPersistedLevelPack(cacheKey, packEntry.hash || '');
-            const parsePackText = (text: string): LevelPack => this.validatePack(parseJsonText<LevelPack>(text, packEntry.url), packEntry);
+            recordStartupDiagnostic('level_pack_disk_lookup', { pack: packEntry.id, found: !!cachedText });
+            const parsePackText = (text: string): LevelPack => {
+                const startedAt = Date.now();
+                try {
+                    const pack = this.validatePack(parseJsonText<LevelPack>(text, packEntry.url), packEntry);
+                    recordStartupDiagnostic('level_pack_parse_done', { pack: packEntry.id, durationMs: Date.now() - startedAt });
+                    return pack;
+                } catch (error) {
+                    recordStartupDiagnostic('level_pack_parse_failed', { pack: packEntry.id, durationMs: Date.now() - startedAt });
+                    throw error;
+                }
+            };
             const loadRemotePack = async (): Promise<LevelPack> => {
                 const attempts = foregroundLoad ? FOREGROUND_CDN_REQUEST_ATTEMPTS : 1;
                 let lastError: unknown = null;

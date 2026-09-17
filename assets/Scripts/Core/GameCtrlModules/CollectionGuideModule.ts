@@ -453,6 +453,10 @@ export function installCollectionGuideModule(target: any): void {
             };
             createPinchHand('PinchGuideLeftHand', true, -nearGap / 2, -farGap / 2);
             createPinchHand('PinchGuideRightHand', false, nearGap / 2, farGap / 2);
+            if (this._activeGameplayEntryMode === 'main' && this.getActiveLogicalLevelId?.() === 4) {
+                AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'pch_guide_step_shown', levelId: 4, stepId: 1,
+                    success: true, source: 'pinch_guide', extra: { guideId: 'pch_level_4_zoom_v1' } });
+            }
 
             this._pinchGuideAutoCloseHandler = () => {
                 if (this._pinchGuideLayer) this.closePinchGuide();
@@ -462,7 +466,14 @@ export function installCollectionGuideModule(target: any): void {
             }
         },
 
-        closePinchGuide() {
+        closePinchGuide(reason: string = 'interrupted') {
+            if (this._pinchGuideLayer && this._activeGameplayEntryMode === 'main' && this.getActiveLogicalLevelId?.() === 4) {
+                const completed = reason === 'gesture';
+                AnalyticsMgr.inst.trackFunnelEvent({ eventName: completed ? 'pch_guide_step_done' : 'guide_interrupted',
+                    levelId: 4, stepId: 1, success: completed, source: reason, extra: { guideId: 'pch_level_4_zoom_v1' } });
+                if (completed) AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'guide_complete', levelId: 4,
+                    success: true, source: reason, extra: { guideId: 'pch_level_4_zoom_v1' } });
+            }
             if (this._pinchGuideAutoCloseHandler) {
                 this.unschedule(this._pinchGuideAutoCloseHandler);
                 this._pinchGuideAutoCloseHandler = null;

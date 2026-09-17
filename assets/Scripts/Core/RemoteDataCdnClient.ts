@@ -4,6 +4,7 @@ import {
     getWeChatMiniGameRuntime,
     isMiniGameRuntime,
 } from './MiniGamePlatform';
+import { beginStartupRequestDiagnostic, recordStartupDiagnostic } from './StartupTrace';
 
 export function normalizeCdnBaseUrl(value: unknown): string {
     const text = typeof value === 'string' ? value.trim() : '';
@@ -134,7 +135,9 @@ export function writeCdnStorageObject(key: string, value: unknown): void {
 }
 
 export function requestCdnText(url: string, timeoutMs: number): Promise<string> {
-    return new Promise((resolve, reject) => {
+    const diagnosticId = beginStartupRequestDiagnostic(url);
+    const startedAt = Date.now();
+    return new Promise<string>((resolve, reject) => {
         const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
         const requester = getCdnPlatformRequester();
         if (typeof requester === 'function') {
@@ -169,5 +172,11 @@ export function requestCdnText(url: string, timeoutMs: number): Promise<string> 
             return;
         }
         reject(new Error('No request API'));
+    }).then(text => {
+        recordStartupDiagnostic('cdn_request_done', { id: diagnosticId, durationMs: Date.now() - startedAt, textChars: text?.length ?? 0, transferBytes: null, cacheHit: null });
+        return text;
+    }, error => {
+        recordStartupDiagnostic('cdn_request_failed', { id: diagnosticId, durationMs: Date.now() - startedAt, message: String(error).slice(0, 200) });
+        throw error;
     });
 }

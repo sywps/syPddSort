@@ -34,7 +34,12 @@ export function installGameplaySkillWandModule(target: any): void {
         // ==================== 道具技能 ====================
 
         useSkillFreeze(timerAlreadyPaused: boolean = false) {
-            if (this._skillActive) return;
+            const recordEffect = (success: boolean, reason: string) => AnalyticsMgr.inst.trackFunnelEvent({
+                eventName: 'csd_freeze_effect_result', source: 'useSkillFreeze', success,
+                errorCode: success ? '' : reason,
+                extra: { reason, adTransactionId: this._rewardedGrantTransaction?.analyticsTransactionId || '',
+                    freezeSeconds: Math.max(0, Number(this._freezeTimeLeft) || 0) } });
+            if (this._skillActive) { recordEffect(false, 'skill_already_active'); return; }
             const pchController = this._pchConveyorGameplayController;
             if (pchController?.isActive?.()) {
                 pchController.beginSkillUsePause?.('freeze');
@@ -45,6 +50,9 @@ export function installGameplaySkillWandModule(target: any): void {
             const freezeSeconds = Math.max(1, Math.floor(Number(FREEZE_PROP_SECONDS) || 90));
             this._freezeTimeLeft = freezeSeconds;
             this._freezeTimeTotal = freezeSeconds;
+            // Count the effect when it is applied, not after optional visual work.
+            pchController?.recordFreezeUse?.();
+            recordEffect(true, 'effect_applied');
             if (this.isCoopMode?.()) this.recordCoopRuleEvent(9, freezeSeconds);
             this._skillActive = true;
             this._skillAnimOnly = true;
@@ -56,7 +64,6 @@ export function installGameplaySkillWandModule(target: any): void {
                 this.resetIdleHintTimer();
                 this.refreshFreezeTimerLabel?.();
                 this.playFreezeSpineFx?.();
-                pchController?.recordFreezeUse?.();
             } catch (error) {
                 this.unschedule?.(finish);
                 finish();

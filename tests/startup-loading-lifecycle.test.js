@@ -146,6 +146,8 @@ const { AppRoot } = load('assets/Scripts/Core/AppRoot.ts', {
     const runtimeRoot = { startupLoading: sharedUi, ensureStartupLoading: async () => { ensured++; return sharedUi; } };
     const { GameSceneRuntimeController } = load('assets/Scripts/Core/GameSceneRuntimeController.ts', {
         cc,
+        './BrowserLevelPreview': { getBrowserLevelPreview: () => ({ active: false }) },
+        './Panels/FeedbackPanelController': { disposeFeedbackPanel() {} },
         './GameCtrlShared': {},
         './AppRoot': { AppRoot: { inst: runtimeRoot } },
         './DebugPerfTrace': {}, './RuntimeLog': {}, './StartupTrace': {},

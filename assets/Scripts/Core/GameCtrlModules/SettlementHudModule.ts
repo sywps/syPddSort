@@ -40,6 +40,8 @@ const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
 const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.25;
 const WIN_BONUS_REWARD_GATE_PAGE = 'win_bonus_reward';
+// Temporarily hide the win settlement's 5x reward entry.
+const SHOW_WIN_AD_BONUS_BUTTON = false;
 const LEVEL_3_IDLE_HINT_LEVEL_ID = 3;
 const LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS = 4;
 const LEVEL_3_IDLE_HINT_FAST_SHOW_LIMIT = 5;
@@ -337,6 +339,13 @@ export function installSettlementHudModule(target: any): void {
 
         syncSettlementProgressWidget(panel: Node | null | undefined, stats?: { completePercent: number }) {
             if (!panel) return;
+            const restartBadge = panel.getChildByName('Box')
+                ?.getChildByName('绿色按键底框-001')?.getChildByName('VigorCostBadge');
+            if (restartBadge) {
+                const entryMode = this._activeGameplayEntryMode || (this._isThemeLevel ? 'theme' : 'main');
+                restartBadge.active = !this.isCoopMode?.()
+                    && !this.isTutorialVigorFreeLevel(this.getActiveLogicalLevelId(), entryMode);
+            }
             const resolvedStats = stats || this.getBoardCompletionStats();
             const percent = Math.max(0, Math.min(100, Math.floor(Number(resolvedStats.completePercent) || 0)));
             if (this.syncSettlementCompletionSummary(panel, percent)) return;
@@ -377,6 +386,14 @@ export function installSettlementHudModule(target: any): void {
         updateWinRewardLabel(rewardGold: number) {
             const root = this.panelWin?.getChildByName('Box');
             const box = (this.panelWin as any)?.__basicSettlement ? root : root?.getChildByName('BottomGroup');
+            const costBadge = box?.getChildByName('PrimaryBtn')?.getChildByName('VigorCostBadge');
+            if (costBadge) {
+                const nextLevel = this._isThemeLevel
+                    ? this.getNextThemeLevelId(this._currentThemeLevelId || this.levelData.levelId)
+                    : this.getActiveLogicalLevelId() + 1;
+                costBadge.active = nextLevel > 0
+                    && !this.isTutorialVigorFreeLevel(nextLevel, this._isThemeLevel ? 'theme' : 'main');
+            }
             const rewardLbl = box?.getChildByName('RewardGoldIcon')?.getChildByName('RewardGoldLbl')?.getComponent(Label)
                 || box?.getChildByName('RewardGoldLbl')?.getComponent(Label);
             if (rewardLbl) {
@@ -469,7 +486,7 @@ export function installSettlementHudModule(target: any): void {
                 || adBtn.getChildByName('ContinueBtnSubLblAnchor')?.getChildByName('AdBonusSubLbl')?.getComponent(Label);
             const btn = adBtn.getComponent(Button);
             const opacity = adBtn.getComponent(UIOpacity) ?? adBtn.addComponent(UIOpacity);
-            const eligible = this.levelData?.winAdBonusEnabled !== false
+            const eligible = SHOW_WIN_AD_BONUS_BUTTON && this.levelData?.winAdBonusEnabled !== false
                 && this._pendingWinAdBonusReward > 0
                 && !this._settlementNextTransitioning;
             const coinIcon = adBtn.getChildByName('AdBonusCoinIcon');

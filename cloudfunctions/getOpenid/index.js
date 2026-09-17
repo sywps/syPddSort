@@ -1,6 +1,7 @@
 const cloud = require('wx-server-sdk');
 const { resolveAssignment } = require('./first-level-experiment');
 const { resolveAssignment: resolveBeanSelection } = require('./bean-selection-experiment');
+const { resolveAssignment: resolveEncouragement } = require('./encouragement-experiment');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
@@ -96,6 +97,7 @@ exports.main = async (event = {}) => {
     const current = await findUserProfile(openid);
     const firstLevelExperiment = resolveAssignment(openid, current, event.firstLevelExperiment, now);
     const beanSelectionExperiment = resolveBeanSelection(openid, current, event.beanSelectionExperiment, now);
+    const encouragementExperiment = resolveEncouragement(openid, current, event.encouragementExperiment, now);
 
     if (!current) {
       const profile = {
@@ -110,6 +112,7 @@ exports.main = async (event = {}) => {
         createTime: now,
         firstLevelExperiment,
         beanSelectionExperiment,
+        encouragementExperiment,
         ...buildStarterInventoryFields(),
       };
 
@@ -120,6 +123,7 @@ exports.main = async (event = {}) => {
         isNewUser: true,
         firstLevelExperiment,
         beanSelectionExperiment,
+        encouragementExperiment,
         profile,
       };
     }
@@ -138,6 +142,10 @@ exports.main = async (event = {}) => {
         && (!current.beanSelectionExperiment || event.beanSelectionExperiment.exclusionReason)) {
       patch.beanSelectionExperiment = beanSelectionExperiment;
     }
+    if (event.encouragementExperiment?.id === encouragementExperiment.id && event.encouragementExperiment?.test !== true
+        && (!current.encouragementExperiment || event.encouragementExperiment.exclusionReason)) {
+      patch.encouragementExperiment = encouragementExperiment;
+    }
     if (device && device !== current.device) patch.device = device;
     if (system && system !== current.system) patch.system = system;
 
@@ -149,6 +157,7 @@ exports.main = async (event = {}) => {
       isNewUser: false,
       firstLevelExperiment,
       beanSelectionExperiment,
+      encouragementExperiment,
       profile: {
         ...current,
         ...patch,

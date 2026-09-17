@@ -40,13 +40,13 @@ assert.ok(reportMethodStart >= 0, 'missing wxReportData method');
 const reportMethodEnd = analytics.indexOf('\n    trackFunnelEvent(', reportMethodStart);
 assert.ok(reportMethodEnd > reportMethodStart, 'missing wxReportData method end');
 const reportBody = analytics.slice(reportMethodStart, reportMethodEnd);
-const reportReadyIndex = reportBody.indexOf('await this.ensureReady()');
-assert.ok(reportBody.indexOf('const levelContext = { ...this.levelContext }') < reportReadyIndex, 'behavior reporting must snapshot the level context before async cloud readiness');
+const reportReadyIndex = reportBody.indexOf('this.delivery.enqueue(');
+assert.ok(reportBody.indexOf('const levelContext = { ...this.levelContext }') < reportReadyIndex, 'behavior reporting must snapshot the level context before enqueueing persistent delivery');
 assert.ok(reportBody.indexOf('const activeSession = this.levelSession') < reportReadyIndex, 'behavior reporting must snapshot the active round before async cloud readiness');
 assert.ok(!reportBody.slice(reportReadyIndex).includes('this.levelContext'), 'behavior payload enrichment must not reread a later level context after awaiting readiness');
 assert.ok(!hideBody.includes('abandonActiveLevel'), 'app hide must not finalize the active level as failure/abandon');
 assert.ok(hideBody.includes("eventName: 'app_hide'"), 'app hide must still emit app_hide funnel signal');
-assert.ok(hideBody.includes("eventName: 'game_exit'"), 'app hide must still emit game_exit behavior signal');
+assert.ok(hideBody.includes("eventName: 'app_background'"), 'app hide must still emit unambiguous background behavior signal');
 
 assert.ok(analytics.includes("type LevelRecordEndReason = 'pass' | 'fail' | 'abandon'"), 'analytics must model level record end reason');
 assert.ok(analytics.includes("void this.finalizeActiveLevel(false, 'abandon')"), 'level switches/abandon must use abandon endReason');

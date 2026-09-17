@@ -42,7 +42,9 @@ function createHarness(signatures) {
     const testModule = { exports: {} };
     const load = new Function('module', 'exports', 'require', 'AudioMgr', 'SySDKMgr', 'Vec3', 'UITransform', 'OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS', 'sys', 'PCH_CAPACITY_GUIDE_DONE_KEY', compiled);
     load(testModule, testModule.exports, require, fakeAudioMgr, fakeSySDKMgr, class FakeVec3 {}, class FakeUITransform {}, OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS, {localStorage:{getItem:()=>null,setItem(){}}}, 'capacity-guide-test');
-    return new testModule.exports.Harness();
+    const harness = new testModule.exports.Harness();
+    harness.trackPchFunnelEvent = () => {};
+    return harness;
 }
 
 const inputMethods = [
@@ -180,6 +182,9 @@ const tutorialTelemetry = createHarness([
     'private reportOpeningGuideTutorialStart(): void',
     'private reportOpeningGuideTutorialFinish(): void',
 ]);
+const completedTelemetry = [];
+tutorialTelemetry.getOpeningGuideAnalyticsMeta = () => ({ guideId: 'pch_level_1_store_v1' });
+tutorialTelemetry.trackPchFunnelEvent = (eventName, options) => completedTelemetry.push({ eventName, ...options });
 tutorialReports.length = 0;
 tutorialTelemetry.reportOpeningGuideTutorialFinish();
 assert.deepStrictEqual(tutorialReports, [], 'a guide that never became visible must not report completion');
@@ -282,7 +287,16 @@ const levelThreeCalls = [];
 const levelThreeToasts = [];
 let levelThreeTutorialFinishes = 0;
 levelThree.rules = {};
+levelThree.openingGuide = { name: 'PchLevelThreeCapacityGuide' };
+levelThree.trackPchFunnelEvent = () => {};
+levelThree.resetCapacityAdGesture = () => {};
+levelThree.adButton = { worldPosition: { x: 20, y: 30 } };
+levelThree.playCapacityGuideTapRings = (_parent, position) => {
+    assert.deepStrictEqual(position, { x: 20, y: 30 });
+    levelThreeCalls.push('rings');
+};
 levelThree.runtime = {
+    getGameplayFixedRoot() { return { getComponent() { return { convertToNodeSpaceAR: (p) => p }; } }; },
     isGameEnd: false,
     markDynamicCountdownAssisted() { levelThreeCalls.push('assist'); },
     showToast(text) {
@@ -305,7 +319,7 @@ assert.deepStrictEqual(levelThreeAnalytics, [
     ['pch_guide_tap_result', true, 'capacity_expanded'],
     ['pch_guide_step_done', true, 'completed'],
 ]);
-assert.deepStrictEqual(levelThreeCalls, ['expand', 'assist', 'dismiss', 'toast']);
+assert.deepStrictEqual(levelThreeCalls, ['expand', 'rings', 'assist', 'dismiss', 'toast']);
 assert.deepStrictEqual(levelThreeToasts, ['传送带已扩容 +12']);
 assert.deepStrictEqual(playedAudio, ['button']);
 
@@ -317,6 +331,8 @@ let failedLevelThreeDismisses = 0;
 let failedLevelThreeAssists = 0;
 let failedLevelThreeTutorialFinishes = 0;
 failedLevelThree.rules = {};
+failedLevelThree.openingGuide = { name: 'PchLevelThreeCapacityGuide' };
+failedLevelThree.trackPchFunnelEvent = () => {};
 failedLevelThree.runtime = {
     isGameEnd: false,
     markDynamicCountdownAssisted() { failedLevelThreeAssists += 1; },
@@ -351,6 +367,7 @@ function routeGuide(levelId, entryMode) {
     guide.onOpeningGuideFreeCapacity = () => {};
     guide.showLevelOneBoardGuide = (parent) => calls.push(['level1', parent]);
     guide.showOpeningTargetGuide = (...args) => calls.push(['target', ...args]);
+    guide.showLevelThreeCapacityGuide = (parent) => calls.push(['capacity-material', parent]);
     guide.showOpeningFeatureGuide('fixed-root');
     return calls;
 }
@@ -390,6 +407,7 @@ for (const levelId of [1, 2, 3]) {
     let shown = 0;
     missingBubbleLoader.showLevelOneBoardGuide = () => { shown += 1; };
     missingBubbleLoader.showOpeningTargetGuide = () => { shown += 1; };
+    missingBubbleLoader.showLevelThreeCapacityGuide = () => { shown += 1; };
     missingBubbleLoader.showOpeningFeatureGuide({ isValid: true });
     assert.strictEqual(shown, 1, `level ${levelId} must retain its guide action without the bubble loader`);
 }
@@ -514,20 +532,19 @@ assert.ok(
 );
 assert.ok(
     capacityFocusMaskSource.includes("'PchOpeningGuideCapacityDimMask'")
-        && capacityFocusMaskSource.includes("this.belt?.getChildByName('PchMovingTrack')")
+        && capacityFocusMaskSource.includes('this.capacityTrack || this.capacityProgress?.node || null')
         && capacityFocusMaskSource.includes('conveyorTransform.getBoundingBoxToWorld()')
         && capacityFocusMaskSource.includes('const focusLeft = clamp(')
         && capacityFocusMaskSource.includes('const focusRight = clamp(')
         && capacityFocusMaskSource.includes('const focusBottom = clamp(')
         && capacityFocusMaskSource.includes('const focusTop = clamp(')
         && capacityFocusMaskSource.includes('new Color(0, 0, 0, OPENING_GUIDE_DIM_MASK_OPACITY)')
-        && capacityFocusMaskSource.includes("'GuideCapacityDimTop'")
-        && capacityFocusMaskSource.includes("'GuideCapacityDimLeft'")
-        && capacityFocusMaskSource.includes("'GuideCapacityDimRight'")
-        && capacityFocusMaskSource.includes("'GuideCapacityDimBottom'")
+        && capacityFocusMaskSource.includes('graphics.customMaterial = material;')
+        && capacityFocusMaskSource.includes("material.setProperty('holeRect'")
+        && !capacityFocusMaskSource.includes('createPanel(')
         && capacityFocusMaskSource.includes('mask.setSiblingIndex(0);')
         && !capacityFocusMaskSource.includes('BlockInputEvents'),
-    'level 3 must use a black four-panel union mask that keeps the conveyor and capacity button visible',
+    'level 3 must use a rounded material opening around the progress bar and capacity button',
 );
 assert.ok(
     sharedTargetGuideSource.includes('promptYOverride?: number')
@@ -544,8 +561,7 @@ assert.strictEqual(levelTwoRoute[0][4], '你可以调整传送带的速度');
 assert.strictEqual(levelTwoRoute[0][6], undefined, 'level 2 must retain its existing vertical placement');
 const levelThreeRoute = routeGuide(3, 'main');
 assert.strictEqual(levelThreeRoute.length, 1);
-assert.strictEqual(levelThreeRoute[0][3], 'PchLevelThreeCapacityGuide');
-assert.strictEqual(levelThreeRoute[0][4], '传送带满了就会失败哦\n点击扩容可以增加传送带容量');
+assert.deepStrictEqual(levelThreeRoute[0], ['capacity-material', 'fixed-root']);
 assert.ok(
     sharedTargetGuideAtSource.includes('promptYOverride?: number')
         && sharedTargetGuideAtSource.includes('const promptY = usesVideoGuideBubbleLayout')

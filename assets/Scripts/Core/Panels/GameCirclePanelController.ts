@@ -1,4 +1,6 @@
-import { AudioMgr, Node, UITransform, Vec3, view } from '../GameCtrlShared';
+import { AudioMgr, Button, Node, UITransform, Vec3, view } from '../GameCtrlShared';
+import { director, Director, game, Game } from 'cc';
+import { AnalyticsMgr } from '../AnalyticsMgr';
 import {
     createWeChatGameCircleButton,
     destroyWeChatGameCircleButton,
@@ -113,10 +115,73 @@ function hasWeChatGameCircleRuntime(): boolean {
 }
 
 export class GameCirclePanelController {
+    private overlay: Node | null = null;
+    private enter: Node | null = null;
+    private openlink = '';
+    private foreground = true;
+    private failed = false;
+    private visible = false;
+    private geometry = '';
+    private readonly onHide = () => { this.foreground = false; this.hideNative(); };
+    private readonly onShow = () => { this.foreground = true; };
+    private readonly syncNative = () => {
+        const overlay = this.overlay;
+        if (!overlay?.isValid) { this.stopNativeLifecycle(); return; }
+        const covered = overlay.parent?.children.some(node => node !== overlay
+            && node.activeInHierarchy && node.getSiblingIndex() > overlay.getSiblingIndex());
+        if (!this.foreground || this.runtime._gameForeground === false || !overlay.activeInHierarchy || !this.enter?.activeInHierarchy || covered) {
+            this.hideNative(); return;
+        }
+        if (this.failed) return;
+        try {
+            const style = resolveNativeButtonStyle(this.enter);
+            const geometry = JSON.stringify(style);
+            let button = this.runtime._gameCircleNativeButton as WeChatGameClubButtonHandle | null;
+            if (!button) {
+                const result = createWeChatGameCircleButton(this.openlink, style, () => {
+                    AudioMgr.inst.play('button');
+                    AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'csd_game_circle_enter_tap', page: 'game_circle',
+                        levelId: 0, logicalLevelId: 0, physicalLevelId: 0, gameplayEntryMode: '',
+                        source: 'native_button', success: true });
+                });
+                button = result.button;
+                this.runtime._gameCircleNativeButton = button;
+                this.visible = true;
+                runtimeLog('[GameCircle] native button ready:', result.style);
+            } else if (geometry !== this.geometry) {
+                if (!button.style) throw new Error('[GameCircle] native style update unavailable');
+                Object.assign(button.style, style);
+            }
+            this.geometry = geometry;
+            if (!this.visible) { button.show?.(); this.visible = true; }
+        } catch (error) {
+            this.failed = true;
+            this.destroyNativeButton();
+            AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'csd_game_circle_native_error', page: 'game_circle',
+                levelId: 0, logicalLevelId: 0, physicalLevelId: 0, gameplayEntryMode: '',
+                source: 'native_button', success: false, errorCode: 'native_button_lifecycle',
+                errorMessage: String((error as Error)?.message || error).slice(0, 200) });
+            console.error('[GameCircle] native button lifecycle failed', error);
+        }
+    };
     constructor(private readonly runtime: any) {}
 
-    destroy(): void {
+    private hideNative(): void {
+        if (this.visible) this.runtime._gameCircleNativeButton?.hide?.();
+        this.visible = false;
+    }
+
+    private stopNativeLifecycle(): void {
+        director.off(Director.EVENT_AFTER_DRAW, this.syncNative, this);
+        game.off(Game.EVENT_HIDE, this.onHide, this);
+        game.off(Game.EVENT_SHOW, this.onShow, this);
         this.destroyNativeButton();
+        this.overlay = null;
+        this.enter = null;
+    }
+
+    destroy(): void {
+        this.stopNativeLifecycle();
         this.runtime._gameCircleOverlay = null;
     }
 
@@ -125,6 +190,8 @@ export class GameCirclePanelController {
         const button = runtime._gameCircleNativeButton as WeChatGameClubButtonHandle | null | undefined;
         runtime._gameCircleNativeButton = null;
         destroyWeChatGameCircleButton(button);
+        this.visible = false;
+        this.geometry = '';
     }
 
     open(openlink: string): void {
@@ -132,7 +199,7 @@ export class GameCirclePanelController {
         if (!hasWeChatGameCircleRuntime()) return;
         if (runtime._gameCircleOverlay?.isValid) return;
         runtime._gameCircleOverlay = null;
-        this.destroyNativeButton();
+        this.stopNativeLifecycle();
 
         openCollectionShellOverlay(runtime, {
             overlayName: 'GameCircleOverlay',
@@ -141,25 +208,30 @@ export class GameCirclePanelController {
             siblingIndex: 1001,
             requireActionNodes: false,
             onClose: () => {
-                this.destroyNativeButton();
+                this.stopNativeLifecycle();
                 runtime._gameCircleOverlay = null;
             },
             onError: () => {
-                this.destroyNativeButton();
+                this.stopNativeLifecycle();
                 runtime._gameCircleOverlay = null;
             },
             onReady: ({ overlay, box }) => {
                 runtime._gameCircleOverlay = overlay;
                 const enterBtn = runtime.requirePanelChild(box, 'EnterBtn');
-                const style = resolveNativeButtonStyle(enterBtn);
-                const result = createWeChatGameCircleButton(openlink, style, () => {
-                    AudioMgr.inst.play('button');
-                });
-                runtime._gameCircleNativeButton = result.button;
-                runtimeLog('[GameCircle] native button ready:', result.style, result.sdkVersion || '', result.platform || '', result.openlink ? 'openlink' : 'home');
-                runtime.bindPanelButton(enterBtn, () => {
-                    throw new Error('[GameCircle] Cocos EnterBtn received the tap; wx.createGameClubButton is not covering the visible button');
-                });
+                const button = enterBtn.getComponent(Button);
+                if (button) { button.clickEvents.length = 0; button.enabled = false; }
+                this.enter = enterBtn;
+                this.overlay = overlay;
+                this.openlink = openlink;
+                this.foreground = runtime._gameForeground !== false;
+                this.failed = false;
+            },
+            onOpened: ({ overlay }) => {
+                if (this.overlay !== overlay || !overlay.isValid) return;
+                // After popup tween AND layout draw. Native geometry follows later resize/layout changes.
+                director.on(Director.EVENT_AFTER_DRAW, this.syncNative, this);
+                game.on(Game.EVENT_HIDE, this.onHide, this);
+                game.on(Game.EVENT_SHOW, this.onShow, this);
             },
         });
     }

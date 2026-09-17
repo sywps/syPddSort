@@ -392,6 +392,8 @@ export class GameplayResultPanelController {
     }
 
     private closeReviveFailureSession(kind: ReviveSharePanelKind, overlay: Node): void {
+        AnalyticsMgr.inst.trackFunnelEvent?.({ eventName: 'revive_declined', success: true, source: 'panel_close',
+            extra: { failureId: AnalyticsMgr.inst.getCurrentFailureId?.() || '' } });
         const session = this.beginReviveFailureSession(kind);
         session.active = false;
         if (this.activeReviveFailureSession === session) {
@@ -408,6 +410,7 @@ export class GameplayResultPanelController {
     }
 
     private leaveFailureToHome(overlay: Node): void {
+        AnalyticsMgr.inst.trackLevelExitIntent?.('lose_panel_home');
         this.reviveFailureShareSelected = null;
         const runtime = this.runtime;
         if (this.activeReviveFailureSession) {

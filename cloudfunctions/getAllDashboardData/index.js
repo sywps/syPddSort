@@ -59,6 +59,12 @@ const PCH_FUNNEL_DIAGNOSTICS = [
   { key: 'pch_guide_step_shown', label: 'PCH 引导步骤曝光' },
   { key: 'pch_guide_tap_result', label: 'PCH 引导点击结果' },
   { key: 'pch_guide_step_done', label: 'PCH 引导步骤完成' },
+  { key: 'pch_level3_first_action_after_guide', label: '第三关引导后首次操作' },
+  { key: 'pch_level3_progress_25', label: '第三关达到25%' },
+  { key: 'pch_level3_progress_50', label: '第三关达到50%' },
+  { key: 'pch_level3_progress_75', label: '第三关达到75%' },
+  { key: 'pch_level3_background_snapshot', label: '第三关首次切后台快照（非失败）' },
+  { key: 'pch_level3_leave_snapshot', label: '第三关主动离开快照（非失败）' },
   { key: 'level_fail', label: '首关失败' },
   { key: 'app_hide', label: '切后台/退出' },
 ];
@@ -203,7 +209,7 @@ async function buildDailyCore(dateStr) {
 
   for (const item of behaviorList) {
     if (item.openid) activeUsers.add(item.openid);
-    if (item.eventName === 'game_start') totalPlay += 1;
+    if (item.eventName === 'enter_level') totalPlay += 1;
   }
 
   const newUsers = await fetchProfilesByFirstLogin(dateStr);
@@ -859,6 +865,22 @@ function serializeFirstLevelBucket(bucket) {
 }
 
 function buildFirstLevelFunnel(records, opt = {}) {
+  // Read v2 summaries as virtual stages for existing session/UV charts; never upload these rows.
+  const derived = [];
+  for (const item of records) {
+    if (item.eventName === 'guide_step_summary' && Number(item.extra?.hitCount || 0) + Number(item.extra?.missCount || 0) + Number(item.extra?.actionFailureCount || 0) > 0) {
+      derived.push({ ...item, eventName: 'pch_guide_tap_result' });
+    }
+    if (item.eventName === 'startup_summary' && typeof item.extra?.stages === 'string') {
+      try {
+        const stages = JSON.parse(item.extra.stages);
+        for (const [eventName, duration] of Object.entries(stages)) {
+          if (eventName.startsWith('startup_') && Number.isFinite(duration)) derived.push({ ...item, eventName, duration });
+        }
+      } catch (error) { console.error('[Analytics] invalid startup summary', error.message); }
+    }
+  }
+  records = records.concat(derived);
   const logicalLevelId = Math.max(0, Math.floor(Number(opt.logicalLevelId) || 0));
   const includeSessionEvents = opt.includeSessionEvents === true;
   const sessionBucketMap = new Map();

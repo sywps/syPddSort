@@ -5,6 +5,7 @@ const path = require("path");
 const CloudBase = require("@cloudbase/manager-node");
 const { buildFirstLevelExperimentReport } = require('./first-level-experiment-report');
 const { buildBeanSelectionExperimentReport } = require('./bean-selection-experiment-report');
+const { buildAnalyticsV2Report, renderAnalyticsV2, compatibleFunnelRecords } = require('./analytics-v2-report');
 
 const DEFAULT_COLLECTION = "user_behavior";
 const DEFAULT_DAILY_COLLECTIONS = [
@@ -71,11 +72,23 @@ const PCH_FUNNEL_STEPS = [
   "pch_guide_step_shown",
   "pch_guide_tap_result",
   "pch_guide_step_done",
+  "pch_level3_first_action_after_guide",
+  "pch_level3_progress_25",
+  "pch_level3_progress_50",
+  "pch_level3_progress_75",
+  "pch_level3_background_snapshot",
+  "pch_level3_leave_snapshot",
 ];
 
 const PCH_MILESTONE_REPORT_STEPS = [
   ["首次存入传送带成功", "pch_first_store_success"],
   ["首次从传送带归位成功", "pch_first_return_success"],
+  ["第三关引导后首次操作", "pch_level3_first_action_after_guide"],
+  ["第三关达到25%", "pch_level3_progress_25"],
+  ["第三关达到50%", "pch_level3_progress_50"],
+  ["第三关达到75%", "pch_level3_progress_75"],
+  ["第三关首次切后台快照（非失败）", "pch_level3_background_snapshot"],
+  ["第三关主动离开快照（非失败）", "pch_level3_leave_snapshot"],
 ];
 
 const EXPERIMENT_GROUP_SPECS = [
@@ -821,12 +834,12 @@ function topMapEntries(map, limit = 20) {
     .map(([key, count]) => ({ key, count }));
 }
 
-function addDetailStat(map, key, sessionKey, userKey) {
+function addDetailStat(map, key, sessionKey, userKey, weight = 1) {
   if (!map.has(key)) {
     map.set(key, { key, records: 0, sessions: new Set(), users: new Set() });
   }
   const stat = map.get(key);
-  stat.records += 1;
+  stat.records += weight;
   if (sessionKey) {
     stat.sessions.add(sessionKey);
   }
@@ -930,6 +943,7 @@ function buildFirstLevelFunnelSummary({
   inputPath,
   levelIds = PCH_ONBOARDING_LEVEL_IDS,
 }) {
+  records = compatibleFunnelRecords(records);
   const normalizedLevelIds = (Array.isArray(levelIds) ? levelIds : [levelIds])
     .map((value) => Math.floor(Number(value) || 0))
     .filter((value) => value > 0);
@@ -949,6 +963,7 @@ function buildFirstLevelFunnelSummary({
 
   for (const record of scopedRecords) {
     const eventName = record.eventName || "";
+    const weight = Number(record.measurementCount) || 1;
     const sessionKey = getSessionKey(record);
     const userKey = record.openid || "";
     const timestamp = Number(record.timestamp) || 0;
@@ -976,7 +991,7 @@ function buildFirstLevelFunnelSummary({
       eventStats.set(eventName, { eventName, records: 0, sessions: new Set(), users: new Set() });
     }
     const stat = eventStats.get(eventName);
-    stat.records += 1;
+    stat.records += weight;
     if (sessionKey) {
       stat.sessions.add(sessionKey);
     }
@@ -995,10 +1010,10 @@ function buildFirstLevelFunnelSummary({
       const result = String(record.extra?.result || record.errorCode || (record.success ? "success" : "unknown"));
       const resultKey = `${guideId}|${result}`;
       const stepKey = `L${getFunnelRecordLevelId(record)}|${record.stepName || String(record.stepId || "unknown")}|${result}`;
-      guideTapResultStats.set(resultKey, (guideTapResultStats.get(resultKey) || 0) + 1);
-      guideTapResultStepStats.set(stepKey, (guideTapResultStepStats.get(stepKey) || 0) + 1);
-      addDetailStat(guideTapResultDetails, resultKey, sessionKey, userKey);
-      addDetailStat(guideTapResultStepDetails, stepKey, sessionKey, userKey);
+      guideTapResultStats.set(resultKey, (guideTapResultStats.get(resultKey) || 0) + weight);
+      guideTapResultStepStats.set(stepKey, (guideTapResultStepStats.get(stepKey) || 0) + weight);
+      addDetailStat(guideTapResultDetails, resultKey, sessionKey, userKey, weight);
+      addDetailStat(guideTapResultStepDetails, stepKey, sessionKey, userKey, weight);
     }
     if (record.stepName) {
       const key = `${eventName}|${record.stepName}`;
@@ -1017,6 +1032,28 @@ function buildFirstLevelFunnelSummary({
   });
   const eventMap = Object.fromEntries(steps.map((row) => [row.eventName, row]));
   const durationFromFirstStoreToFirstReturn = [];
+  const levelThreeRows = scopedRecords.filter(record => getFunnelRecordLevelId(record) === 3
+    && String(record.eventName || '').startsWith('pch_level3_'));
+  const measuredGuideDelays = levelThreeRows.filter(record =>
+    record.eventName === 'pch_level3_first_action_after_guide'
+    && record.extra?.guideCompleted === true
+    && Number.isFinite(record.extra?.elapsedMsAfterGuide));
+  const levelThreeDiagnostics = {
+    note: '切后台/离开不是失败；缺少roundId的记录不能串局；耗时含前后台等待，不是纯操作时间。',
+    guideToFirstAction: quantileSeconds(measuredGuideDelays.map(record => record.extra.elapsedMsAfterGuide)),
+    guideToFirstActionSamples: measuredGuideDelays.length,
+    missingRoundIdRecords: levelThreeRows.filter(record => !record.roundId).length,
+    snapshots: levelThreeRows.filter(record => String(record.eventName).endsWith('_snapshot')).map(record => ({
+      roundId: record.roundId || null,
+      eventName: record.eventName,
+      timestamp: record.timestamp,
+      progressRatio: record.extra?.progressRatio ?? null,
+      bufferCount: record.extra?.bufferCount ?? null,
+      bufferCapacity: record.extra?.bufferCapacity ?? null,
+      validActionCount: record.extra?.validActionCount ?? null,
+      guideCompleted: record.extra?.guideCompleted ?? null,
+    })),
+  };
 
   for (const session of sessions.values()) {
     const firstStore = session.events.get("pch_first_store_success") || 0;
@@ -1049,6 +1086,7 @@ function buildFirstLevelFunnelSummary({
     durationSeconds: {
       firstStoreToFirstReturn: quantileSeconds(durationFromFirstStoreToFirstReturn),
     },
+    levelThreeDiagnostics,
     topSources: topMapEntries(sourceStats, 20),
     guideTapResults: topMapEntries(guideTapResultStats, 40),
     guideTapResultSteps: topMapEntries(guideTapResultStepStats, 80),
@@ -2210,6 +2248,8 @@ function analyzeFirstLevelFunnelFile({
       ``,
       `## Key Rates`,
       ``,
+      `第三关诊断：引导后首次操作有效样本 ${summary.levelThreeDiagnostics?.guideToFirstActionSamples || 0}；切后台/离开快照 ${summary.levelThreeDiagnostics?.snapshots?.length || 0}。耗时分位数及逐局快照见 summary.json 的 levelThreeDiagnostics；切后台不代表流失或失败。`,
+      ``,
       `- 首次存入 -> 首次归位: ${percentText(summary.keyRates.firstStoreToFirstReturn)}`,
       `- 引导曝光 -> 引导点击结果: ${percentText(summary.keyRates.guideShownToTap)}`,
       `- 引导点击结果 -> 引导完成: ${percentText(summary.keyRates.guideTapToDone)}`,
@@ -2496,7 +2536,7 @@ function buildEffectiveDailyCore({
   }
 
   if (userBehaviorSummary) {
-    const totalPlay = Number(userBehaviorSummary.eventCounts?.game_start) || 0;
+    const totalPlay = Number(userBehaviorSummary.eventCounts?.enter_level) || 0;
     return {
       source: "user_behavior_fallback",
       isFallback: true,
@@ -3487,6 +3527,8 @@ function normalizeChurnAction(record, source) {
   const levelId = Number(record.levelId);
   if (!eventName || eventName.startsWith("alive_")) return null;
   const passiveEvents = new Set([
+    "app_background", "app_resume", "guide_step_summary", "analytics_quality", "startup_summary",
+    "level_measurement_start", "level_pause_snapshot", "level_unresolved_previous", "ad_entry_exposure",
     "app_launch",
     "ab_assigned",
     "bootstrap_level_start",
@@ -4449,6 +4491,10 @@ function writeCombinedOutputs({
     const file = getCollectionExportPath(combinedSummary, collection);
     return file && fs.existsSync(file) ? loadNdjsonRecords(file) : null;
   };
+  combinedSummary.analyticsV2 = buildAnalyticsV2Report({
+    behaviorRecords: experimentRecords('user_behavior'), funnelRecords: experimentRecords('first_level_funnel'),
+    levelRecords: experimentRecords('level_record') });
+  fs.writeFileSync(path.join(rootOutputDir, 'analytics_v2.md'), renderAnalyticsV2(combinedSummary.analyticsV2));
   const nextExperimentSummaryPath = path.join(getDailyReportRoot(combinedSummary), addDays(dateLabel, 1), 'combined_summary.json');
   let nextExperimentRecords = null;
   if (Date.now() >= new Date(`${addDays(dateLabel, 2)}T00:00:00+08:00`).getTime() && fs.existsSync(nextExperimentSummaryPath)) {

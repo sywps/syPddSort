@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const cloud = require('wx-server-sdk');
 
 cloud.init({
@@ -146,6 +147,9 @@ async function touchUserProfile(openid, timestamp, eventName) {
 }
 
 exports.main = async (event = {}) => {
+  if (Number(event.csdVersion) >= 3 && event.analyticsEnvironment !== 'wechat_release') {
+    return { ok: false, errorMessage: 'CSD requires confirmed release analytics environment' };
+  }
   const wxContext = cloud.getWXContext();
   const openid = wxContext.OPENID || cleanString(event.openid, 96);
 
@@ -156,12 +160,20 @@ exports.main = async (event = {}) => {
     };
   }
 
-  const timestamp = Date.now();
+  const receivedAt = Date.now();
+  const timestamp = Number.isFinite(Number(event.timestamp)) && Number(event.timestamp) > 0 ? Number(event.timestamp) : receivedAt;
   const gameplayMode = normalizeGameplayMode(event.gameplayMode);
   const abId = cleanString(event.abId || event.experimentId, 64);
   const abBucket = cleanString(event.abBucket || event.experimentBucket, 64);
   const data = {
     openid,
+    eventId: cleanString(event.eventId, 160),
+    analyticsSchemaVersion: normalizeNonNegativeInt(event.analyticsSchemaVersion),
+    csdVersion: normalizeNonNegativeInt(event.csdVersion),
+    analyticsEnvironment: String(event.analyticsEnvironment || '').slice(0, 32),
+    receivedAt,
+    failureId: cleanString(event.failureId, 160),
+    lifecycleReason: cleanString(event.lifecycleReason, 32),
     eventName: cleanString(event.eventName, 64),
     levelId: normalizeLevelId(event.levelId),
     page: cleanString(event.page, 64),
@@ -179,6 +191,11 @@ exports.main = async (event = {}) => {
     beanSelectionExperimentBucket: cleanString(event.beanSelectionExperimentBucket, 8),
     beanSelectionEnrolledAt: Math.max(0, Number(event.beanSelectionEnrolledAt) || 0),
     beanSelectionExperimentReason: cleanString(event.beanSelectionExperimentReason, 64),
+    encouragementExperimentId: cleanString(event.encouragementExperimentId, 64),
+    encouragementExperimentStatus: cleanString(event.encouragementExperimentStatus, 16),
+    encouragementExperimentBucket: cleanString(event.encouragementExperimentBucket, 8),
+    encouragementEnrolledAt: Math.max(0, Number(event.encouragementEnrolledAt) || 0),
+    encouragementExperimentReason: cleanString(event.encouragementExperimentReason, 64),
     firstLevelExperimentStatus: cleanString(event.firstLevelExperimentStatus, 16),
     firstLevelExperimentBucket: cleanString(event.firstLevelExperimentBucket, 8),
     firstLevelContentVersion: cleanString(event.firstLevelContentVersion, 32),
@@ -209,8 +226,16 @@ exports.main = async (event = {}) => {
   }
 
   try {
-    const addRes = await db.collection(USER_BEHAVIOR_COLLECTION).add({ data });
-    await touchUserProfile(openid, timestamp, data.eventName);
+    const collection = db.collection(USER_BEHAVIOR_COLLECTION);
+    let addRes;
+    if (data.eventId) {
+      const id = crypto.createHash('sha256').update(openid + ':' + data.eventId).digest('hex');
+      await collection.doc(id).set({ data });
+      addRes = { _id: id };
+    } else {
+      addRes = await collection.add({ data });
+      await touchUserProfile(openid, timestamp, data.eventName);
+    }
     return {
       ok: true,
       id: addRes?._id || '',

@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const cloud = require('wx-server-sdk');
 
 cloud.init({
@@ -76,7 +77,8 @@ function normalizePchGameplayStats(value, gameplayMode, gameplaySchemaVersion) {
   if (gameplayMode !== PCH_GAMEPLAY_MODE || gameplaySchemaVersion !== PCH_GAMEPLAY_SCHEMA_VERSION) {
     return null;
   }
-  const source = value && typeof value === 'object' ? value : {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const source = value;
   return {
     magnetUses: normalizeGameplayStatCount(source.magnetUses),
     brushUses: normalizeGameplayStatCount(source.brushUses),
@@ -96,6 +98,9 @@ function normalizePchGameplayStats(value, gameplayMode, gameplaySchemaVersion) {
 }
 
 exports.main = async (event = {}) => {
+  if (Number(event.csdVersion) >= 3 && event.analyticsEnvironment !== 'wechat_release') {
+    return { ok: false, errorMessage: 'CSD requires confirmed release analytics environment' };
+  }
   const wxContext = cloud.getWXContext();
   const openid = wxContext.OPENID || cleanString(event.openid, 96);
   const levelId = normalizeLevelId(event.levelId);
@@ -124,9 +129,15 @@ exports.main = async (event = {}) => {
   const abBucket = cleanString(event.abBucket || event.experimentBucket, 64);
 
   try {
-    const addRes = await db.collection(LEVEL_RECORD_COLLECTION).add({
+    const collection = db.collection(LEVEL_RECORD_COLLECTION);
+    const roundKey = cleanString(event.roundId, 120);
+    const id = roundKey ? crypto.createHash('sha256').update(openid + ':' + roundKey).digest('hex') : '';
+    const payload = {
       data: {
         openid,
+        analyticsSchemaVersion: normalizeGameplayStatCount(event.analyticsSchemaVersion),
+        csdVersion: normalizeGameplayStatCount(event.csdVersion),
+        analyticsEnvironment: String(event.analyticsEnvironment || '').slice(0, 32),
         sessionId: cleanString(event.sessionId, 96),
         roundId: cleanString(event.roundId, 120),
         clientBuildId: cleanString(event.clientBuildId, 80),
@@ -143,6 +154,11 @@ exports.main = async (event = {}) => {
         beanSelectionExperimentBucket: cleanString(event.beanSelectionExperimentBucket, 8),
         beanSelectionEnrolledAt: Math.max(0, Number(event.beanSelectionEnrolledAt) || 0),
         beanSelectionExperimentReason: cleanString(event.beanSelectionExperimentReason, 64),
+        encouragementExperimentId: cleanString(event.encouragementExperimentId, 64),
+        encouragementExperimentStatus: cleanString(event.encouragementExperimentStatus, 16),
+        encouragementExperimentBucket: cleanString(event.encouragementExperimentBucket, 8),
+        encouragementEnrolledAt: Math.max(0, Number(event.encouragementEnrolledAt) || 0),
+        encouragementExperimentReason: cleanString(event.encouragementExperimentReason, 64),
         firstLevelExperimentStatus: cleanString(event.firstLevelExperimentStatus, 16),
         firstLevelExperimentBucket: cleanString(event.firstLevelExperimentBucket, 8),
         firstLevelContentVersion: cleanString(event.firstLevelContentVersion, 32),
@@ -152,6 +168,7 @@ exports.main = async (event = {}) => {
         tryCount: normalizeTryCount(event.tryCount),
         passStatus,
         endReason,
+        exitReason: cleanString(event.exitReason, 48),
         useAdRevive: normalizeBoolean(event.useAdRevive),
         useShareRevive: normalizeBoolean(event.useShareRevive),
         gameplayMode,
@@ -165,7 +182,8 @@ exports.main = async (event = {}) => {
         startTime,
         endTime: endTime >= startTime ? endTime : startTime,
       },
-    });
+    };
+    const addRes = id ? (await collection.doc(id).set(payload), { _id: id }) : await collection.add(payload);
 
     return {
       ok: true,

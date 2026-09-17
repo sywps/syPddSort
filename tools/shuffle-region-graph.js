@@ -1,7 +1,8 @@
 'use strict';
 
-const VERSION = 'region-adjacency-v4-quota-structure';
+const VERSION = 'region-adjacency-v7-v5-guarded';
 const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
+const CONNECTED_DIRS = [...DIRS,[1,1],[1,-1],[-1,1],[-1,-1]];
 const DEFAULT_OPTIONS=Object.freeze({minChunk:9,maxExtraMatchRatio:.01,roleCapFactor:1.75,fragmentedRoleRatio:.2,layoutAttempts:24});
 
 function generate(target, options = {}) {
@@ -40,7 +41,17 @@ function generate(target, options = {}) {
         return [c,[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255)];
     }));
     const distance=(a,b)=>Math.sqrt(rgb.get(a).reduce((s,v,i)=>s+(v-rgb.get(b)[i])**2,0)/3);
-    const sourceRegions=buildRegions(target,cells,neighbors,value);
+    const background=options.backgroundColor??'#faf8f2';
+    if(!/^#[0-9a-f]{6}$/i.test(background))throw new Error('Invalid backgroundColor');
+    const backgroundRgb=[1,3,5].map(i=>parseInt(background.slice(i,i+2),16)/255);
+    const backgroundContrast=c=>Math.sqrt(rgb.get(c).reduce((s,v,i)=>s+(v-backgroundRgb[i])**2,0)/3);
+    // Logical colour connectivity includes corners; shared geometric edges do not.
+    const connectedCache=new Map();
+    const connected=p=>{if(!connectedCache.has(p)){const y=Math.floor(p/width),x=p%width;
+        connectedCache.set(p,CONNECTED_DIRS.map(([dy,dx])=>[y+dy,x+dx])
+            .filter(([r,c])=>r>=0&&r<height&&c>=0&&c<width).map(([r,c])=>r*width+c));}
+        return connectedCache.get(p);};
+    const sourceRegions=buildRegions(target,cells,connected,value);
     const regions=[...sourceRegions.values()].flat();
     regions.forEach((region,id)=>{region.id=id;});
     const roleCap=new Map(colors.map(color=>{const largest=Math.max(...sourceRegions.get(color).map(region=>region.cells.length));
@@ -55,7 +66,7 @@ function generate(target, options = {}) {
     }
     const profileKey=cohortKey(total,Math.max(...inventory.values())/total,
         sourceEdges.filter(edge=>edge.different).length/Math.max(1,sourceEdges.length));
-    if(options.profile&&(options.profile.version!==1||!options.profile.overall||!options.profile.cohorts))
+    if(options.profile&&(options.profile.version!==2||!options.profile.overall||!options.profile.cohorts))
         throw new Error('Invalid structure reference profile');
     const reference=options.profile&&(options.profile.cohorts[profileKey]||options.profile.overall);
     // Visual anchors are small enclosed shapes (eyes, mouths, emblems, etc.).
@@ -86,6 +97,8 @@ function generate(target, options = {}) {
     const reject=reason=>{failures.set(reason,(failures.get(reason)||0)+1);return null;};
     let best=null,evaluated=0;
     const finalists=[];
+    const subjectFinalists=[];
+    let rankSubject=false;
     // These are the existing experiment's compound visual acceptance bounds.
     // Prefer candidates satisfying all of them over a lower weighted sum with
     // one severe defect; do not trade an oversized dark mass for fewer cuts.
@@ -97,6 +110,7 @@ function generate(target, options = {}) {
         (1-metrics.boundaryRecall)*18+(1-metrics.boundaryPrecision)*12
         +metrics.interiorSplit*5+(1-metrics.wholeRegionArea)*2+(1-metrics.regionPurity)*6
         +metrics.lowContrastBoundaryRatio*4+metrics.featureBoundaryLoss*32+metrics.roleOverflowRatio*28
+        +(rankSubject?metrics.subjectBackgroundLoss*1000+metrics.subjectFragmentation*40+metrics.subjectContrastCuts*80:0)
         +Math.max(0,.45-metrics.outputSmallPieces/Math.max(1,metrics.sourceSmallPieces))*18
         +Math.max(0,metrics.roleOverflowRatio-.10)*200+Math.max(0,metrics.featureBoundaryLoss-.25)*80
         +(matches-minimumMatches)/total*12+referencePenalty(metrics,reference);
@@ -105,11 +119,16 @@ function generate(target, options = {}) {
         if(candidate.matches>maxMatches){reject('match-limit');return;}
         if(candidate.matches===total){reject('unchanged');return;}
         const metrics=measure(target,candidate.grid,minChunk);
-        if(metrics.newSmallPieces>0||metrics.outputSmallPieces>metrics.sourceSmallPieces){reject('small-pieces');return;}
+        if(metrics.newSmallPieces>0||metrics.outputSmallPieces>metrics.sourceSmallPieces
+            ||metrics.outputSingletons>metrics.sourceSingletons){reject('small-pieces');return;}
         evaluated++;
         const score=candidateScore(metrics,candidate.matches);
         const result={grid:candidate.grid,score,metrics,displacement:candidate.displacement,strategy:candidate.strategy||'direct-regions'};
         finalists.push(result);finalists.sort(compareCandidates);if(finalists.length>4)finalists.pop();
+        rankSubject=true;
+        subjectFinalists.push({...result,score:candidateScore(metrics,candidate.matches)});
+        subjectFinalists.sort(compareCandidates);if(subjectFinalists.length>64)subjectFinalists.pop();
+        rankSubject=false;
         best=finalists[0];
     };
     // An interval rotation produces a sparse, exact transport plan before any
@@ -126,7 +145,7 @@ function generate(target, options = {}) {
         const key=colors.map(c=>[...flow.get(c)].sort((a,b)=>a[0]-b[0]).join(':')).join('|');
         if(planKeys.has(key))continue;planKeys.add(key);
         const grid=target.map(row=>row.map(c=>c>0?0:c));let placed=true;
-        for(const c of colors)if(!paintSourceRegions(sourceRegions.get(c),[...flow.get(c)],grid,width,neighbors,minChunk,attempt,saliency)){
+        for(const c of colors)if(!paintSourceRegions(sourceRegions.get(c),[...flow.get(c)],grid,width,connected,minChunk,attempt,saliency,neighbors)){
             placed=false;break;}
         if(placed)consider({grid,matches,cuts:colors.reduce((sum,c)=>sum+flow.get(c).size-1,0),displacement:1-matches/total,strategy:'sparse-quota-flow'});
         else reject('flow-placement');
@@ -144,11 +163,46 @@ function generate(target, options = {}) {
     if(!best)throw new Error(`No layout preserves regions without adding small fragments: ${JSON.stringify(Object.fromEntries(failures))}`);
     best=finalists.map(repairFeatureRegions).map(result=>({...result,score:candidateScore(result.metrics,Math.round(total*(1-result.displacement)))}))
         .sort(compareCandidates)[0];
+    // Only repair a measured background-contrast defect; preserve established
+    // connectivity choices when there is no subject/background failure.
+    const baseline=best;
+    let subjectAdjustment='v5-kept-no-background-defect';
+    if(best.metrics.subjectBackgroundLoss>.005){
+        subjectAdjustment='v5-kept-no-qualified-candidate';
+        const thinRegions=regions.filter(region=>region.cells.length>=minChunk
+            &&region.cells.filter(p=>neighbors(p).filter(q=>value(target,q)===region.color).length>=3).length<region.cells.length*.35);
+        const protectedLinks=thinRegions
+            .flatMap(region=>region.cells.flatMap(p=>connected(p).filter(q=>q>p&&value(target,q)===region.color
+                &&value(best.grid,p)===value(best.grid,q)).map(q=>[p,q])));
+        rankSubject=true;
+        const visible=(grid,region)=>region.cells.reduce((sum,p)=>sum+Math.min(.25,backgroundContrast(value(grid,p))),0);
+        const regionCuts=(grid,region)=>region.cells.reduce((sum,p)=>sum+neighbors(p)
+            .filter(q=>q>p&&value(target,q)===region.color&&value(grid,q)!==value(grid,p)).length,0);
+        const majorRegions=regions.filter(region=>region.cells.length>=Math.max(25,total*.04));
+        const thinVisibility=thinRegions.map(region=>visible(baseline.grid,region));
+        const majorCuts=majorRegions.map(region=>regionCuts(baseline.grid,region));
+        const qualifies=result=>result.metrics.subjectBackgroundLoss<baseline.metrics.subjectBackgroundLoss
+                &&result.metrics.newSplitEdges<=baseline.metrics.newSplitEdges
+                &&result.metrics.subjectContrastCuts<=baseline.metrics.subjectContrastCuts+1e-12
+                &&result.metrics.subjectFragmentation<=baseline.metrics.subjectFragmentation+1e-12
+                &&result.metrics.outputSingletons<=baseline.metrics.outputSingletons
+                &&result.metrics.outputSmallPieces<=baseline.metrics.outputSmallPieces
+                &&thinRegions.every((region,i)=>visible(result.grid,region)>=thinVisibility[i]-1e-12)
+                &&majorRegions.every((region,i)=>regionCuts(result.grid,region)<=majorCuts[i])
+                &&protectedLinks.every(([p,q])=>value(result.grid,p)===value(result.grid,q))
+                &&qualityDistance(result.metrics)<=qualityDistance(baseline.metrics)+1e-12;
+        // Filter before truncation: a high contrast score cannot crowd out a
+        // candidate that actually preserves the v5 body and branch structure.
+        const alternatives=subjectFinalists.filter(qualifies).slice(0,4).map(repairFeatureRegions).map(result=>({...result,
+            score:candidateScore(result.metrics,Math.round(total*(1-result.displacement)))}))
+            .filter(qualifies);
+        if(alternatives.length){best=alternatives.sort(compareCandidates)[0];subjectAdjustment='qualified-improvement';}
+    }
     const actual=countColors(best.grid);
     for(const [c,n]of inventory)if(actual.get(c)!==n)throw new Error('Inventory invariant failed');
     const flow=Object.fromEntries(colors.map(c=>[c,{}]));
     for(const p of cells){const row=flow[value(target,p)],c=value(best.grid,p);row[c]=(row[c]||0)+1;}
-    return {...best,version:VERSION,evaluated,minimumMatches,maxMatches,
+    return {...best,version:VERSION,evaluated,minimumMatches,maxMatches,subjectAdjustment,
         structureAccepted:qualityDistance(best.metrics)<=1e-12,profileKey:reference?profileKey:null,
         flow,
         excessMatches:Math.round(total*(1-best.displacement))-minimumMatches};
@@ -183,6 +237,7 @@ function generate(target, options = {}) {
                     let matchCount=0;for(const p of cells)matchCount+=Number(value(grid,p)===value(target,p));
                     const next=matchCount<=maxMatches?measure(target,grid,minChunk):null;
                     if(next&&next.newSmallPieces===0&&next.outputSmallPieces<=next.sourceSmallPieces
+                        &&next.outputSingletons<=next.sourceSingletons
                         &&next.roleOverflowRatio<=metrics.roleOverflowRatio+1e-12){const nextScore=visualScore(next);
                         if(nextScore<score-1e-9&&(!choice||nextScore<choice.score))choice={a,group,colorA,colorB,metrics:next,score:nextScore,matchCount};}
                     for(const p of a.cells)grid[Math.floor(p/width)][p%width]=colorA;
@@ -282,7 +337,7 @@ function generate(target, options = {}) {
                     let chunk=Math.min(available,roleCap.get(color),size-minChunk);
                     if(available-chunk>0&&available-chunk<minChunk)chunk=available-minChunk;
                     if(chunk<minChunk||!canPlace(block.region.color,color,chunk))continue;
-                    const split=carve(block.cells,chunk,neighbors,minChunk,attempt+cuts,saliency);
+                    const split=carve(block.cells,chunk,connected,minChunk,attempt+cuts,saliency,()=>true,neighbors);
                     if(split)
                         choices.push({type:'split',color,split,cost:blockCost(split.piece,block.region,color,grid)
                             +roleMergeOverflow(split.piece,color,grid)*24+split.score*.18+18});
@@ -343,9 +398,9 @@ function generate(target, options = {}) {
 
     function roleMergeOverflow(points,color,grid){
         const incoming=new Set(points),seen=new Set();let combined=points.length;
-        for(const p of points)for(const q of neighbors(p))if(!incoming.has(q)&&!seen.has(q)&&value(grid,q)===color){
+        for(const p of points)for(const q of connected(p))if(!incoming.has(q)&&!seen.has(q)&&value(grid,q)===color){
             const queue=[q];seen.add(q);
-            for(let i=0;i<queue.length;i++)for(const next of neighbors(queue[i]))if(!incoming.has(next)&&!seen.has(next)&&value(grid,next)===color){seen.add(next);queue.push(next);}
+            for(let i=0;i<queue.length;i++)for(const next of connected(queue[i]))if(!incoming.has(next)&&!seen.has(next)&&value(grid,next)===color){seen.add(next);queue.push(next);}
             combined+=queue.length;
         }
         return Math.max(0,combined-roleCap.get(color));
@@ -363,10 +418,26 @@ function generate(target, options = {}) {
         for(const region of regions){const counts=new Map();for(const p of region.cells){const c=value(b,p);counts.set(c,(counts.get(c)||0)+1);}
             if(counts.size===1)wholeCells+=region.cells.length;
             else {const remaining=new Set(region.cells);while(remaining.size){const first=remaining.values().next().value,piece=[first];remaining.delete(first);
-                for(let i=0;i<piece.length;i++)for(const q of neighbors(piece[i]))if(remaining.has(q)&&value(b,q)===value(b,first)){remaining.delete(q);piece.push(q);}
+                for(let i=0;i<piece.length;i++)for(const q of connected(piece[i]))if(remaining.has(q)&&value(b,q)===value(b,first)){remaining.delete(q);piece.push(q);}
                 if(piece.length<threshold)newSmallPieces++;}}
             mainCells+=Math.max(...counts.values());}
-        return {edgeRecall:sourceBoundary?retained/sourceBoundary:1,edgePrecision:retained+extra?retained/(retained+extra):1,
+        // Large, locally thick regions approximate subject masses without naming objects.
+        let subjectArea=0,backgroundLoss=0,fragmentation=0,contrastCuts=0,subjectEdges=0;
+        for(const region of regions){
+            if(region.cells.length<Math.max(25,total*.04))continue;
+            const thick=region.cells.filter(p=>neighbors(p).filter(q=>value(a,q)===region.color).length>=3);
+            if(thick.length<region.cells.length*.35)continue;
+            subjectArea+=region.cells.length;
+            const counts=new Map();
+            for(const p of region.cells){const c=value(b,p);counts.set(c,(counts.get(c)||0)+1);
+                backgroundLoss+=Math.max(0,Math.min(.25,backgroundContrast(region.color))-backgroundContrast(c));
+                for(const q of neighbors(p))if(q>p&&value(a,q)===region.color){subjectEdges++;
+                    if(c!==value(b,q))contrastCuts+=distance(c,value(b,q));}}
+            fragmentation+=region.cells.length-Math.max(...counts.values());
+        }
+        return {subjectBackgroundLoss:backgroundLoss/Math.max(1,subjectArea),
+            subjectFragmentation:fragmentation/Math.max(1,subjectArea),subjectContrastCuts:contrastCuts/Math.max(1,subjectEdges),
+            edgeRecall:sourceBoundary?retained/sourceBoundary:1,edgePrecision:retained+extra?retained/(retained+extra):1,
             boundaryRecall:plainBoundary?plainRetained/plainBoundary:1,
             boundaryPrecision:plainRetained+extra?plainRetained/(plainRetained+extra):1,
             interiorSplit:interior?extra/interior:0,
@@ -378,14 +449,17 @@ function generate(target, options = {}) {
                 return sum+(1-visible/Math.max(1,boundary));
             },0)/featureRegions.length:0,featureRegions:featureRegions.length,roleOverflowRatio:outputStats.roleOverflow/Math.max(1,total),
             sourceComponents:sourceStats.components,outputComponents:outputStats.components,
+            sourceSingletons:sourceStats.singletons,outputSingletons:outputStats.singletons,
+            sourceSmallCells:sourceStats.smallCells,outputSmallCells:outputStats.smallCells,
+            singletonRatio:outputStats.singletons/total,smallCellRatio:outputStats.smallCells/total,
             sourceSmallPieces:sourceStats.smallPieces,outputSmallPieces:outputStats.smallPieces,
             newSmallPieces,smallPieceIncrease:Math.max(0,outputStats.smallPieces-sourceStats.smallPieces)};
     }
-    function componentStats(grid,threshold){const active=cells.filter(p=>value(grid,p)>0),seen=new Set();let components=0,smallPieces=0,roleOverflow=0;
-        for(const p of active){if(seen.has(p))continue;const q=[p];seen.add(p);for(let i=0;i<q.length;i++)for(const v of neighbors(q[i]))
+    function componentStats(grid,threshold){const active=cells.filter(p=>value(grid,p)>0),seen=new Set();let components=0,smallPieces=0,roleOverflow=0,singletons=0,smallCells=0;
+        for(const p of active){if(seen.has(p))continue;const q=[p];seen.add(p);for(let i=0;i<q.length;i++)for(const v of connected(q[i]))
             if(value(grid,v)>0&&!seen.has(v)&&value(grid,v)===value(grid,p)){seen.add(v);q.push(v);}
-            components++;if(q.length<threshold)smallPieces++;roleOverflow+=Math.max(0,q.length-roleCap.get(value(grid,p)));}
-        return {components,smallPieces,roleOverflow};}
+            components++;if(q.length===1)singletons++;if(q.length<threshold){smallPieces++;smallCells+=q.length;}roleOverflow+=Math.max(0,q.length-roleCap.get(value(grid,p)));}
+        return {components,smallPieces,roleOverflow,singletons,smallCells};}
 }
 
 function buildRegions(target,cells,neighbors,value){
@@ -396,7 +470,7 @@ function buildRegions(target,cells,neighbors,value){
     return byColor;
 }
 
-function paintSourceRegions(regions,quotas,grid,width,neighbors,minChunk,variant,saliency){
+function paintSourceRegions(regions,quotas,grid,width,neighbors,minChunk,variant,saliency,edgeNeighbors=neighbors){
     let available=regions.map(r=>r.cells.slice());
     for(const [color,quota]of quotas.slice().sort((a,b)=>a[1]-b[1])){
         // Fill a quota from whole source components first. Only the remaining
@@ -413,7 +487,7 @@ function paintSourceRegions(regions,quotas,grid,width,neighbors,minChunk,variant
             if(needed===0){selected={indices,donor:-1,piece:[],rest:[]};break;}
             if(needed<minChunk)continue;
             for(const {cells,i}of order){if(indices.has(i)||cells.length<needed+minChunk)continue;
-                const split=carve(cells,needed,neighbors,minChunk,variant,saliency);
+                const split=carve(cells,needed,neighbors,minChunk,variant,saliency,()=>true,edgeNeighbors);
                 if(split){selected={indices,donor:i,...split};break;}}
         }
         if(!selected)return false;
@@ -424,7 +498,7 @@ function paintSourceRegions(regions,quotas,grid,width,neighbors,minChunk,variant
     return available.length===0;
 }
 
-function carve(component,size,neighbors,minChunk,variant,saliency,acceptPiece=()=>true){
+function carve(component,size,neighbors,minChunk,variant,saliency,acceptPiece=()=>true,edgeNeighbors=neighbors){
     const set=new Set(component);
     const seeds=component.filter(p=>neighbors(p).some(q=>!set.has(q)));
     const candidates=[];
@@ -432,14 +506,15 @@ function carve(component,size,neighbors,minChunk,variant,saliency,acceptPiece=()
         const root=seeds[(attempt*7+variant*11)%seeds.length],selected=new Set([root]),frontier=new Set(neighbors(root).filter(q=>set.has(q)));
         while(selected.size<size&&frontier.size){let best=null,bestScore=-Infinity;
             for(const p of frontier){const same=neighbors(p).filter(q=>selected.has(q)).length,degree=neighbors(p).filter(q=>set.has(q)).length;
-                const score=same*12-degree+(((p^(variant*2654435761))>>>0)/4294967296);
+                const shared=edgeNeighbors(p).filter(q=>selected.has(q)).length;
+                const score=shared*12+same-degree+(((p^(variant*2654435761))>>>0)/4294967296);
                 if(score>bestScore){bestScore=score;best=p;}}
             frontier.delete(best);selected.add(best);for(const q of neighbors(best))if(set.has(q)&&!selected.has(q))frontier.add(q);
         }
         if(selected.size!==size)continue;
         const rest=components(component.filter(p=>!selected.has(p)),neighbors);
         if(rest.some(q=>q.length<minChunk)||!acceptPiece([...selected]))continue;
-        let cut=0,visualCut=0;for(const p of selected)for(const q of neighbors(p))if(set.has(q)&&!selected.has(q)){
+        let cut=0,visualCut=0;for(const p of selected)for(const q of edgeNeighbors(p))if(set.has(q)&&!selected.has(q)){
             cut++;visualCut+=(saliency.get(p)||0)+(saliency.get(q)||0);}
         candidates.push({piece:[...selected],rest,score:cut+rest.length*4+visualCut*3});
     }
@@ -451,7 +526,7 @@ function components(points,neighbors){const left=new Set(points),result=[];while
 function countColors(grid){const result=new Map();for(const row of grid)for(const c of row)if(c>0)result.set(c,(result.get(c)||0)+1);return result;}
 function trivialMetrics(grid,minChunk){let componentsCount=0,smallPieces=0;const h=grid.length,w=grid[0].length,seen=new Set();
     for(let y=0;y<h;y++)for(let x=0;x<w;x++){const p=y*w+x,c=grid[y][x];if(c<=0||seen.has(p))continue;const q=[p];seen.add(p);
-        for(let i=0;i<q.length;i++){const r=Math.floor(q[i]/w),k=q[i]%w;for(const [dy,dx]of DIRS){const nr=r+dy,nc=k+dx,np=nr*w+nc;
+        for(let i=0;i<q.length;i++){const r=Math.floor(q[i]/w),k=q[i]%w;for(const [dy,dx]of CONNECTED_DIRS){const nr=r+dy,nc=k+dx,np=nr*w+nc;
             if(nr>=0&&nr<h&&nc>=0&&nc<w&&!seen.has(np)&&grid[nr][nc]===c){seen.add(np);q.push(np);}}}
         componentsCount++;if(q.length<minChunk)smallPieces++;}
     return {edgeRecall:1,edgePrecision:1,boundaryRecall:1,boundaryPrecision:1,interiorSplit:0,wholeRegionArea:1,regionPurity:1,
@@ -487,10 +562,15 @@ function learnProfile(levels){
         for(const p of cells)for(const q of neighbors(p))if(q>p&&value(target,q)>0){
             const different=value(grid,p)!==value(grid,q);
             if(value(target,p)!==value(target,q)){boundaries++;retained+=Number(different);}else{interiors++;split+=Number(different);}}
-        for(const regions of buildRegions(target,cells,neighbors,value).values())for(const region of regions){
+        const connected=p=>{const y=Math.floor(p/w),x=p%w;return CONNECTED_DIRS.map(([dy,dx])=>[y+dy,x+dx])
+            .filter(([r,c])=>r>=0&&r<h&&c>=0&&c<w).map(([r,c])=>r*w+c);};
+        for(const regions of buildRegions(target,cells,connected,value).values())for(const region of regions){
             const colors=new Map();for(const p of region.cells){const c=value(grid,p);colors.set(c,(colors.get(c)||0)+1);}
             if(colors.size===1)whole+=region.cells.length;pure+=Math.max(...colors.values());}
+        const outputRegions=[...buildRegions(grid,cells,connected,value).values()].flat();
         const observation={boundaryRecall:boundaries?retained/boundaries:1,boundaryPrecision:retained+split?retained/(retained+split):1,
+            singletonRatio:outputRegions.filter(r=>r.cells.length===1).length/cells.length,
+            smallCellRatio:outputRegions.filter(r=>r.cells.length<DEFAULT_OPTIONS.minChunk).reduce((sum,r)=>sum+r.cells.length,0)/cells.length,
             interiorSplit:interiors?split/interiors:0,wholeRegionArea:whole/cells.length,regionPurity:pure/cells.length};
         const key=cohortKey(cells.length,Math.max(...inventory.values())/cells.length,boundaries/Math.max(1,boundaries+interiors));
         if(!cohorts.has(key))cohorts.set(key,[]);cohorts.get(key).push(observation);all.push(observation);
@@ -498,7 +578,7 @@ function learnProfile(levels){
     const summarize=rows=>({count:rows.length,ranges:Object.fromEntries(Object.keys(rows[0]).map(key=>{
         const values=rows.map(row=>row[key]).sort((a,b)=>a-b);
         return [key,{low:values[Math.floor((values.length-1)*.1)],high:values[Math.floor((values.length-1)*.9)]}];}))});
-    return {version:1,count:all.length,overall:summarize(all),cohorts:Object.fromEntries([...cohorts]
+    return {version:2,count:all.length,overall:summarize(all),cohorts:Object.fromEntries([...cohorts]
         .filter(([,rows])=>rows.length>=5).map(([key,rows])=>[key,summarize(rows)]))};
 }
 function referencePenalty(metrics,reference){
@@ -506,7 +586,7 @@ function referencePenalty(metrics,reference){
     let penalty=0;
     for(const [key,range]of Object.entries(reference.ranges)){
         if(!Number.isFinite(range.low)||!Number.isFinite(range.high)||!Number.isFinite(metrics[key]))throw new Error('Invalid structure reference range');
-        penalty+=key==='interiorSplit'?Math.max(0,metrics[key]-range.high):Math.max(0,range.low-metrics[key]);
+        penalty+=['interiorSplit','singletonRatio','smallCellRatio'].includes(key)?Math.max(0,metrics[key]-range.high):Math.max(0,range.low-metrics[key]);
     }
     return penalty*6;
 }

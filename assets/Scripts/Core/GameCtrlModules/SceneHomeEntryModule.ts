@@ -99,6 +99,7 @@ export function installSceneHomeEntryModule(target: any): void {
         },
 
         async requestHomeRoute(source: string = 'runtime', coverMode: AppRouteCoverMode = 'none'): Promise<void> {
+            if (source === 'settings') AnalyticsMgr.inst.trackLevelExitIntent?.('settings');
             if (this.isCoopMode?.()) { await this.leaveCoop(); return; }
             if (source === 'settings' && this.isRankedPvpMode?.()) {
                 await this.confirmPvpForfeitAndHome?.();
@@ -112,6 +113,7 @@ export function installSceneHomeEntryModule(target: any): void {
         },
 
         requestGameplayTransition(key: string, task: () => void): Promise<boolean> {
+            if (key === 'restart' && !this._gameplayTransitionPromise) AnalyticsMgr.inst.trackLevelExitIntent?.('restart');
             if (this._gameplayTransitionPromise) {
                 if (this._gameplayTransitionKey === key) return this._gameplayTransitionPromise;
                 console.error('[AppTransition] conflicting gameplay request:', key);

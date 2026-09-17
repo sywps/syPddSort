@@ -62,10 +62,11 @@ moduleRef.exports.markStartupTrace('startup_boot_start');
 now = 1400;
 moduleRef.exports.flushStartupTrace((event) => tracked.push(event));
 assert.deepStrictEqual(tracked.map((event) => event.eventName), [
+    'startup_summary',
     'startup_runtime_entry',
-    'startup_boot_start',
 ]);
-assert.deepStrictEqual(tracked.map((event) => event.duration), [0, 250]);
+assert.deepStrictEqual(tracked.map((event) => event.duration), [250, 0]);
 assert.ok(tracked.every((event) => event.extra.startupStartedAt === 1000));
 
+assert.equal(JSON.parse(tracked[0].extra.stages).startup_boot_start, 250, 'summary retains detailed duration');
 console.log('startup-observability-contract.test.js passed');

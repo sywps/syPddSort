@@ -286,7 +286,7 @@ export function installBoardInputViewportModule(target: any): void {
             this.refreshBoardZoomControl?.();
             if (this._pinchGuideLayer
                 && Math.abs(this.boardViewport.scale - this.pinchStartScale) > TUTORIAL_ZOOM_SCALE_DELTA) {
-                this.closePinchGuide();
+                this.closePinchGuide('gesture');
             }
             this.completeZoomTutorialIfThresholdReached?.(tutorialSource);
         },
@@ -359,7 +359,7 @@ export function installBoardInputViewportModule(target: any): void {
             this.pulseBoardZoomControlActivity?.();
             if (this._pinchGuideLayer
                 && Math.abs(this.boardViewport.scale - this.pinchStartScale) > TUTORIAL_ZOOM_SCALE_DELTA) {
-                this.closePinchGuide();
+                this.closePinchGuide('gesture');
             }
             this.completeZoomTutorialIfThresholdReached?.('pinch');
         },

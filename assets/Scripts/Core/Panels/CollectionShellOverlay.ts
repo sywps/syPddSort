@@ -31,6 +31,7 @@ type CollectionShellOverlayOptions = {
     onClose?: () => void;
     onError?: () => void;
     onReady: (context: CollectionShellOverlayContext) => void;
+    onOpened?: (context: CollectionShellOverlayContext) => void;
 };
 
 function syncPrefabPopupTitle(box: Node, title?: string): void {
@@ -142,7 +143,7 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
             runtime.bindPanelButton(runtime.requirePanelChild(box, 'XBtn'), close);
 
             try {
-                options.onReady({
+                const context: CollectionShellOverlayContext = {
                     overlay,
                     box,
                     content,
@@ -150,8 +151,11 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
                     leftArrow,
                     rightArrow,
                     close,
-                });
-                runtime.playPopupOpenAnim?.(overlay, box);
+                };
+                options.onReady(context);
+                if (runtime.playPopupOpenAnim) {
+                    runtime.playPopupOpenAnim(overlay, box, () => options.onOpened?.(context));
+                } else options.onOpened?.(context);
             } catch (error) {
                 options.onError?.();
                 runtime._clearSpriteFramesBeforeDestroy(overlay);

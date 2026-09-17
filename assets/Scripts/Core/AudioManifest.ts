@@ -2,7 +2,7 @@ export const AUDIO_HOME_BGM_RESOURCE_PATH = 'Audio/bgm';
 export const AUDIO_GAME_BGM_RESOURCE_PATH = 'Audio/bgm';
 export const AUDIO_BGM_RESOURCE_PATH = AUDIO_GAME_BGM_RESOURCE_PATH;
 export const AUDIO_HOME_BGM_VOLUME = 0.35;
-export const AUDIO_GAME_BGM_VOLUME = 0.29;
+export const AUDIO_GAME_BGM_VOLUME = 0.35;
 export const AUDIO_BGM_VOLUME = AUDIO_GAME_BGM_VOLUME;
 
 export const AUDIO_SFX_RESOURCE_PATH = {

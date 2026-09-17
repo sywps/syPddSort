@@ -19,7 +19,7 @@ import { Director, director, ResolutionPolicy } from 'cc';
 import { AppRoot } from './AppRoot';
 import { debugPerfFrameStep, debugPerfSnapshot, debugPerfTrace } from './DebugPerfTrace';
 import { runtimeWarn } from './RuntimeLog';
-import { markStartupTrace, reportWeChatStartupPlayable } from './StartupTrace';
+import { markStartupTrace, recordStartupDiagnostic, reportWeChatStartupPlayable } from './StartupTrace';
 import { resolveStartupRouteDecision } from './StartupRouteService';
 import type { PendingGameplayRequest } from './AppSession';
 import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
@@ -69,6 +69,8 @@ function bindWeChatUpdateManagerOnce(): void {
 }
 
 export class GameSceneRuntimeController {
+    private startupPlayableScene: 'Home' | 'Game' = 'Game';
+    private startupPlayableBlocker = '';
     constructor(private readonly runtime: any) {}
 
     getRuntimeSceneName(fallback: string = 'Game'): string {
@@ -165,6 +167,7 @@ export class GameSceneRuntimeController {
         }
         this.runtime.showMainMenu();
         appRoot.completeAppTransitionAfterDraw('Home');
+        this.observeStartupPlayable('Home');
         this.runtime.startRenderResourceDiagnostics?.('home-start');
         appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:afterShowMainMenu', {
             hasMainMenuNode: !!this.runtime.mainMenuNode,
@@ -408,6 +411,7 @@ export class GameSceneRuntimeController {
         });
         if (sceneName === 'Game') {
             AppRoot.tryGet()?.startupLoading?.hide();
+            this.runtime._pchConveyorGameplayController?.reportLevelThreeLeave?.('leave');
             AnalyticsMgr.inst.abandonActiveLevel({
                 gameplayStats: this.runtime._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
             });
@@ -455,10 +459,7 @@ export class GameSceneRuntimeController {
     }
 
     private markGameFirstFrame(previousSceneName: string): void {
-        if (isWeChatMiniGameRuntime()) {
-            director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
-            director.on(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
-        }
+        this.observeStartupPlayable('Game');
         const report = () => {
             if (!this.runtime.node?.isValid) return;
             const renderFrame = Math.max(0, Number((director as any)?.getTotalFrames?.()) || 0);
@@ -479,18 +480,44 @@ export class GameSceneRuntimeController {
         this.runtime.scheduleOnce(report, 0);
     }
 
+    private observeStartupPlayable(scene: 'Home' | 'Game'): void {
+        if (!isWeChatMiniGameRuntime()) return;
+        this.startupPlayableScene = scene;
+        this.startupPlayableBlocker = '';
+        director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
+        director.on(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
+    }
+
     private reportStartupPlayableAfterDraw(): void {
         if (!this.runtime.node?.isValid) {
             director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
             return;
         }
-        if (!this.runtime._pchConveyorGameplayController?.isStartupInteractionReady()
-            || this.runtime._loadingOverlay?.activeInHierarchy
-            || this.runtime._adShowing
-            || Number(this.runtime._modalFocusRefs) > 0
-            || this.runtime._placementInputLocked) return;
-        director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
-        reportWeChatStartupPlayable(getWeChatMiniGameRuntime());
+        const app = AppRoot.tryGet();
+        const coopState = this.startupPlayableScene === 'Home'
+            ? this.runtime._coopPanel?.getStartupInteractionState() || 'inactive' : 'inactive';
+        const homeButton = this.startupPlayableScene === 'Home'
+            ? this.runtime.mainMenuNode?.getChildByPath('PrimaryActionLayer/StartBtn')?.getComponent(Button)
+            : null;
+        const ready = this.startupPlayableScene === 'Home'
+            ? coopState !== 'inactive' ? coopState === 'ready'
+                : !!homeButton?.node.activeInHierarchy && homeButton.enabledInHierarchy && homeButton.interactable
+            : !!this.runtime._pchConveyorGameplayController?.isStartupInteractionReady();
+        const blocker = app?.appTransition?.isTransitioning ? 'transition'
+            : app?.startupLoading?.node?.activeInHierarchy || this.runtime._loadingOverlay?.activeInHierarchy ? 'loading'
+            : this.runtime._adShowing ? 'ad'
+            : Number(this.runtime._modalFocusRefs) > 0 ? 'modal'
+            : this.runtime._placementInputLocked ? 'input-lock'
+            : this.startupPlayableScene === 'Home' && (this.runtime._gameplayTransitionPromise
+                || Number(this.runtime._suppressHomeStartUntil) > Date.now()) ? 'home-start-locked'
+            : !ready ? 'content-not-ready' : 'ready';
+        if (blocker !== this.startupPlayableBlocker) {
+            this.startupPlayableBlocker = blocker;
+            recordStartupDiagnostic('playable_gate', { scene: this.startupPlayableScene, blocker });
+        }
+        if (blocker !== 'ready') return;
+        const result = reportWeChatStartupPlayable(getWeChatMiniGameRuntime());
+        if (result !== 'retry') director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
     }
 
     private prepareSceneFrame(sceneName: string = this.getRuntimeSceneName()): void {

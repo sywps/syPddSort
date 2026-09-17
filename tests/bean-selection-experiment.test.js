@@ -63,7 +63,7 @@ async function cloudEntry() {
   const cloud = { init() {}, getWXContext: () => ({ OPENID: 'uid' }), database: () => ({ collection: () => collection }) };
   const mod = { exports: {} };
   new Function('module', 'exports', 'require', fs.readFileSync(path.join(root, 'cloudfunctions/getOpenid/index.js'), 'utf8'))(mod, mod.exports,
-    id => id === 'wx-server-sdk' ? cloud : id === './first-level-experiment' ? first : server);
+    id => id === 'wx-server-sdk' ? cloud : id === './encouragement-experiment' ? require('../cloudfunctions/getOpenid/encouragement-experiment') : id === './first-level-experiment' ? first : server);
   const event = { firstLevelExperiment: { id: first.ID, eligible: true }, beanSelectionExperiment: { id: server.ID, eligible: true } };
   const one = await mod.exports.main(event); assert.equal(one.ok, true); assert.equal(one.beanSelectionExperiment.status, 'enrolled');
   assert.deepEqual(profile.beanSelectionExperiment, one.beanSelectionExperiment);

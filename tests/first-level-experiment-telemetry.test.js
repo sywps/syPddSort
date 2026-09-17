@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const metadata = { firstLevelExperimentId: 'first_level_abc_v1', firstLevelExperimentStatus: 'enrolled',
+  encouragementExperimentId: 'encouragement_ab_v1', encouragementExperimentStatus: 'enrolled',
+  encouragementExperimentBucket: 'B', encouragementEnrolledAt: 1789434000000, encouragementExperimentReason: 'new_user',
   beanSelectionExperimentId: 'bean_selection_ab_v1', beanSelectionExperimentStatus: 'enrolled',
   beanSelectionExperimentBucket: 'B', beanSelectionEnrolledAt: 1789434000000, beanSelectionExperimentReason: 'new_user',
   firstLevelExperimentBucket: 'C', firstLevelContentVersion: 'C_v1', firstLevelEnrolledAt: 1789434000000, firstLevelExperimentReason: 'new_user' };
@@ -15,6 +17,7 @@ async function check(name, event, collectionName, nested = false) {
   const cloud = { init() {}, DYNAMIC_CURRENT_ENV: 'test', getWXContext: () => ({ OPENID: 'verified-user' }), database: () => ({ collection, command: { inc: x => x } }) };
   const mod = { exports: {} };
   new Function('module', 'exports', 'require', fs.readFileSync(path.join(__dirname, '..', 'cloudfunctions', name, 'index.js'), 'utf8'))(mod, mod.exports, id => {
+    if (id === 'crypto') return require('node:crypto');
     assert.equal(id, 'wx-server-sdk'); return cloud;
   });
   const result = await mod.exports.main(event);

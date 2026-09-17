@@ -418,14 +418,25 @@ export class SettingsPanelController {
                 }
                 const xBtn = requireChild(box, 'XBtn');
                 const homeBtn = requireChild(box, 'Home');
-                const closeBtn = requireChild(box, 'Close');
+                const restartBtn = requireChild(box, 'Restart');
+                const gameplayTip = requireChild(box, 'GameplayTip');
                 const showGameplayActions = runtime.getRuntimeSceneName('Game') === 'Game';
                 homeBtn.active = showGameplayActions;
-                closeBtn.active = showGameplayActions;
+                restartBtn.active = showGameplayActions;
+                gameplayTip.active = showGameplayActions;
+                const vigorCostBadge = requireChild(restartBtn, 'VigorCostBadge');
+                const entryMode = runtime._activeGameplayEntryMode || (runtime._isThemeLevel ? 'theme' : 'main');
+                vigorCostBadge.active = showGameplayActions
+                    && !runtime.isCoopMode?.()
+                    && !runtime.isTutorialVigorFreeLevel(runtime.getActiveLogicalLevelId(), entryMode);
 
                 bindClick(xBtn, closeSettings);
                 if (showGameplayActions) {
-                    bindClick(closeBtn, closeSettings);
+                    bindClick(restartBtn, () => {
+                        if (settingsClosed || homeRouteInFlight || !overlay?.isValid) return;
+                        if (!finalizeSettings('settings-restart', true)) return;
+                        runtime.restart();
+                    });
                     bindClick(homeBtn, () => {
                         if (settingsClosed || homeRouteInFlight || !overlay?.isValid) return;
                         homeRouteInFlight = true;

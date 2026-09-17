@@ -1922,6 +1922,23 @@ function renderExperimentFunnelBreakdown(experimentBreakdowns) {
 }
 
 const ANALYTICS_TERM_LABELS = {
+    csd_free_capacity_entry_exposure: '免费扩容入口展示',
+    csd_capacity_entry_click: '扩容入口点击（含免费或广告分类）',
+    ad_entry_exposure: '广告扩容入口展示（不是视频曝光）',
+    csd_startup_observation: '开场可操作状态检查',
+    csd_input_block_summary: '非预期阻挡候选片段汇总',
+    csd_board_action_summary: '棋盘图案操作结果汇总',
+    csd_freeze_effect_result: '冰冻效果实际应用结果',
+    csd_game_circle_enter_tap: '点击游戏圈原生进入按钮',
+    csd_game_circle_native_error: '游戏圈原生按钮生命周期异常',
+    rewarded_ad_inventory_at_click: '点击时广告准备状态（不是最终失败）',
+    after_draw_missing: '前台绘制通知未确认（不是黑屏证明）',
+    outside_target: '点击在目标区域外',
+    target_missing: '目标区域不存在',
+    target_hidden: '目标未显示',
+    board_target_not_accepted: '棋盘引导点击未被接受',
+    no_pattern_hit: '未命中棋盘图案',
+    skill_already_active: '已有道具正在执行',
     logical_levels: '逻辑关卡范围',
     fallback: '回退数据源',
     App: '游戏应用',
@@ -1950,7 +1967,7 @@ const ANALYTICS_TERM_LABELS = {
     pch_buffer_full_revive: '传送带满时复活',
     pch_conveyor_expand: '传送带扩容',
     skill_brush_acquire: '刷子道具获取',
-    freeze_rescue_60s: '冻结救援 60 秒',
+    freeze_rescue_60s: '剩余时间触发的冰冻救援（60秒为触发阈值）',
     win_bonus_reward: '通关奖励',
     no_meaningful_action: '无可归因行为',
     no_previous_action: '无倒数第二次行为',
@@ -2530,6 +2547,28 @@ function renderDataQuality(dataQuality) {
     `;
 }
 
+function renderCsdChecks(report) {
+    if (!report?.available) return '<section class="card span-12"><div class="card-body">CSD 检查：这份日报尚无新版检查汇总，不能将缺失当作零。</div></section>';
+    const known = report.environmentScope === 'wechat_release';
+    const value = n => n === null || n === undefined ? '未知' : escapeHtml(String(n));
+    const measured = n => known ? value(n) : '未采集';
+    const rows = (report.levels || []).slice(0, 5).map(level => {
+        const c = level.csd;
+        if (!c) return `<tr><td>${value(level.levelId)}</td><td colspan="7">未生成新版明细</td></tr>`;
+        return `<tr><td>${value(level.levelId)}</td><td>${measured(c.exposure.freeEntry.count)} / ${measured(c.exposure.adEntry.count)}</td>
+          <td>${value(c.exposure.historicalUnknown.count)}</td><td>${measured(c.ads.waiting.count)}</td>
+          <td>${measured(c.ads.clickToShow.p50Ms)} / ${measured(c.ads.clickToShow.p95Ms)}</td>
+          <td>${measured(c.input.episodes.count)} / ${measured(c.input.recovered)}</td>
+          <td>${measured(c.freeze.applied.count)} / ${measured(c.freeze.rejected.count)}</td><td>${value(c.technical.count)}</td></tr>`;
+    }).join('');
+    return `<section class="card span-12"><div class="card-header"><div class="card-title">主线前五关 CSD 检查</div>
+      <div class="card-subtitle">${known ? '已确认微信正式版本；新版统计口径单独计算' : '历史记录缺少正式版本证据；新增检查未覆盖，不可把零解释成没有问题'}</div></div>
+      <div class="card-body"><div class="table-wrap"><table><thead><tr><th>关卡</th><th>免费／广告入口次数</th><th>旧版入口分类未知</th>
+      <th>点击时加载中</th><th>等待中位数／95分位（毫秒）</th><th>阻挡候选／已恢复片段</th><th>冰冻生效／未生效</th><th>技术错误次数</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p>入口可见不等于实际广告展示；加载中不等于播放失败；阻挡片段不等于无法游玩人数。正常乱序、引导、后台与结算不按持续故障统计。引导未命中详细样本不能代表全量次数。下方原有日报为兼容汇总，跨版本时请勿与本区新版口径直接比较。</p>
+      <p>游戏圈原生按钮异常：${measured(report.appDiagnostics?.gameCircleErrors?.count)}（不归因到关卡）；关卡结局缺失仍为未知，不直接计失败或放弃。</p></div></section>`;
+}
+
 function renderContent(summary, trendSummaries) {
     const diagnosis = getDiagnosis(summary);
     const core = diagnosis?.coreMetrics || {};
@@ -2644,6 +2683,7 @@ function renderContent(summary, trendSummaries) {
         : '<div class="empty">需要至少 1 份日报才能显示趋势。</div>';
 
     qs('content').innerHTML = `
+        ${renderCsdChecks(summary.analyticsV2)}
         <section class="card span-12">
             <div class="card-body">
                 <div class="metrics">${heroMetrics}</div>
