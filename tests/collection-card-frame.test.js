@@ -3,11 +3,11 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
-const prefab = JSON.parse(fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/UI/Prefabs/Panels/CollectionPanel.prefab'), 'utf8'));
+const prefab = JSON.parse(fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/UI/Prefabs/Panels/CollectionPanelV2.prefab'), 'utf8'));
 const flow = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/CollectionGuideModule.ts'), 'utf8');
 const collection = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/CollectionAvatarModule.ts'), 'utf8');
 
-const COLLECTION_CARD_UUID = 'ff32ca0c-9115-469a-8c9a-e73033dff480@f9941';
+const COLLECTION_CARD_UUID = JSON.parse(fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/UI/Atlases/Collection/图纸底.png.meta'), 'utf8')).uuid + '@f9941';
 
 function refId(ref) {
     return ref && typeof ref.__id__ === 'number' ? ref.__id__ : null;
@@ -41,12 +41,12 @@ for (const { obj: slot } of slots) {
     const cardSprite = findComponent(card, 'cc.Sprite');
     assert.ok(cardUi, `${slot._name}/Card must keep UITransform`);
     assert.ok(cardSprite, `${slot._name}/Card must own the frame Sprite`);
-    assert.strictEqual(cardUi._contentSize.width, 250, `${slot._name}/Card width must match the six-card layout`);
-    assert.strictEqual(cardUi._contentSize.height, 250, `${slot._name}/Card height must match the six-card layout`);
+    assert.strictEqual(cardUi._contentSize.width, 259, `${slot._name}/Card width must match the six-card layout`);
+    assert.strictEqual(cardUi._contentSize.height, 259, `${slot._name}/Card height must match the six-card layout`);
     assert.strictEqual(cardSprite._spriteFrame?.__uuid__, COLLECTION_CARD_UUID, `${slot._name}/Card must use collection_card_unlocked`);
 
     const childNames = childIds(card).map((id) => prefab[id]?._name);
-    assert.deepStrictEqual(childNames, ['PixelPreview', 'Lbl', 'TapHint'], `${slot._name}/Card should expose PixelPreview before content children`);
+    assert.deepStrictEqual(childNames, ['PixelPreview', 'LockedQuestion', 'NamePlate', 'Lbl'], `${slot._name}/Card should expose preview and both collection states`);
 
     const previewId = childIds(card).find((id) => prefab[id]?._name === 'PixelPreview');
     const preview = prefab[previewId];

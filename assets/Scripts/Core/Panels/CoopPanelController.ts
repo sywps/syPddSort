@@ -269,11 +269,13 @@ export class CoopPanelController {
     private async participants(postId: string): Promise<void> {
         await this.perform(async () => {
             this.reset();
-            await this.scrollList<Pick<CoopRun, 'displayName' | 'status' | 'elapsedMs' | 'completedAt'>>(380, 890, 1, 130, async cursor => {
+            await this.scrollList<Pick<CoopRun, 'displayName' | 'status' | 'elapsedMs' | 'completedAt' | 'avatarUrl' | 'avatarId' | 'frameId'>>(380, 890, 1, 130, async cursor => {
                 const result = await CoopServiceMgr.inst.call<{ participants: CoopRun[]; next: string }>('participants', { postId, cursor });
                 return { items: result.participants, next: result.next };
             }, async (row, p) => {
-                coopText(row, `${p.displayName} · ${p.status === 'complete' ? '已完成' : '未完成'} · ${Math.floor(p.elapsedMs / 1000)}秒`, 0, 20, 23);
+                const avatar = coopNode(row, 'ParticipantAvatar', -245, 0, 64, 64);
+                this.runtime.mountLeaderboardAvatar(p.avatarUrl || '', avatar, 64, p);
+                coopText(row, `${p.displayName} · ${p.status === 'complete' ? '已完成' : '未完成'} · ${Math.floor(p.elapsedMs / 1000)}秒`, 45, 20, 23, 440);
                 coopText(row, p.completedAt ? new Date(p.completedAt).toLocaleString() : '尚未完成', 0, -20, 19);
             }, '还没有人参与，分享给好友吧');
         });

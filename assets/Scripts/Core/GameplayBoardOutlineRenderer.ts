@@ -5,6 +5,7 @@ import {
     Node,
     UITransform,
 } from './GameCtrlShared';
+import { BoardOutlineGraphics } from './BoardOutlineGraphics';
 
 export const BOARD_OUTLINE_LAYER_NAME = 'BoardOutlineLayer';
 export const BOARD_OUTLINE_TOP_LAYER_NAME = 'BoardOutlineTopLayer';
@@ -284,7 +285,7 @@ function ensureBoardOutlineGraphics(parent: Node, name: string, width: number, h
     let transform = node.getComponent(UITransform);
     if (!transform) transform = node.addComponent(UITransform);
     transform.setContentSize(width, height);
-    const graphics = node.getComponent(Graphics) || node.addComponent(Graphics);
+    const graphics = node.getComponent(BoardOutlineGraphics) || node.addComponent(BoardOutlineGraphics);
     graphics.clear();
     graphics.lineCap = Graphics.LineCap.ROUND;
     graphics.lineJoin = Graphics.LineJoin.ROUND;

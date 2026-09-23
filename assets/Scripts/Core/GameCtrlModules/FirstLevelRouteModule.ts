@@ -930,7 +930,7 @@ export function installFirstLevelRouteModule(target: any): void {
             this.setGameplayStartupRootVisible?.(true);
             this.hideLoadingOverlay?.();
             try {
-                this.showRemoteLoadFatalError(levelPath, errorCode, errorMessage);
+                this.showRemoteLoadFatalError(levelPath, errorCode, errorMessage, { levelId, eventName, extra });
             } finally {
                 AppRoot.tryGet()?.completeAppTransitionAfterDraw('Game', new Error(`${errorCode}: ${errorMessage}`));
             }
@@ -942,7 +942,12 @@ export function installFirstLevelRouteModule(target: any): void {
             return layer;
         },
 
-        showRemoteLoadFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
+        showRemoteLoadFatalError(
+            levelPath: string,
+            errorCode: string,
+            errorMessage: string,
+            context: { levelId?: number; eventName?: string; extra?: Record<string, unknown> } = {},
+        ): void {
             if (this._remoteLoadErrorOverlay?.isValid) return;
             runtimeWarn('[LevelDataLoad] fatal error surfaced with non-technical recovery actions', {
                 levelPath,
@@ -993,6 +998,53 @@ export function installFirstLevelRouteModule(target: any): void {
             restartButton.interactable = true;
             restartNode.targetOff(this);
             restartNode.on(Button.EventType.CLICK, () => this.restartGameFromRemoteLoadFatalError(), this);
+            // Count the visible terminal surface once. Existing stage diagnostics are not popup counts.
+            // The overlay guard above also deduplicates callbacks arriving through different failure paths.
+            try {
+                const analytics = AnalyticsMgr.inst;
+                if (!analytics.isCollectionEnabled()) return;
+                const session = AppRoot.tryGet()?.session;
+                const pending = session?.pendingGameplayRequest;
+                const active = session?.activeGameplayContext;
+                const entryMode = pending?.entryMode ?? active?.entryMode ?? this._activeGameplayEntryMode ?? '';
+                const physicalLevelId = Math.max(0, Math.floor(Number(
+                    context.extra?.physicalLevelId ?? context.levelId ?? pending?.levelId ?? active?.activeLevelId
+                    ?? (this.levelData ? this.getActivePhysicalLevelId() : 0),
+                ) || 0));
+                const logicalLevelId = Math.max(0, Math.floor(Number(
+                    context.extra?.logicalLevelId ?? (physicalLevelId > 0 && entryMode === 'main'
+                        ? this.getLogicalMainLevelId(physicalLevelId) : physicalLevelId),
+                ) || 0));
+                let diagnostics: Record<string, unknown>;
+                try {
+                    diagnostics = this.getLevelDataLoadDiagnostics(logicalLevelId, levelPath, context.extra || {});
+                } catch (error) {
+                    console.error('[RemoteLoadFatal] failed to collect resource diagnostics:', error);
+                    diagnostics = { ...context.extra, diagnosticCollectionError: String(error) };
+                }
+                analytics.trackFunnelEvent({
+                    eventName: 'remote_load_fatal_shown',
+                    page: logicalLevelId > 0 ? 'level_game' : 'app',
+                    source: 'remote_load_fatal_overlay',
+                    success: false,
+                    levelId: logicalLevelId,
+                    logicalLevelId,
+                    physicalLevelId,
+                    gameplayEntryMode: entryMode,
+                    errorCode,
+                    errorMessage,
+                    extra: {
+                        levelPath,
+                        sourceEvent: context.eventName || '',
+                        sceneName: this.node?.scene?.name || '',
+                        ...diagnostics,
+                    },
+                });
+                analytics.flushFunnelEvents();
+            } catch (error) {
+                // A diagnostics failure must not disable the already-visible restart control.
+                console.error('[RemoteLoadFatal] failed to report visible error:', error);
+            }
         },
 
         restartGameFromRemoteLoadFatalError(): void {
@@ -1134,6 +1186,7 @@ export function installFirstLevelRouteModule(target: any): void {
             const pendingLocalDirectStartup = pendingStartupLevelId >= 2
                 && (pendingStartupRouteReason === 'local_progress_gt_1' || hadLocalUserState);
             if (pendingLocalDirectStartup) {
+                AppRoot.tryGet()?.startupLoading?.noteMilestone('route-ready');
                 const startupLevelPrefix = pendingStartupPrefix || LOCAL_BOOTSTRAP_LEVEL_PREFIX;
                 markStartupTrace('startup_pending_local_direct', {
                     levelId: pendingStartupLevelId,
@@ -1189,6 +1242,7 @@ export function installFirstLevelRouteModule(target: any): void {
             // - 删小程序的老用户：云端有存档，恢复到上次进度
             AppRoot.tryGet()?.startupLoading?.setStage('正在恢复游戏进度…');
             const restoreStatus = await this.restoreUserStateFromCloud(hadLocalUserState);
+            AppRoot.tryGet()?.startupLoading?.noteMilestone('route-ready');
             AppRoot.tryGet()?.startupLoading?.setStage('正在准备关卡…');
             const defaultEntryLevel = urlLevel > 0 || urlLevelFile
                 ? initialDefaultEntryLevel

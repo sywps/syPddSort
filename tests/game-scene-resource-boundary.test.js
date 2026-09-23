@@ -6,7 +6,8 @@ const scene = JSON.parse(fs.readFileSync(path.join(root, 'assets/BootstrapBundle
 const nodes = scene.filter(record => record?.__type__ === 'cc.Node');
 assert(!nodes.some(node => node._name === 'CompactLayout'));
 assert(!JSON.stringify(scene).includes('5874aaa9-f1be-4047-a76a-bc098c25535f'));
-const normal = nodes.find(node => node._name === 'NormalLayout');
+assert(!nodes.some(node => node._name === 'NormalLayout'));
+const normal = nodes.find(node => node._name === 'NormalLayoutV2');
 assert(normal?._active, 'Normal conveyor remains enabled');
 for (const node of nodes) {
     for (const child of node._children || []) {

@@ -1,6 +1,7 @@
 import { _decorator, sys } from 'cc';
 import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
 import { runtimeLog } from './RuntimeLog';
+import { ProfileCustomizationMgr } from './ProfileCustomizationMgr';
 import { UserStateSyncMgr, type CloudUserProfile } from './UserStateSyncMgr';
 
 const { ccclass } = _decorator;
@@ -38,6 +39,10 @@ export class UserMgr {
 
     getProfile(): UserProfile {
         return this.profile;
+    }
+
+    getDisplayProfile() {
+        return ProfileCustomizationMgr.inst.display(this.profile);
     }
 
     getCloudProfile(): CloudUserProfile {
@@ -83,7 +88,7 @@ export class UserMgr {
 
         const cloud = this.normalizeProfile(source);
         const local = this.profile;
-        const preferCloudIdentity =
+        const preferCloudIdentity = !local.isGuest && cloud.isGuest ? false :
             (!cloud.isGuest && local.isGuest) ||
             cloud.lastLevelId > local.lastLevelId ||
             cloud.loginCount > local.loginCount ||
@@ -107,6 +112,7 @@ export class UserMgr {
 
         this.profile = merged;
         this.persist(merged, false);
+        ProfileCustomizationMgr.inst.notifyIdentityChanged();
     }
 
     /** 微信登录（静默），获取 code 建立会话 */
@@ -228,6 +234,7 @@ export class UserMgr {
         this.profile.avatarUrl = info.avatarUrl || this.profile.avatarUrl;
         this.profile.isGuest = false;
         this.persist();
+        ProfileCustomizationMgr.inst.notifyIdentityChanged();
         runtimeLog('[UserMgr] 微信授权成功:', this.profile.displayName);
         return true;
     }
@@ -310,7 +317,8 @@ export class UserMgr {
         return {
             version: USER_PROFILE_VERSION,
             uuid: fallbackUuid,
-            displayName: displayNameRaw || `游客${fallbackUuid.slice(0, 8).toUpperCase()}`,
+            displayName: source.isGuest !== false && displayNameRaw === `游客${fallbackUuid.slice(0, 8).toUpperCase()}`
+                ? `玩家${fallbackUuid.slice(0, 8).toUpperCase()}` : displayNameRaw || `玩家${fallbackUuid.slice(0, 8).toUpperCase()}`,
             avatarUrl: typeof source.avatarUrl === 'string' ? source.avatarUrl : '',
             isGuest: source.isGuest !== false,
             createdAt,
@@ -326,7 +334,7 @@ export class UserMgr {
         return {
             version: USER_PROFILE_VERSION,
             uuid,
-            displayName: `游客${uuid.slice(0, 8).toUpperCase()}`,
+            displayName: `玩家${uuid.slice(0, 8).toUpperCase()}`,
             avatarUrl: '',
             isGuest: true,
             createdAt: now,

@@ -340,6 +340,7 @@ export class GameSceneRuntimeController {
         if (!this.runtime.node?.isValid) { loading.hide(); return; }
         if (!loading.node.active) loading.show('正在准备关卡…');
         else loading.setStage('正在准备关卡…');
+        loading.noteMilestone('scene-ready');
         this.runtime._loadingOverlay = loading.node;
         this.runtime._loadingClosing = false;
         this.runtime._loadingOwnerToken = this.runtime.acquireRuntimeOwner?.('loading', 'startup') || '';
@@ -404,6 +405,7 @@ export class GameSceneRuntimeController {
         this.runtime.cancelRewardedGrantInteraction?.(`scene-destroy:${sceneName}`);
         this.runtime.cancelPendingShareReturn?.(`scene-destroy:${sceneName}`);
         this.runtime.disposeSettingsPanel?.();
+        this.runtime.disposeProfilePanel?.();
         this.runtime._rewardedAdStateUnsubscribe?.();
         this.runtime._rewardedAdStateUnsubscribe = null;
         debugPerfSnapshot('runtime.destroy.before', this.runtime, {
@@ -497,7 +499,7 @@ export class GameSceneRuntimeController {
         const coopState = this.startupPlayableScene === 'Home'
             ? this.runtime._coopPanel?.getStartupInteractionState() || 'inactive' : 'inactive';
         const homeButton = this.startupPlayableScene === 'Home'
-            ? this.runtime.mainMenuNode?.getChildByPath('PrimaryActionLayer/StartBtn')?.getComponent(Button)
+            ? this.runtime.mainMenuNode?.getChildByPath('TopBarGroup/HomeContentArea/HomeContentGroup/ActionArea/PrimaryActionLayer/StartBtn')?.getComponent(Button)
             : null;
         const ready = this.startupPlayableScene === 'Home'
             ? coopState !== 'inactive' ? coopState === 'ready'

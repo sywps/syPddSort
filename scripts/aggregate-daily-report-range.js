@@ -5,6 +5,7 @@ const fs = require("fs");
 const { buildAnalyticsV2FromSummaries, renderAnalyticsV2 } = require('./analytics-v2-report');
 const { aggregateFirstLevelExperimentReports } = require('./first-level-experiment-report');
 const { aggregateBeanSelectionExperimentReports } = require('./bean-selection-experiment-report');
+const { aggregateThirdLevelExperimentReports } = require('./third-level-experiment-report');
 const path = require("path");
 
 const REPORT_ROOT = path.join(process.cwd(), "artifacts", "cloudbase-daily-report");
@@ -711,6 +712,7 @@ function main() {
     dailyDiagnosis: aggregateDailyDiagnosis(summaries, targetDate, dates),
     firstLevelExperiment: aggregateFirstLevelExperimentReports(summaries.map(item => item.firstLevelExperiment)),
     beanSelectionExperiment: aggregateBeanSelectionExperimentReports(summaries.map(item => item.beanSelectionExperiment)),
+    thirdLevelExperiment: aggregateThirdLevelExperimentReports(summaries.map(item => item.thirdLevelExperiment)),
     analyticsV2: buildAnalyticsV2FromSummaries(summaries),
   };
   output.dailyDiagnosis.coreMetrics.date = targetDate;

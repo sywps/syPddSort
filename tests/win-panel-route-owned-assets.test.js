@@ -105,8 +105,8 @@ assert.ok(homeImage.equals(winPanelImage), 'WinPanel route-owned banner glow sho
 assert.deepStrictEqual(winPanelImageSize, { width: 320, height: 320 }, 'WinPanel route-owned banner glow should be downscaled to the runtime display budget');
 assert.ok(winPanelImage.length <= 130 * 1024, 'WinPanel route-owned banner glow should stay around the 100KB package budget');
 
-const defaultSkinIcon = fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/Skins/Icons/bg_000.png'));
-assert.deepStrictEqual(readPngSize(defaultSkinIcon), { width: 180, height: 288 }, 'bg_000 skin icon should be a real thumbnail, not the full background');
-assert.ok(defaultSkinIcon.length <= 100 * 1024, 'bg_000 skin icon should stay near the requested 100KB budget');
+const defaultSkinIcon = fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/Skins/Icons/bg_005.png'));
+assert.deepStrictEqual(readPngSize(defaultSkinIcon), { width: 180, height: 288 }, 'bg_005 skin icon should be a real thumbnail, not the full background');
+assert.ok(defaultSkinIcon.length <= 100 * 1024, 'bg_005 skin icon should stay near the requested 100KB budget');
 
 console.log('win-panel-route-owned-assets.test.js passed');

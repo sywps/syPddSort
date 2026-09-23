@@ -378,6 +378,67 @@ function testLateShareGrantCannotReviveAfterClose() {
     assert.strictEqual(storage.getItem('pdd.revive.shareState.v1'), null, 'a late share callback must not consume the daily revive');
 }
 
+function testEarlyProgressUnlimitedRevive() {
+    const boardModule = { exports: {} };
+    vm.runInNewContext(transpile('assets/Scripts/Core/BoardModel.ts'), {
+        module: boardModule, exports: boardModule.exports, require, Map, Set,
+    });
+    const Board = boardModule.exports.BoardModel;
+    const board = new Board({ boardWidth: 7, boardHeight: 1,
+        correctColorArr: [[1, 1, 1, 2, 1, 2, 0]],
+        initRandomColorArr: [[1, 1, 2, 1, 2, 1, 0]] });
+    assert.strictEqual(board.getInitiallyUnsettledCompletionRatio(), 0);
+    board.setLocked(0, 2, true);
+    assert.strictEqual(board.getInitiallyUnsettledCompletionRatio(), 0.25);
+    board.setLocked(0, 3, true);
+    assert.strictEqual(board.getInitiallyUnsettledCompletionRatio(), 0.5);
+    const storage = createStorage();
+    let draws = 0;
+    let roll = 0.899999;
+    const Controller = loadController(storage, {
+        continueAfterBufferFull: () => true, grantReviveCapacity: () => true,
+    }, () => { draws += 1; return roll; });
+    const { runtime, calls } = makeRuntime();
+    runtime.boardModel = board;
+    runtime.getActiveLogicalLevelId = () => 2;
+    const controller = new Controller(runtime);
+    const oldState = JSON.stringify({ dateKey: controller.getReviveShareDateKey(), count: 3, lastShareLevel: 2 });
+    storage.setItem('pdd.revive.shareState.v1', oldState);
+    for (let index = 0; index < 12; index += 1) {
+        const kind = index % 2 ? 'timeout' : 'buffer-full';
+        controller.captureReviveFailure(kind);
+        assert.strictEqual(controller.canUseReviveShare(), true);
+        const before = draws;
+        assert.strictEqual(controller.canUseReviveShare(), true);
+        assert.strictEqual(draws, before, 'same failure must not reroll');
+        controller.runReviveShareAction(kind, { active: true }, 120);
+        assert.strictEqual(calls.filter(call => call[0] === 'share').at(-1)[2](), true);
+        assert.strictEqual(storage.getItem('pdd.revive.shareState.v1'), oldState);
+    }
+    roll = 0.9;
+    controller.captureReviveFailure('timeout');
+    assert.strictEqual(controller.canUseReviveShare(), false, 'top 10% selects ad');
+    roll = 0;
+    controller.captureReviveFailure('timeout');
+    assert.strictEqual(controller.canUseReviveShare(), true, 'new failure rerolls');
+    board.setLocked(0, 4, true);
+    controller.captureReviveFailure('timeout');
+    assert.strictEqual(board.getInitiallyUnsettledCompletionRatio(), 0.75);
+    assert.strictEqual(controller.canUseReviveShare(), false, 'above half restores old level gate');
+    runtime.getActiveLogicalLevelId = () => 7;
+    assert.strictEqual(controller.canUseReviveShare(), false, 'above half restores exhausted daily quota');
+    board.setLocked(0, 4, false);
+    runtime._isThemeLevel = true;
+    assert.strictEqual(controller.canUseReviveShare(), false);
+    runtime._isThemeLevel = false;
+    runtime.getWeChatRuntime = () => null;
+    assert.strictEqual(controller.canUseReviveShare(), false, 'missing share API must not offer share');
+    const complete = new Board({ boardWidth: 1, boardHeight: 1,
+        correctColorArr: [[1]], initRandomColorArr: [[1]] });
+    assert.strictEqual(complete.getInitiallyUnsettledCompletionRatio(), 1);
+}
+
+testEarlyProgressUnlimitedRevive();
 testSourceContract();
 testThreeLevelInterval();
 testRandomSelectionPersistsOnlyForCurrentFailure();

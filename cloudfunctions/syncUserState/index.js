@@ -10,9 +10,9 @@ const NEW_USER_STARTER_PROP_COUNT = 3;
 const USER_STATE_SCHEMA_VERSION = 2;
 const SKIN_STATE_SCHEMA_VERSION = 2;
 const BACKGROUND_SKIN_RESET_VERSION = 1;
-const DEFAULT_BACKGROUND_SKIN_ID = 1000;
-const DEFAULT_BACKGROUND_SKIN_IDS = [1000];
-const RETIRED_BACKGROUND_SKIN_IDS = new Set([1001]);
+const DEFAULT_BACKGROUND_SKIN_ID = 1005;
+const DEFAULT_BACKGROUND_SKIN_IDS = [DEFAULT_BACKGROUND_SKIN_ID];
+const RETIRED_BACKGROUND_SKIN_IDS = new Set([1000, 1001]);
 const BACKGROUND_SKIN_RESET_BACKUP_FIELD = 'backgroundSkinResetBackupV1';
 const DEFAULT_BEAN_SKIN_ID = 2000;
 const VALID_BEAN_SKIN_IDS = new Set([2000, 2001, 2002, 2003, 2004]);
@@ -147,6 +147,7 @@ function mergeThemeCompletedIds(currentValue, sourceValue) {
 
 function mergeBackgroundSkinIds(currentValue, sourceValue) {
   return Array.from(new Set([
+    ...DEFAULT_BACKGROUND_SKIN_IDS,
     ...normalizeBackgroundSkinIds(currentValue),
     ...normalizeBackgroundSkinIds(sourceValue),
   ])).sort((a, b) => a - b);
@@ -337,8 +338,13 @@ function extractProfile(doc, effectiveProgress = 0) {
 }
 
 function extractGameState(doc, effectiveProgress = 0) {
+  if (!doc) return null;
   const savedLevel = readPositiveInt(effectiveProgress) || resolveRestorableProgress(doc);
   const state = {};
+  state.wechatGiftProtocol = 1;
+  state.wechatGiftTotals = doc?.wechatGiftTotals || {};
+  // Ownership is written only by the customization transaction endpoint.
+  if (doc?.customization?.version === 1) state.customization = doc.customization;
 
   if (savedLevel !== 0) {
     state.savedLevel = savedLevel;
@@ -511,6 +517,8 @@ function buildGameStatePatch(source = {}, current = {}) {
     equippedBeanSkinId = DEFAULT_BEAN_SKIN_ID;
     equippedBeanSkinUpdatedAt = now;
   }
+  // Skin ownership is merged independently: a concurrent chapter grant does not
+  // make the client's newer currency or consumable snapshot stale.
   const shouldPreserveCurrentVolatileState =
     normalizeNonNegativeInt(source.pvpEconomyRevision, 0) !== normalizeNonNegativeInt(current.pvpEconomyRevision, 0) ||
     currentStateUpdatedAt > 0 &&
@@ -519,8 +527,6 @@ function buildGameStatePatch(source = {}, current = {}) {
       (hasOwn(source, 'savedLevel') && sourceSavedLevel < currentSavedLevel) ||
       mergedThemeUnlockedIds.length > normalizeThemeUnlockedIds(source.themeUnlockedIds).length ||
       mergedThemeCompletedIds.length > normalizeThemeCompletedIds(source.themeCompletedIds).length ||
-      mergedBackgroundSkinIds.length > sourceBackgroundSkinIds.length ||
-      mergedBeanSkinIds.length > sourceBeanSkinIds.length ||
       Object.keys(mergedBackgroundSkinAdProgress).some((id) => {
         const sourceProgress = normalizeBackgroundSkinAdProgress(source.backgroundSkinAdProgress);
         return mergedBackgroundSkinAdProgress[id] > (sourceProgress[id] || 0);
@@ -562,6 +568,19 @@ function buildGameStatePatch(source = {}, current = {}) {
   if (shouldBackupCurrentSkinReset && !originalCurrent?.[BACKGROUND_SKIN_RESET_BACKUP_FIELD]) {
     patch[BACKGROUND_SKIN_RESET_BACKUP_FIELD] = buildBackgroundSkinResetBackup(originalCurrent, now);
   }
+  const giftFields = ['gold', 'brushCount', 'magnetCount', 'freezeCount'];
+  const hasGifts = giftFields.some(field => (current.wechatGiftTotals?.[field] || 0) > 0);
+  if (hasGifts && source.wechatGiftProtocol !== 1) throw Error('gift assets require an updated client');
+  for (const field of giftFields) {
+    const total = current.wechatGiftTotals?.[field] ?? 0;
+    const seen = source.wechatGiftTotals?.[field] ?? 0;
+    if (!Number.isSafeInteger(total) || total < 0 || !Number.isSafeInteger(seen) || seen < 0 || seen > total) throw Error('invalid gift watermark');
+    if (!shouldPreserveCurrentVolatileState && hasOwn(source, field)) {
+      patch[field] += total - seen;
+      if (!Number.isSafeInteger(patch[field]) || patch[field] < 0) throw Error('gift balance overflow');
+    }
+  }
+  if (source.wechatGiftProtocol === 1) patch.wechatGiftProtocol = 1;
   return patch;
 }
 

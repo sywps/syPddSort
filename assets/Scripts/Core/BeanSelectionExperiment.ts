@@ -69,7 +69,7 @@ export class BeanSelectionExperimentState {
     }
 
     content(): 'A' | 'B' {
-        return this.locked && this.verified && this.decision?.status === 'enrolled' ? this.decision.content : 'A';
+        return 'A'; // Experiment retired; keep persisted historical assignment unchanged.
     }
 
     private save(decision: Decision): void {
@@ -85,9 +85,9 @@ export class BeanSelectionExperimentState {
 
     fields(): Record<string, string | number> {
         const d = this.decision;
-        return d ? { beanSelectionExperimentId: d.id, beanSelectionExperimentStatus: d.status,
+        return d ? { beanSelectionExperimentId: d.id, beanSelectionExperimentStatus: 'retired',
             beanSelectionExperimentBucket: d.status === 'enrolled' ? d.content : '',
-            beanSelectionEnrolledAt: d.enrolledAt, beanSelectionExperimentReason: d.reason } : {};
+            beanSelectionEnrolledAt: d.enrolledAt, beanSelectionExperimentReason: 'experiment_closed' } : {};
     }
 }
 export const beanSelectionExperiment = new BeanSelectionExperimentState();

@@ -9,19 +9,29 @@ const projectDir = path.resolve(__dirname, '..');
 const apply = process.argv.includes('--apply');
 const buttonsOnly = process.argv.includes('--buttons-only');
 const popupFrameOnly = process.argv.includes('--popup-frame-only');
+const p1abOnly = process.argv.includes('--p1ab-only');
+const p2Only = process.argv.includes('--p2-only');
+const bootstrapOnly = process.argv.includes('--bootstrap-ui-only');
 
 const TARGETS = [
     { file: 'assets/GameAssetsBundle/Textures/BG/bg_game.png', max: 1080 },
     { file: 'assets/Textures/UI/loading_cover.jpeg', max: 960 },
-    { file: 'assets/BootstrapBundle/GameUI/home_bg.jpeg', max: 960 },
+    // Default bg_005 is copied losslessly by prepare-bootstrap; keep its source dimensions.
     { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/popup_tool_add_badge.png', max: 128, preserveSpriteFrameTrim: true },
-    { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/popup_ad_play_icon.png', max: 128, preserveSpriteFrameTrim: true },
+    { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/popup_ad_play_icon.png', max: 320, preserveSpriteFrameTrim: true, bootstrapUi: true },
+    { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/gameplay_skill_slot_background.png', max: 192, preserveSpriteFrameTrim: true, bootstrapUi: true },
+    { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/guide_hand.png', max: 400, preserveSpriteFrameTrim: true, bootstrapUi: true },
+    { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/倒计时.png', max: 300, preserveSpriteFrameTrim: true, bootstrapUi: true },
     { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/popup_tool_count_badge.png', max: 128, preserveSpriteFrameTrim: true },
-    { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/popup_primary_button.png', max: 256, preserveSpriteFrameTrim: true },
-    { file: 'assets/GameAssetsBundle/Textures/UI/popup_primary_button.png', max: 1024, preserveSpriteFrameTrim: true },
-    { file: 'assets/GameAssetsBundle/Textures/UI/popup_secondary_button.png', max: 768, preserveSpriteFrameTrim: true },
-    { file: 'assets/HomeAssetsBundle/GameUI/home_primary_button.png', max: 768, preserveSpriteFrameTrim: true },
-    { file: 'assets/HomeAssetsBundle/GameUI/home_secondary_button.png', max: 768, preserveSpriteFrameTrim: true },
+    { file: 'assets/GameAssetsBundle/Textures/UI/popup_primary_button.png', max: 512, preserveSpriteFrameTrim: true, p1ab: true },
+    { file: 'assets/GameAssetsBundle/Textures/UI/popup_secondary_button.png', max: 512, preserveSpriteFrameTrim: true, p2: true },
+    { file: 'assets/GameAssetsBundle/Textures/UI/game_circle_icon.png', max: 300, preserveSpriteFrameTrim: true, p2: true },
+    { file: 'assets/GameAssetsBundle/Textures/UI/popup_share_icon.png', max: 256, preserveSpriteFrameTrim: true, p2: true },
+    { file: 'assets/GameAssetsBundle/Textures/UI/popup_close_button.png', max: 288, preserveSpriteFrameTrim: true, p2: true },
+    { file: 'assets/HomeAssetsBundle/GameUI/home_primary_button.png', max: 384, preserveSpriteFrameTrim: true, p1ab: true },
+    { file: 'assets/HomeAssetsBundle/GameUI/home_secondary_button.png', max: 384, preserveSpriteFrameTrim: true, p1ab: true },
+    { file: 'assets/GameAssetsBundle/Textures/UI/profile_panel_aqua_v2.png', max: 1024, preserveSpriteFrameTrim: true, p1ab: true },
+    { file: 'assets/GameAssetsBundle/Textures/UI/revive_timeout_illustration.png', max: 640, preserveSpriteFrameTrim: true, p1ab: true },
     { file: 'assets/GameAssetsBundle/Textures/UI/popup_frame_soft.png', max: 1080, preserveSpriteFrameTrim: true },
 ];
 
@@ -219,7 +229,13 @@ function downscaleOne(target) {
 console.log(`Large texture downscale ${apply ? '(apply)' : '(dry-run)'}`);
 let totalBeforeMb = 0;
 let totalAfterMb = 0;
-const selectedTargets = popupFrameOnly
+const selectedTargets = bootstrapOnly
+    ? TARGETS.filter((target) => target.bootstrapUi)
+    : p2Only
+    ? TARGETS.filter((target) => target.p2)
+    : p1abOnly
+    ? TARGETS.filter((target) => target.p1ab)
+    : popupFrameOnly
     ? TARGETS.filter((target) => target.file.endsWith('/popup_frame_soft.png'))
     : buttonsOnly
     ? TARGETS.filter((target) => /\/(?:popup|home)_(?:primary|secondary)_button\.png$/.test(target.file))

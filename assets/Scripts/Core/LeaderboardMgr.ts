@@ -4,6 +4,7 @@ import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
 import { runtimeLog, runtimeWarn } from './RuntimeLog';
 import type { UserProfile } from './UserMgr';
+import { ProfileCustomizationMgr } from './ProfileCustomizationMgr';
 
 const { ccclass } = _decorator;
 
@@ -16,6 +17,8 @@ const LEADERBOARD_CLOUD_CALL_TIMEOUT_MS = 6000;
 type LeaderboardSource = 'wechat-cloud' | 'douyin-cloud' | 'wechat-friend' | 'local-preview';
 
 type LeaderboardRawEntry = {
+    avatarId?: number;
+    frameId?: number;
     uuid: string;
     displayName: string;
     avatarUrl: string;
@@ -45,6 +48,7 @@ export class LeaderboardMgr {
     private cloudInitPromise: Promise<boolean> | null = null;
     private cloudReady = false;
     private sessionFriendSyncedProgress = 0;
+    private sessionFriendProfileFingerprint = '';
     private sessionCloudSyncedProgress = 0;
     private sessionCloudProfileFingerprint = '';
     private cloudInitDeferred = false; // 游戏启动时立即初始化云开发（原为 true 导致提交进度时云函数从未被调用）
@@ -73,6 +77,7 @@ export class LeaderboardMgr {
     }
 
     async submitProgress(progressLevel: number, profile: UserProfile): Promise<void> {
+        profile = ProfileCustomizationMgr.inst.display(profile);
         const normalized = this.normalizeProgress(progressLevel);
         if (normalized <= 1) return;
 
@@ -80,10 +85,11 @@ export class LeaderboardMgr {
         const profileFingerprint = this.buildProfileFingerprint(profile);
 
         // 1. 微信好友排行：通过 setUserCloudStorage 提交
-        if (this.canUseFriendCloudStorage() && normalized > this.sessionFriendSyncedProgress) {
-            const friendSubmitted = await this.submitWeChatScore(normalized);
+        if (this.canUseFriendCloudStorage() && (normalized > this.sessionFriendSyncedProgress || profileFingerprint !== this.sessionFriendProfileFingerprint)) {
+            const friendSubmitted = await this.submitWeChatScore(normalized, profile);
             if (friendSubmitted) {
                 this.sessionFriendSyncedProgress = Math.max(this.sessionFriendSyncedProgress, normalized);
+                this.sessionFriendProfileFingerprint = profileFingerprint;
             }
         }
 
@@ -100,6 +106,7 @@ export class LeaderboardMgr {
                     uuid: profile.uuid,
                     displayName: profile.displayName,
                     avatarUrl: profile.avatarUrl,
+                    avatarId: (profile as any).avatarId, frameId: (profile as any).frameId,
                     progressLevel: normalized,
                 });
                 if (result?.ok === false) {
@@ -120,7 +127,7 @@ export class LeaderboardMgr {
     }
 
     /** 通过微信 setUserCloudStorage 提交分数 */
-    private async submitWeChatScore(progressLevel: number): Promise<boolean> {
+    private async submitWeChatScore(progressLevel: number, profile: UserProfile): Promise<boolean> {
         const wx = this.getWx(false);
         if (!wx?.setUserCloudStorage) {
             this.warnFriendCloudStorageUnavailableOnce('wx.setUserCloudStorage not available');
@@ -149,7 +156,7 @@ export class LeaderboardMgr {
             runtimeLog('[LeaderboardMgr] Calling wx.setUserCloudStorage, level:', progressLevel);
             await new Promise<void>((resolve, reject) => {
                 wx.setUserCloudStorage({
-                    KVDataList: [kvData],
+                    KVDataList: [kvData, { key: 'profile_v1', value: JSON.stringify({ version: 1, displayName: profile.displayName, avatarId: (profile as any).avatarId, avatarUrl: profile.avatarUrl, frameId: (profile as any).frameId, frameUrl: (profile as any).frameUrl }) }],
                     success: () => {
                         runtimeLog('[LeaderboardMgr] setUserCloudStorage SUCCESS, level:', progressLevel);
                         resolve();
@@ -252,11 +259,15 @@ export class LeaderboardMgr {
                 if (result?.ok !== true) {
                     throw new Error(result?.errorMessage || 'fetch leaderboard failed');
                 }
+                const identity = profile ? ProfileCustomizationMgr.inst.display(profile) : null;
+                const self = this.normalizeRankedEntry(result.self);
+                const applySelf = (entry: LeaderboardEntry): LeaderboardEntry => identity && self && entry.uuid === self.uuid
+                    ? { ...entry, displayName: identity.displayName, avatarUrl: identity.avatarUrl, avatarId: identity.avatarId, frameId: identity.frameId } : entry;
                 return {
                     source: platform === 'douyin' ? 'douyin-cloud' : 'wechat-cloud',
                     modeLabel: platform === 'douyin' ? '抖音云' : '微信云开发',
-                    entries: this.normalizeRankedEntries(result.entries),
-                    self: this.normalizeRankedEntry(result.self),
+                    entries: this.normalizeRankedEntries(result.entries).map(applySelf),
+                    self: self ? applySelf(self) : null,
                 };
             } catch (error) {
                 console.warn('[LeaderboardMgr] fetch cloud leaderboard failed:', error);
@@ -288,6 +299,7 @@ export class LeaderboardMgr {
                 uuid: entry.uuid,
                 displayName: entry.displayName,
                 avatarUrl: entry.avatarUrl,
+                avatarId: entry.avatarId, frameId: entry.frameId,
                 progressLevel: this.normalizeProgress(entry.progressLevel),
                 updatedAt: this.normalizeTimestamp(entry.updatedAt),
             };
@@ -304,6 +316,7 @@ export class LeaderboardMgr {
     }
 
     private upsertLocalEntry(profile: UserProfile, progressLevel: number) {
+        const identity = ProfileCustomizationMgr.inst.display(profile);
         const entries = this.readLocalEntries();
         const now = Date.now();
         const idx = entries.findIndex((entry) => entry.uuid === profile.uuid);
@@ -314,6 +327,7 @@ export class LeaderboardMgr {
                 uuid: profile.uuid,
                 displayName: profile.displayName,
                 avatarUrl: profile.avatarUrl,
+                avatarId: identity.avatarId, frameId: identity.frameId,
                 progressLevel: nextProgress,
                 updatedAt: nextProgress > this.normalizeProgress(current.progressLevel)
                     ? now
@@ -324,6 +338,7 @@ export class LeaderboardMgr {
                 uuid: profile.uuid,
                 displayName: profile.displayName,
                 avatarUrl: profile.avatarUrl,
+                avatarId: identity.avatarId, frameId: identity.frameId,
                 progressLevel,
                 updatedAt: now,
             });
@@ -357,6 +372,7 @@ export class LeaderboardMgr {
             uuid,
             displayName,
             avatarUrl: typeof input?.avatarUrl === 'string' ? input.avatarUrl : '',
+            avatarId: Number(input.avatarId) || 0, frameId: Number(input.frameId) || 0,
             progressLevel: this.normalizeProgress(input.progressLevel),
             updatedAt: this.normalizeTimestamp(input.updatedAt),
         };
@@ -386,6 +402,7 @@ export class LeaderboardMgr {
             uuid,
             displayName,
             avatarUrl: typeof input.avatarUrl === 'string' ? input.avatarUrl : '',
+            avatarId: Number(input.avatarId) || 0, frameId: Number(input.frameId) || 0,
             progressLevel: this.normalizeProgress(input.progressLevel),
             updatedAt: this.normalizeTimestamp(input.updatedAt),
         };
@@ -432,6 +449,7 @@ export class LeaderboardMgr {
             profile.uuid || '',
             profile.displayName || '',
             profile.avatarUrl || '',
+            String((profile as any).avatarId || 0), String((profile as any).frameId || 0),
             profile.isGuest ? 'guest' : 'wx',
         ].join('|');
     }

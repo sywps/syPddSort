@@ -41,6 +41,8 @@ vm.runInNewContext(ts.transpileModule(source, {
 }).outputText, {
     module: moduleRef, exports: moduleRef.exports, console, Map, Set,
     require(id) {
+        if (id === '../BrowserLevelPreview') return { getBrowserLevelPreview: () => ({ active: false }) };
+        if (id === '../PreviewRewardSave') return { PreviewRewardSave: { backgrounds: () => [] } };
         if (id === '../GameCtrlShared') return shared;
         if (id === '../SkinResourceCdnService') return { SkinResourceCdnService: { inst: { getAssetUrl: asset => asset.url } } };
         if (id === '../DebugPerfTrace') return { debugPerfTrace: (event, data) => trace.push({ event, data }) };
@@ -233,5 +235,56 @@ assert.equal(failing._backgroundSkinFrameCache.size, 1);
 assert.equal(remoteLoads.length, 0);
 assert(trace.some(event => event.event === 'backgroundSkin.load.cancel'));
 assert(trace.some(event => event.event === 'backgroundSkin.load.discard'));
+
+// The built-in default must be available offline; retired bg_000 migrates to bg_005.
+const defaults = runtime();
+moduleRef.exports.installSkinBackgroundModule(defaults);
+defaults.getStoredEquippedBackgroundSkinId = () => 0;
+assert.equal(defaults.getEquippedBackgroundSkinId(), 1005);
+defaults.getStoredEquippedBackgroundSkinId = () => 1002;
+assert.equal(defaults.getEquippedBackgroundSkinId(), 1002, 'preserve explicit selection');
+defaults.getStoredEquippedBackgroundSkinId = () => 1000;
+assert.equal(defaults.getEquippedBackgroundSkinId(), 1005, 'retired original background migrates to bg_005');
+defaults.getStoredEquippedBackgroundSkinId = () => 1005;
+assert.equal(defaults.applyPreparedGameplayBackground(), true, 'bg_005 is authored into Game.scene');
+let defaultLoaded = undefined;
+defaults.loadBackgroundSkinSpriteFrame({ id: 1005, isDefault: true,
+    backgroundAsset: { url: 'https://example.test/bg005.png', format: 'png' } }, sf => { defaultLoaded = sf; });
+assert.equal(remoteLoads.length, 0, 'built-in default must not download a second background');
+assert.equal(defaultLoaded, null);
+defaults._loadBackgroundSkinConfig = () => { throw new Error('default must not require CDN config'); };
+let ready = false;
+defaults.ensureEquippedBackgroundReady((ok, err, row) => {
+    ready = ok;
+    assert.equal(row.code, 'bg_005');
+    assert.equal(row.assetKey, 'GameUI/home_bg');
+});
+assert.equal(ready, true, 'default is ready without network');
+defaults.releaseBackgroundSkinCachedSpriteFrames('test-default');
+const backgroundConfig = JSON.parse(fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/Skins/skins.json'), 'utf8'));
+assert.equal(backgroundConfig.defaultEquipped, 1005);
+assert.equal(backgroundConfig.skins.find(row => row.id === 1005).unlockType, 'default');
+assert.equal(backgroundConfig.skins.find(row => row.id === 1005).assetBundle, 'bootstrap');
+assert(!backgroundConfig.skins.some(row => row.id === 1000));
+
+// Exercise real stored-state migration, not just a mocked selected ID.
+const storage = new Map();
+shared.sys = { localStorage: {
+    getItem: key => storage.get(key) ?? null,
+    setItem: (key, value) => storage.set(key, String(value)),
+    removeItem: key => storage.delete(key),
+} };
+const migrated = runtime();
+moduleRef.exports.installSkinBackgroundModule(migrated);
+storage.set('pdd.skin.background.equippedState', JSON.stringify({ id: 1000, updatedAt: 123 }));
+storage.set('pdd.skin.background.owned', JSON.stringify([1000, 1002, 1005]));
+storage.set('pdd.skin.background.resetVersion', '1');
+assert.equal(migrated.getEquippedBackgroundSkinId(), 1005);
+assert.equal(migrated._sanitizeRetiredBackgroundSkinState(), true);
+assert.equal(JSON.parse(storage.get('pdd.skin.background.equippedState')).id, 1005);
+assert.deepEqual(JSON.parse(storage.get('pdd.skin.background.owned')), [1002, 1005]);
+storage.set('pdd.skin.background.equippedState', JSON.stringify({ id: 1002, updatedAt: 124 }));
+assert.equal(migrated._sanitizeRetiredBackgroundSkinState(), false);
+assert.equal(migrated.getEquippedBackgroundSkinId(), 1002);
 
 console.log('background-skin-memory-lifecycle.test.js passed (async teardown, shared assets, live loads, errors; device memory unmeasured)');

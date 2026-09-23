@@ -109,6 +109,27 @@ function validateRemoteDoesNotOwnBeanAtlas() {
     }
 }
 
+function syncBootstrapDefaultBackground() {
+    const source = path.join(levelDataRoot, 'Skins', 'Background', 'bg_005', 'background.png');
+    const target = path.join(bootstrapRoot, 'GameUI', 'home_bg.png');
+    assertFile(source, 'bg_005 默认背景');
+    assertFile(source + '.meta', 'bg_005 默认背景 meta');
+    const image = fs.readFileSync(source);
+    const sourceMeta = readJson(source + '.meta');
+    // Preserve the UUID already authored into Game.scene; only replace its pixels.
+    const targetUuid = 'e82626ae-c0c9-aa40-532e-293d6db5eaf2';
+    const meta = JSON.parse(JSON.stringify(sourceMeta).split(sourceMeta.uuid).join(targetUuid));
+    for (const subMeta of Object.values(meta.subMetas || {})) subMeta.displayName = 'home_bg';
+    if (!fs.existsSync(target) || !fs.readFileSync(target).equals(image)) fs.writeFileSync(target, image);
+    writeJson(target + '.meta', meta);
+    for (const name of ['home_bg.jpeg', 'home_bg.jpeg.meta']) {
+        fs.rmSync(path.join(bootstrapRoot, 'GameUI', name), { force: true });
+    }
+    log('默认背景 bg_005 已同步到 BootstrapBundle/GameUI/home_bg.png');
+}
+
+syncBootstrapDefaultBackground();
+if (process.argv.includes('--background-only')) process.exit(0);
 syncBootstrapLevelData();
 validateBootstrapBeanAtlas();
 validateRemoteDoesNotOwnBeanAtlas();

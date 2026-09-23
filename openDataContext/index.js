@@ -7,22 +7,24 @@ const Canvas = wx.getSharedCanvas();
 const ctx = Canvas.getContext('2d');
 
 const CANVAS_WIDTH = 596;
-const CANVAS_HEIGHT = 580;
-const ROW_HEIGHT = 85.512;
-const ROW_BOX_HEIGHT = 112;
-const ROW_CENTERS_Y = [210.945, 126.14, 40.194, -45.318];
+const CANVAS_HEIGHT = 640;
+// Keep the saved row origin fixed while extending only the viewport bottom.
+const ROW_ORIGIN_FROM_TOP = 290;
+const ROW_HEIGHT = 101.082731;
+const ROW_BOX_HEIGHT = 134.4;
+const ROW_CENTERS_Y = [203.023049, 102.647317, 1.130585, -99.952146];
 const LIST_BOTTOM = 4;
-const AVATAR_RADIUS = 28;
+const AVATAR_RADIUS = 48;
 function getRowTop(index) {
     const centerY = index < 4 ? ROW_CENTERS_Y[index] : ROW_CENTERS_Y[3] - (index - 3) * ROW_HEIGHT;
-    return CANVAS_HEIGHT / 2 - centerY - ROW_BOX_HEIGHT / 2;
+    return ROW_ORIGIN_FROM_TOP - centerY - ROW_BOX_HEIGHT / 2;
 }
 const MAX_ENTRIES = 100;
 const MAX_AVATAR_CACHE = 24;
 const OPEN_DATA_DEBUG = false;
 
-Canvas.width = CANVAS_WIDTH;
-Canvas.height = CANVAS_HEIGHT;
+// Shared canvas dimensions are owned by main-domain Cocos SubContextView.
+// The open-data view is read-only; drawing coordinates remain 596 x 640.
 
 let scrollOffset = 0;
 let lastRenderedScrollOffset = -1;
@@ -122,7 +124,7 @@ function loadRankingArt() {
 }
 
 // Manual snapshot of the saved nationwide rows; independent of runtime Prefab changes.
-const ROW_TEXT_Y = [0.692, 3.863, 2.277, 0];
+const ROW_TEXT_Y = [0, 0, 0, 0];
 
 function drawRowText(text, x, y, fontSize, maxWidth, align, color) {
     ctx.font = `bold ${fontSize}px sans-serif`;
@@ -147,16 +149,16 @@ function drawRow(entry, y, rowIndex, options) {
 
     const medal = rankingArt[`rank${entry.rank}`];
     if (medal) {
-        ctx.drawImage(medal, 77.383 - 36, rowCenterY - 1.809 - 30, 72, 60);
+        ctx.drawImage(medal, 67 - 43.2, rowCenterY - 36, 86.4, 72);
     } else {
-        drawRowText(badgeText, 78.373, rowCenterY, 28, 72, 'center', '#6B6D7A');
+        drawRowText(badgeText, 67, rowCenterY, 28, 86.4, 'center', '#6B6D7A');
     }
 
-    drawAvatarCircle(entry.avatarUrl, 150, rowCenterY, AVATAR_RADIUS);
+    drawAvatarCircle(entry.avatarUrl, 162, rowCenterY, AVATAR_RADIUS, entry);
 
     const textY = rowCenterY - ROW_TEXT_Y[Math.min(rowIndex, 3)];
-    drawRowText(displayName, 196.071, textY, 26, 220, 'left', COLORS.text);
-    drawRowText(`第${score}关`, 488, textY, 24, 124, 'center', COLORS.text);
+    drawRowText(displayName, 220, textY, 26, 208, 'left', COLORS.text);
+    drawRowText(`通关${Math.max(0, Math.floor(Number(score) || 1) - 1)}关`, 500, textY, 24, 136, 'center', COLORS.text);
 }
 
 function drawEmpty(message) {
@@ -167,11 +169,17 @@ function drawEmpty(message) {
     ctx.fillText(message, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
 }
 
-function drawAvatarCircle(avatarUrl, x, y, radius) {
+function drawAvatarCircle(avatarUrl, x, y, radius, profile = {}) {
+    const frameGeometry = require('./profile-frames');
+    const geometry = frameGeometry[2001];
+    const hole = geometry && geometry.bounds;
+    const scale = geometry ? radius * 2 / geometry.width : 1;
+    const portraitX = hole ? x + ((hole[0] + hole[2]) / 2 - geometry.width / 2) * scale : x;
+    const portraitY = hole ? y + ((hole[1] + hole[3]) / 2 - geometry.height / 2) * scale : y;
     ctx.save();
     ctx.beginPath();
-    const innerRadius = radius * 52 / 56;
-    ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
+    const innerRadius = hole ? Math.min(hole[2]-hole[0],hole[3]-hole[1]) * scale / 2 : radius * 52 / 56;
+    ctx.rect(portraitX - innerRadius, portraitY - innerRadius, innerRadius * 2, innerRadius * 2);
     ctx.clip();
 
     const img = avatarCache[avatarUrl] || rankingArt.avatarDefault;
@@ -180,7 +188,7 @@ function drawAvatarCircle(avatarUrl, x, y, radius) {
         const scale = Math.max(innerRadius * 2 / img.width, innerRadius * 2 / img.height);
         const w = img.width * scale;
         const h = img.height * scale;
-        ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
+        ctx.drawImage(img, portraitX - w / 2, portraitY - h / 2, w, h);
     } else {
         // 无头像时只显示中性底色，避免游客昵称被截成单独的“游”字。
         ctx.fillStyle = '#D9DADF';
@@ -189,7 +197,11 @@ function drawAvatarCircle(avatarUrl, x, y, radius) {
 
     ctx.restore();
 
-    ctx.drawImage(rankingArt.avatarFrame, x - radius, y - radius, radius * 2, radius * 2);
+    const border = rankingArt.avatarFrame;
+    if (border) {
+        const height = hole ? geometry.height * scale : radius * 2;
+        ctx.drawImage(border, x - radius, y - height / 2, radius * 2, height);
+    }
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -298,6 +310,8 @@ function deactivateFriendRankView(message) {
     drawEmpty(message || '点击加载好友排行');
 }
 
+let profileLocalFiles = {};
+
 function downloadAvatar(avatarUrl) {
     if (!friendRankActive || avatarCache[avatarUrl] || !avatarUrl) return;
     // 已在下载中或队列中则跳过
@@ -387,6 +401,17 @@ function processAvatarQueue() {
         }
     };
 
+    if (/^https:\/\/game-pdd-v2\.oss-cn-beijing\.aliyuncs\.com\//.test(url)) {
+        const local = profileLocalFiles[url];
+        if (local) finalizeAvatarLoad(local);
+        else {
+            clearTimeout(timeout);
+            console.warn('[OpenData] profile local image unavailable:', url);
+            isDownloading = false; processAvatarQueue();
+        }
+        return;
+    }
+
     if (typeof wx.downloadFile !== 'function') {
         if (!didLogDirectAvatarFallback) {
             didLogDirectAvatarFallback = true;
@@ -429,6 +454,17 @@ function processAvatarQueue() {
 let lastFriendData = [];
 let allSortedEntries = [];
 
+function readGameProfile(item) {
+    const defaults = { avatarId: 0, avatarUrl: item.avatarUrl || '', frameId: 2001, frameUrl: '' };
+    const kv = (item.KVDataList || []).find(row => row.key === 'profile_v1');
+    if (!kv) return defaults;
+    try {
+        const p = JSON.parse(kv.value);
+        if (p.version !== 1 || typeof p.displayName !== 'string') return defaults;
+        return { ...defaults, displayName: p.displayName.slice(0, 24) };
+    } catch (error) { console.warn('[FriendRank] invalid game profile', error); return defaults; }
+}
+
 function renderFullLeaderboard(friendData, source) {
     if (!friendRankActive) {
         return;
@@ -442,6 +478,7 @@ function renderFullLeaderboard(friendData, source) {
             avatarUrl: item.avatarUrl || '',
             progressLevel: extractScore(item.KVDataList || []),
             KVDataList: item.KVDataList || [],
+            ...readGameProfile(item),
         }))
         .sort((a, b) => {
             if (b.progressLevel !== a.progressLevel) return b.progressLevel - a.progressLevel;
@@ -495,6 +532,7 @@ function renderVisibleRows(source, force) {
         if (allSortedEntries[i].avatarUrl) {
             downloadAvatar(allSortedEntries[i].avatarUrl);
         }
+        if (allSortedEntries[i].frameUrl) downloadAvatar(allSortedEntries[i].frameUrl);
         drawRow(allSortedEntries[i], y, i);
     }
 
@@ -525,8 +563,18 @@ function renderSelfRanking(selfData) {
     });
 }
 
+// Bounded stage measurements; no friend identities or URLs are recorded.
+const friendRankTimings = [];
+function measureFriendRank(stage, started) {
+    const ms = Date.now() - started;
+    friendRankTimings.push({ stage, ms });
+    if (friendRankTimings.length > 32) friendRankTimings.shift();
+    if (ms >= 50) console.info('[FriendRankPerf]', stage, ms + 'ms');
+}
 // 监听主域消息
 wx.onMessage((data) => {
+    const messageStarted = Date.now();
+    try {
     if (data?.type === 'engine' || data?.fromEngine) {
         return;
     }
@@ -534,6 +582,7 @@ wx.onMessage((data) => {
     debugLog('[OpenData] onMessage:', data);
 
     if (data.type === 'getFriendRankings') {
+        profileLocalFiles = data.profileFiles || {};
         friendRankActive = true;
         loadRankingArt(); // 主域确认 rankingArt 分包加载成功后才会发送本消息。
         friendRankDataState = 'loading';
@@ -546,9 +595,10 @@ wx.onMessage((data) => {
         drawBackground();
         drawEmpty('加载好友排行中...');
         wx.getFriendCloudStorage({
-            keyList: ['score'],
+            keyList: ['score', 'profile_v1'],
             success: (res) => {
                 if (!friendRankActive || requestVersion !== avatarLoadVersion) return;
+                const renderStarted = Date.now();
                 const friendData = res.data || [];
                 debugLog('[OpenData] getFriendCloudStorage SUCCESS, count:', friendData.length);
                 if (friendData.length > 0) {
@@ -573,6 +623,7 @@ wx.onMessage((data) => {
                     return { nickname: getDisplayName(d), avatarUrl: d.avatarUrl ? 'has' : 'empty', kvCount: d.KVDataList ? d.KVDataList.length : 0 };
                 })));
                 renderFullLeaderboard(friendData, 'wechat-friend');
+                measureFriendRank('friend-data-sort-render', renderStarted);
             },
             fail: (err) => {
                 if (!friendRankActive || requestVersion !== avatarLoadVersion) return;
@@ -586,7 +637,7 @@ wx.onMessage((data) => {
     } else if (data.type === 'getSelfRanking') {
         loadRankingArt(); // 调用方同样必须先加载 rankingArt 分包。
         wx.getUserCloudStorage({
-            keyList: ['score'],
+            keyList: ['score', 'profile_v1'],
             success: (res) => {
                 renderSelfRanking(res.KVDataList);
             },
@@ -610,6 +661,9 @@ wx.onMessage((data) => {
         renderVisibleRows('wechat-friend');
     } else if (data.type === 'deactivate') {
         deactivateFriendRankView('点击加载好友排行');
+    }
+    } finally {
+        if (data && ['getFriendRankings', 'scroll', 'clearCanvas'].includes(data.type)) measureFriendRank('message:' + data.type, messageStarted);
     }
 });
 

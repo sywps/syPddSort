@@ -69,7 +69,7 @@ export class EncouragementExperimentState {
     }
 
     content(): 'A' | 'B' {
-        return this.locked && this.verified && this.decision?.status === 'enrolled' ? this.decision.content : 'A';
+        return 'A'; // Experiment retired; keep persisted historical assignment unchanged.
     }
 
     private save(decision: Decision): void {
@@ -85,9 +85,9 @@ export class EncouragementExperimentState {
 
     fields(): Record<string, string | number> {
         const d = this.decision;
-        return d ? { encouragementExperimentId: d.id, encouragementExperimentStatus: d.status,
+        return d ? { encouragementExperimentId: d.id, encouragementExperimentStatus: 'retired',
             encouragementExperimentBucket: d.status === 'enrolled' ? d.content : '',
-            encouragementEnrolledAt: d.enrolledAt, encouragementExperimentReason: d.reason } : {};
+            encouragementEnrolledAt: d.enrolledAt, encouragementExperimentReason: 'experiment_closed' } : {};
     }
 }
 export const encouragementExperiment = new EncouragementExperimentState();

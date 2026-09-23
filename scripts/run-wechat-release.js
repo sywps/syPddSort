@@ -130,7 +130,24 @@ function copyDirectoryContents(sourceDir, targetDir, options = {}) {
 }
 
 function replaceDirectoryContents(sourceDir, targetDir, options = {}) {
-    fs.rmSync(targetDir, { recursive: true, force: true });
+    const targetRoot = path.resolve(targetDir);
+    if (fs.existsSync(targetRoot) && fs.lstatSync(targetRoot).isSymbolicLink()) fail('拒绝回传到符号链接目录: ' + targetRoot);
+    // DevTools may hold the project directory open on Windows. Keep matching directories,
+    // remove only stale generated entries, then overwrite files and verify byte identity.
+    const prune = (source, target) => {
+        if (!fs.existsSync(target)) return;
+        for (const entry of fs.readdirSync(target, { withFileTypes: true })) {
+            const dest = path.resolve(target, entry.name), src = path.join(source, entry.name);
+            if (!dest.startsWith(targetRoot + path.sep)) fail('回传清理路径越界: ' + dest);
+            const sourceExists = fs.existsSync(src);
+            const sameDirectory = sourceExists && entry.isDirectory() && fs.lstatSync(src).isDirectory();
+            if (sameDirectory) prune(src, dest);
+            else if (!sourceExists || entry.isDirectory() || entry.isSymbolicLink() || fs.lstatSync(src).isDirectory()) {
+                fs.rmSync(dest, { recursive: true, force: true });
+            }
+        }
+    };
+    prune(sourceDir, targetRoot);
     copyDirectoryContents(sourceDir, targetDir, options);
 }
 

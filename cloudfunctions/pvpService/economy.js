@@ -34,6 +34,8 @@ function inventorySnapshot(profile) {
   }
   result.pvpEconomyRevision = Math.max(0, int(profile.pvpEconomyRevision));
   result.stateUpdatedAt = Math.max(0, int(profile.stateUpdatedAt));
+  result.wechatGiftProtocol = 1;
+  result.wechatGiftTotals = profile.wechatGiftTotals || {};
   return result;
 }
 

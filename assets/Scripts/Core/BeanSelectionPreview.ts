@@ -1,7 +1,3 @@
-import { PREVIEW } from 'cc/env';
-import { isMiniGameRuntime } from './MiniGamePlatform';
-import { beanSelectionExperiment } from './BeanSelectionExperiment';
-
 export function resolveBeanSelectionPreview(enabled: boolean, search: string, mode: string, level: number): 'A' | 'B' {
     if (!enabled || mode !== 'main' || level < 2) return 'A';
     const raw = new URLSearchParams(search).get('pick');
@@ -11,11 +7,6 @@ export function resolveBeanSelectionPreview(enabled: boolean, search: string, mo
     return value;
 }
 
-export function getBeanSelectionPreview(mode: string, level: number): 'A' | 'B' {
-    const browser = typeof window !== 'undefined';
-    if (mode !== 'main' || level < 2) return 'A';
-    if (PREVIEW && browser && !isMiniGameRuntime()) {
-        return resolveBeanSelectionPreview(true, window.location.search, mode, level);
-    }
-    return beanSelectionExperiment.content();
+export function getBeanSelectionPreview(_mode: string, _level: number): 'A' | 'B' {
+    return 'A'; // Experiment retired; applies to saved B assignments and preview overrides too.
 }

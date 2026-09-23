@@ -32,18 +32,6 @@ import type {
 import { AppRoot } from '../AppRoot';
 import { ensureHomeStartButtonFx } from '../HomeStartButtonFx';
 import { ensureCommercePanelController } from '../Panels/CommercePanelController';
-import { Widget } from 'cc';
-
-const HOME_START_BUTTON_BOTTOM = 295;
-const HOME_PIXEL_PUZZLE_BUTTON_BOTTOM = 135;
-
-function alignHomePrimaryButton(node: Node, bottom: number, path: string): void {
-    const widget = node.getComponent(Widget);
-    if (!widget) throw new Error(`[HomeScene] ${path} is missing Widget`);
-    widget.bottom = bottom;
-    widget.horizontalCenter = 0;
-    widget.updateAlignment();
-}
 
 export function installHomeCommerceModule(target: any): void {
     Object.assign(target, {
@@ -128,7 +116,6 @@ export function installHomeCommerceModule(target: any): void {
         drawStartButton(parent: Node, level: number) {
             const btn = this.requireUiChild(parent, 'StartBtn', 'PrimaryActionLayer/StartBtn');
             btn.active = true;
-            alignHomePrimaryButton(btn, HOME_START_BUTTON_BOTTOM, 'PrimaryActionLayer/StartBtn');
             this.requireSceneSpriteFrame(btn, 'PrimaryActionLayer/StartBtn');
             const btnSubNode = this.requireUiChild(btn, 'BtnSub', 'StartBtn/BtnSub');
             const btnSubLabel = btnSubNode.getComponent(Label);
@@ -175,7 +162,6 @@ export function installHomeCommerceModule(target: any): void {
         drawThemeChallengeButton(parent: Node) {
             const btn = this.requireUiChild(parent, 'ThemeBtn', 'PrimaryActionLayer/ThemeBtn');
             btn.active = true;
-            alignHomePrimaryButton(btn, HOME_PIXEL_PUZZLE_BUTTON_BOTTOM, 'PrimaryActionLayer/ThemeBtn');
             this.requireSceneSpriteFrame(btn, 'PrimaryActionLayer/ThemeBtn');
             const titleNode = this.requireUiChild(btn, 'ThemeTitle', 'ThemeBtn/ThemeTitle');
             const titleLabel = titleNode.getComponent(Label);

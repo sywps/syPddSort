@@ -12,6 +12,7 @@ function method(name, next) {
 }
 const code = ts.transpileModule(`class Harness {
 ${offerMode}
+${ast.statements.find(ts.isClassDeclaration).members.filter(m => ['grantReviveCapacity', 'continueAfterBufferFull'].includes(m.name?.getText(ast))).map(m => m.getText(ast)).join('\n')}
 ${method('onCapacityAdTap', 'isLevelThreeFreeCapacity')}
 ${method('isLevelThreeFreeCapacity', 'showCapacityBurst')}
 }; module.exports = Harness;`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
@@ -36,13 +37,13 @@ for (let i = 0; i < 8; i++) h.onCapacityAdTap({});
 assert.equal(h.rules.bufferCapacity, 150);
 assert.equal(h.adButton.active, false);
 assert.equal(h.adRequested, undefined);
-assert.equal(h.toast, '传送带已扩容 +6');
+assert.equal(h.toast, '传送带已扩容 +30');
 h.onCapacityAdTap({});
 assert.equal(h.rules.bufferCapacity, 150);
 assert.equal(h.expandCapacity(), false);
 const replay = create();
 replay.onCapacityAdTap({});
-assert.equal(replay.rules.bufferCapacity, 72);
+assert.equal(replay.rules.bufferCapacity, 90);
 assert.equal(replay.adButton.active, true);
 for (const other of [create(4), create(3, 60, 'theme')]) {
     other.onCapacityAdTap({});
@@ -52,4 +53,27 @@ for (const other of [create(4), create(3, 60, 'theme')]) {
 const coop = create();
 coop.runtime.isCoopMode = () => true;
 assert.equal(coop.isLevelThreeFreeCapacity(), false);
+for (const [level, expected] of [[1,30],[20,30],[21,12]]) {
+    const c = create(level);
+    assert.equal(c.getCapacityButtonIncrement(), expected);
+    c.expandCapacity();
+    assert.equal(c.rules.bufferCapacity, 60 + expected);
+}
+const capped = create(3, 138);
+capped.expandCapacity();
+assert.equal(capped.rules.bufferCapacity, 150);
+const revive = create(10);
+revive.expandCapacity(12);
+assert.equal(revive.rules.bufferCapacity, 72);
+const cappedRevive = create(3, 150);
+cappedRevive.runtime.boardModel = { getInitiallyUnsettledCompletionRatio: () => 0.5 };
+cappedRevive.runtime.isGameEnd = true;
+let resumed = 0;
+cappedRevive.runtime.continueAfterLose = () => { resumed += 1; };
+for (let i = 0; i < 10; i++) assert.equal(cappedRevive.continueAfterBufferFull(), true);
+assert.equal(resumed, 10);
+assert.equal(cappedRevive.rules.bufferCapacity, 270, 'early revive rewards must not hit the ordinary expansion cap');
+assert.equal(cappedRevive.expandCapacity(), false, 'ordinary expansion remains capped');
+cappedRevive.runtime.boardModel.getInitiallyUnsettledCompletionRatio = () => 0.75;
+assert.equal(cappedRevive.grantReviveCapacity(), false, 'later progress retains the existing cap');
 console.log('pch-level3-free-capacity.test.js passed');

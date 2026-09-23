@@ -115,9 +115,9 @@ export function installThemePanelFlowModule(target: any): void {
                         content,
                         levelId,
                         0,
-                        10,
-                        548,
-                        760,
+                        0,
+                        540,
+                        540,
                         prefix,
                         {
                             drawTargetBackground: true,

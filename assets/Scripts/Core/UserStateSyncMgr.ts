@@ -13,6 +13,27 @@ const SAVE_RETRY_LIMIT = 3;
 const USER_STATE_SCHEMA_VERSION = 2;
 const SKIN_STATE_SCHEMA_VERSION = 2;
 
+export const WECHAT_GIFT_FIELDS = ['gold', 'brushCount', 'magnetCount', 'freezeCount'] as const;
+export const WECHAT_GIFT_TOTALS_KEY = 'pdd.wechatGiftTotals.v1';
+export const WECHAT_GIFT_JOURNAL_KEY = 'pdd.wechatGiftJournal.v1';
+
+export function rebaseWechatGiftState(state: Partial<CloudGameState>, totals: Record<string, number>): void {
+    const next = { ...state };
+    for (const field of WECHAT_GIFT_FIELDS) {
+        const seen = state.wechatGiftTotals?.[field] ?? 0;
+        const total = totals[field] ?? 0;
+        if (!Number.isSafeInteger(seen) || seen < 0 || !Number.isSafeInteger(total) || total < seen) {
+            throw new Error('Invalid or regressing WeChat gift watermark');
+        }
+        if (typeof state[field] === 'number') {
+            const amount = state[field]! + total - seen;
+            if (!Number.isSafeInteger(amount) || amount < 0) throw new Error('Invalid WeChat gift balance');
+            next[field] = amount;
+        }
+    }
+    Object.assign(state, next, { wechatGiftProtocol: 1, wechatGiftTotals: { ...totals } });
+}
+
 export type CloudUserProfile = {
     version: number;
     uuid: string;
@@ -26,6 +47,9 @@ export type CloudUserProfile = {
 };
 
 export type CloudGameState = {
+    wechatGiftProtocol?: number;
+    wechatGiftTotals?: Record<string, number>;
+    customization?: import('./ProfileCustomizationMgr').CustomizationState;
     pvpEconomyRevision?: number;
     savedLevel: number;
     vigor: number;
@@ -135,6 +159,10 @@ function emitCloudSyncDiagnostic(phase: string, detail: Record<string, unknown> 
         if (target) {
             target.__PDD_CLOUD_SYNC_LAST = payload;
         }
+    }
+    if (phase === 'save:fail' || phase === 'save:user-state-not-acknowledged') {
+        console.error('[CloudSync]', phase, JSON.stringify(payload));
+        return;
     }
     if (!shouldEmitCloudSyncDiagnosticLog()) {
         return;
@@ -398,6 +426,8 @@ export class UserStateSyncMgr {
     }
 
     private async saveNow(patch: CloudUserState): Promise<boolean> {
+        let requestId: string | null = null;
+        let stage = 'request';
         try {
             emitCloudSyncDiagnostic('save:start', {
                 savedLevel: patch.gameState?.savedLevel ?? null,
@@ -412,10 +442,19 @@ export class UserStateSyncMgr {
                 profile: patch.profile || undefined,
                 gameState: patch.gameState || undefined,
             });
+            requestId = (result as any)?.__cloudRequestId || null;
+            stage = 'response';
             if (result?.ok !== true) {
                 throw new Error(result?.errorMessage || 'save user state failed');
             }
+            stage = 'acknowledgement';
             this.assertUserStateAcknowledged(patch, result);
+            stage = 'rebase-pending-save';
+            // A newer queued snapshot still contains the old gift watermark. Preserve its
+            // gameplay changes while rebasing both balances and watermark before the next save.
+            if (this.pendingPatch?.gameState && result.gameState?.wechatGiftProtocol === 1) {
+                rebaseWechatGiftState(this.pendingPatch.gameState, result.gameState.wechatGiftTotals || {});
+            }
             this.consecutiveSaveFailures = 0;
             emitCloudSyncDiagnostic('save:success', {
                 userStateSchemaVersion: result?.userStateSchemaVersion ?? null,
@@ -429,6 +468,7 @@ export class UserStateSyncMgr {
                 hasGameState: !!result?.gameState,
             });
             if (result?.profile || result?.gameState) {
+                stage = 'apply-local-state';
                 if (!this.emitAuthoritativeState({
                     profile: result.profile || null,
                     gameState: result.gameState || null,
@@ -439,6 +479,11 @@ export class UserStateSyncMgr {
             return true;
         } catch (error) {
             emitCloudSyncDiagnostic('save:fail', {
+                requestId: requestId || (error as any)?.requestID || null,
+                stage,
+                stack: (error as any)?.stack || null,
+                errMsg: (error as any)?.errMsg || null,
+                errCode: (error as any)?.errCode ?? null,
                 savedLevel: patch.gameState?.savedLevel ?? null,
                 equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
                 equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
@@ -523,6 +568,7 @@ export class UserStateSyncMgr {
             return;
         }
         emitCloudSyncDiagnostic('save:user-state-not-acknowledged', {
+            requestId: (result as any)?.__cloudRequestId || null,
             problems,
             userStateSchemaVersion: result?.userStateSchemaVersion ?? null,
             skinStateSchemaVersion: result?.skinStateSchemaVersion ?? null,
@@ -585,8 +631,7 @@ export class UserStateSyncMgr {
             this.authoritativeStateHandler(state);
             return true;
         } catch (error) {
-            runtimeWarn('[UserStateSyncMgr] authoritative state handler failed:', error);
-            return false;
+            throw error;
         }
     }
 

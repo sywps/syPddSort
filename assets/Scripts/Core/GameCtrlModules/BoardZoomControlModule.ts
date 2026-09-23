@@ -153,6 +153,11 @@ function setBoardZoomControlVisualState(ui: BoardZoomControlUi, opacity: number,
 export function installBoardZoomControlModule(target: any): void {
     Object.assign(target, {
         setupBoardZoomControl(): void {
+            // Gesture-only gameplay does not ship the optional zoom-bar scene assets.
+            if (!BOARD_ZOOM_CONTROL_VISIBLE) {
+                this._boardZoomControlUi = null;
+                return;
+            }
             const fixedRoot = typeof this.getGameplayFixedRoot === 'function'
                 ? this.getGameplayFixedRoot()
                 : null;
@@ -160,12 +165,6 @@ export function installBoardZoomControlModule(target: any): void {
             if (!root?.isValid) {
                 throw new Error('[board-zoom-control] Game.scene is missing GameplayFixedRoot/BoardZoomControl');
             }
-            if (!BOARD_ZOOM_CONTROL_VISIBLE) {
-                this._boardZoomControlUi = null;
-                root.active = false;
-                return;
-            }
-
             const locate = requireChild(root, 'LocateBtn', 'GameplayFixedRoot/BoardZoomControl/LocateBtn');
             const track = requireChild(root, 'ZoomTrack', 'GameplayFixedRoot/BoardZoomControl/ZoomTrack');
             const fill = requireChild(track, 'ZoomFill', 'BoardZoomControl/ZoomTrack/ZoomFill');

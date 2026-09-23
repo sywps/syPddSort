@@ -321,7 +321,7 @@ function addAvatar(runtime: any, parent: Node, name: string, profile: any, x: nu
     parent.addChild(avatar);
     avatar.setPosition(x, y, 0);
     ensureTransform(avatar, diameter, diameter);
-    runtime.mountLeaderboardAvatar(profile.avatarUrl || '', avatar, diameter);
+    runtime.mountLeaderboardAvatar(profile.avatarUrl || '', avatar, diameter, profile);
     return avatar;
 }
 

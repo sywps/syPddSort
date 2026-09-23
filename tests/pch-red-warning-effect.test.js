@@ -120,6 +120,14 @@ function tween(target) {
 }
 const Harness = new Function('Tween', 'tween', 'Vec3', 'Color', code + '\nreturn WarningHarness;')(Tween, tween, Vec3, class Color {});
 const h = new Harness();
+const authoredText = { r: 255, g: 255, b: 255, a: 255 };
+const authoredOutline = { r: 151, g: 155, b: 169, a: 255 };
+h.capacityTextColor = authoredText;
+h.capacityOutlineColor = authoredOutline;
+h.countLabel = { isValid: true };
+h.resetCapacityNumberWarning();
+assert.strictEqual(h.countLabel.color, authoredText, 'warning reset preserves authored text colour');
+assert.strictEqual(h.countLabel.outlineColor, authoredOutline, 'warning reset preserves authored outline');
 let hasReturnableMatch = false;
 h.rules = { hasReturnableCarrierMatch: () => hasReturnableMatch };
 Object.assign(h, { runtime: { isGameEnd: false }, warningPulseGeneration: 0,

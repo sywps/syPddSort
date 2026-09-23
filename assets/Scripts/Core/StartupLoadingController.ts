@@ -10,7 +10,9 @@ export class StartupLoadingController extends Component {
     private label!: Label;
     private progress!: SlicedLoadingProgressAdapter;
     private cover!: Node;
-    private elapsed = 0;
+    private percentage!: Label;
+    private completed = new Set<string>();
+    private completedPercent = 0;
     private failed = false;
     private closing = false;
     private afterDraw: (() => void) | null = null;
@@ -27,12 +29,14 @@ export class StartupLoadingController extends Component {
         const group = loading?.getChildByName('LoadingProgressGroup');
         const label = group?.getChildByName('Label')?.getComponent(Label);
         const track = group?.getChildByName('LoadingBarTrack');
-        if (!canvas || !camera || !loading || !cover?.getComponent(Sprite)?.spriteFrame || !label || !track) {
+        const percentage = track?.getChildByName('Percentage')?.getComponent(Label);
+        if (!canvas || !camera || !loading || !cover?.getComponent(Sprite)?.spriteFrame || !label || !track || !percentage) {
             throw new Error('[StartupLoading] Boot Canvas is missing its authored camera, cover or progress UI');
         }
         this.cover = cover;
         this.label = label;
         this.track = track;
+        this.percentage = percentage;
         const restart = new Node('SlowLoadingRestart');
         restart.parent = group!;
         restart.setPosition(track.position);
@@ -67,7 +71,7 @@ export class StartupLoadingController extends Component {
         setLayer(this.node);
         const blocker = loading.getComponent(BlockInputEvents) || loading.addComponent(BlockInputEvents);
         blocker.enabled = true;
-        this.progress = createSlicedLoadingProgressAdapter(track, 'StartupLoading/LoadingBarTrack');
+        this.progress = createSlicedLoadingProgressAdapter(track, 'StartupLoading/LoadingBarTrack', true);
         view.on('canvas-resize', this.resize, this);
         view.on('design-resolution-changed', this.resize, this);
         this.resize();
@@ -96,7 +100,36 @@ export class StartupLoadingController extends Component {
         this.clearSlowLoading();
         this.failed = false;
         this.node.active = true;
+        this.completed.clear();
+        this.completedPercent = 0;
+        this.renderProgress(0);
         this.setStage(stage);
+    }
+
+    // Weighted startup work, not downloaded bytes. Aliases share one completion slot.
+    noteMilestone(event: string): void {
+        if (this.failed || this.closing || !this.node.active) return;
+        const tasks: Record<string, [string, number]> = {
+            'scene-ready': ['scene', 20],
+            'route-ready': ['route', 15],
+            'external-level-json-loaded': ['data', 20],
+            'local-level-json-loaded': ['data', 20],
+            'first-level-json-loaded': ['data', 20],
+            'bean-atlas-ready': ['beans', 15],
+            'bean-atlas-not-required': ['beans', 15],
+            'critical-ui-ready': ['ui', 15],
+            'board-effects-ready': ['effects', 10],
+        };
+        const task = tasks[event.replace(/_/g, '-')];
+        if (!task || this.completed.has(task[0])) return;
+        this.completed.add(task[0]);
+        this.completedPercent += task[1];
+        this.renderProgress(this.completedPercent);
+    }
+
+    private renderProgress(percent: number): void {
+        this.progress.progress = percent / 100;
+        this.percentage.string = `${percent}%`;
     }
 
     setStage(stage: string): void {
@@ -133,11 +166,19 @@ export class StartupLoadingController extends Component {
     finishAfterDraw(onFinished: () => void): void {
         if (this.failed || this.closing) return;
         if (!this.node.active) { onFinished(); return; }
+        this.clearSlowLoading();
+        // The caller certifies all required work (including route-specific assets) is ready.
+        this.renderProgress(99);
         this.closing = true;
         this.afterDraw = () => {
-            this.afterDraw = null;
-            this.hide();
-            onFinished();
+            this.renderProgress(100);
+            // Render the completed state once; no timer or minimum hold is added.
+            this.afterDraw = () => {
+                this.afterDraw = null;
+                this.hide();
+                onFinished();
+            };
+            director.once(Director.EVENT_AFTER_DRAW, this.afterDraw, this);
         };
         director.once(Director.EVENT_AFTER_DRAW, this.afterDraw, this);
     }
@@ -152,16 +193,6 @@ export class StartupLoadingController extends Component {
         if (this.afterDraw) director.off(Director.EVENT_AFTER_DRAW, this.afterDraw, this);
         this.afterDraw = null;
         this.closing = false;
-    }
-
-    update(dt: number): void {
-        if (this.failed || !this.progress) return;
-        this.elapsed += dt;
-        const width = Math.min(120, this.progress.trackWidth);
-        const fill = this.progress.fillNode;
-        fill.active = true;
-        fill.getComponent(UITransform)!.setContentSize(width / this.progress.fillRenderScale, this.progress.fillHeight / this.progress.fillRenderScale);
-        fill.setPosition((this.progress.trackWidth - width) * (0.5 - 0.5 * Math.cos(this.elapsed * Math.PI / 1.2) - 0.5), 0, 0);
     }
 
     onDestroy(): void {

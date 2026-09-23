@@ -109,7 +109,7 @@ function createSettingsOverlay() {
     const box = new FakeNode('Box');
     box.addComponent(UITransform);
     overlay.addChild(box);
-    for (const name of ['XBtn', 'Home', 'Restart', 'GameplayTip']) {
+    for (const name of ['XBtn', 'Home', 'Restart', 'GameplayTip', 'FeedbackEntry']) {
         box.addChild(new FakeNode(name));
     }
     box.getChildByName('Restart').addChild(new FakeNode('VigorCostBadge'));
@@ -137,10 +137,14 @@ const audio = {
     },
 };
 const moduleRef = { exports: {} };
+let feedbackReturn;
 vm.runInNewContext(output, {
     module: moduleRef,
     exports: moduleRef.exports,
     require(id) {
+        if (id === './FeedbackPanelController') return {
+            openFeedbackPanel(runtime, onClosed) { feedbackReturn = onClosed; },
+        };
         if (id === '../GameCtrlShared') {
             return {
                 AudioMgr: audio,
@@ -182,6 +186,15 @@ vm.runInNewContext(output, {
 }, { filename: 'SettingsPanelController.ts' });
 
 const { SettingsPanelController } = moduleRef.exports;
+
+for (const flag of ['isGameEnd', '_patternCompleteWinPending', '_gameplayTransitionPromise']) {
+    const blocked = new SettingsPanelController({
+        getRuntimeSceneName: () => 'Game',
+        [flag]: true,
+        requireCanvasUiRoot() { throw new Error('must reject before opening a settings overlay'); },
+    });
+    blocked.open();
+}
 
 function createBaseRuntime(events) {
     const popupRoot = new FakeNode('PopupRoot');
@@ -403,4 +416,21 @@ assert.strictEqual(failureEvents.filter((event) => event === 'resume-conveyor').
 assert.strictEqual(failureEvents.filter((event) => event === 'resume:timer:1:settings').length, 1);
 assert.strictEqual(failureEvents.filter((event) => event.startsWith('release-texture:settings:')).length, 1);
 
+const feedbackEvents = [];
+const feedbackRuntime = createBaseRuntime(feedbackEvents);
+feedbackRuntime._withGameAssetsBundle = homeRuntime._withGameAssetsBundle;
+feedbackRuntime._closePanelWithTextureOwner = node => { node.isValid = false; };
+const feedbackSettings = new SettingsPanelController(feedbackRuntime);
+feedbackSettings.open();
+const settingsOverlay = feedbackRuntime.popupRoot.getChildByName('SettingsOverlay');
+settingsOverlay.getChildByName('Box').getChildByName('FeedbackEntry').emit(Button.EventType.CLICK);
+assert.strictEqual(settingsOverlay.active, false);
+assert.ok(!feedbackEvents.some(e => e.startsWith('resume:') || e === 'resume-conveyor'), 'opening feedback must keep settings pause leases');
+feedbackReturn();
+assert.strictEqual(settingsOverlay.active, true, 'feedback close/failure returns to settings');
+settingsOverlay.getChildByName('Box').getChildByName('FeedbackEntry').emit(Button.EventType.CLICK);
+feedbackSettings.dispose();
+feedbackReturn();
+assert.strictEqual(settingsOverlay.active, false, 'late feedback close must not resurrect disposed settings');
+assert.strictEqual(feedbackEvents.filter(e=>e==='resume-conveyor').length,1);
 console.log('panel-lock-lifecycle.test.js passed');

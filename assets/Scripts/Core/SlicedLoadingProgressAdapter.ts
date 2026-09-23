@@ -50,6 +50,7 @@ function getPositiveSize(transform: UITransform, context: string): { width: numb
 export function createSlicedLoadingProgressAdapter(
     trackNode: Node,
     context: string,
+    preserveCaps = false,
 ): SlicedLoadingProgressAdapter {
     const trackTransform = requireTransform(trackNode, context);
     const trackSpriteNode = requireChild(trackNode, 'TrackSprite', context);
@@ -75,14 +76,17 @@ export function createSlicedLoadingProgressAdapter(
     const apply = (value: number) => {
         current = Math.max(0, Math.min(1, Number(value) || 0));
         const geometry = getGeometry();
+        // Capsule caps scale uniformly with height; only the middle stretches horizontally.
+        const trackScale = preserveCaps ? geometry.height / trackSpriteNode.getComponent(Sprite)!.spriteFrame!.originalSize.height : SLICED_RENDER_SCALE;
+        const fillScale = preserveCaps ? geometry.fillHeight / fillNode.getComponent(Sprite)!.spriteFrame!.originalSize.height : SLICED_RENDER_SCALE;
         progressAreaTransform.setContentSize(geometry.width, geometry.height);
         progressArea.setPosition(0, 0, 0);
         trackSpriteTransform.setContentSize(
-            geometry.width / SLICED_RENDER_SCALE,
-            geometry.height / SLICED_RENDER_SCALE,
+            geometry.width / trackScale,
+            geometry.height / trackScale,
         );
         trackSpriteNode.setPosition(0, 0, 0);
-        trackSpriteNode.setScale(SLICED_RENDER_SCALE, SLICED_RENDER_SCALE, 1);
+        trackSpriteNode.setScale(trackScale, trackScale, 1);
         trackSpriteNode.active = true;
 
         const width = geometry.fillWidth * current;
@@ -91,11 +95,11 @@ export function createSlicedLoadingProgressAdapter(
             return;
         }
         fillTransform.setContentSize(
-            width / SLICED_RENDER_SCALE,
-            geometry.fillHeight / SLICED_RENDER_SCALE,
+            width / fillScale,
+            geometry.fillHeight / fillScale,
         );
         fillNode.setPosition(-geometry.fillWidth / 2 + width / 2, 0, 0);
-        fillNode.setScale(SLICED_RENDER_SCALE, SLICED_RENDER_SCALE, 1);
+        fillNode.setScale(fillScale, fillScale, 1);
         fillNode.active = true;
     };
 
@@ -112,7 +116,7 @@ export function createSlicedLoadingProgressAdapter(
             enumerable: true,
         },
         fillRenderScale: {
-            value: SLICED_RENDER_SCALE,
+            get: () => preserveCaps ? getGeometry().fillHeight / fillNode.getComponent(Sprite)!.spriteFrame!.originalSize.height : SLICED_RENDER_SCALE,
             enumerable: true,
         },
         fillWidth: {

@@ -121,7 +121,24 @@ function collectLevels() {
         } catch (err) {
             fail(err && err.message ? err.message : String(err));
         }
-        return { levelId, file: name, data, prefix: info.prefix, kind: info.kind };
+        let variants;
+        if (info.prefix === 'level_' && levelId === 3 && ['B', 'C'].some(b => fs.existsSync(path.join(sourceDir, `level_3_${b}.json`)))) {
+            variants = {};
+            for (const bucket of ['B', 'C']) {
+                const file = `level_3_${bucket}.json`;
+                const variantPath = path.join(sourceDir, file);
+                if (!fs.existsSync(variantPath)) fail('第三关实验文件缺失: ' + variantPath);
+                const variant = readJson(variantPath);
+                validateConveyorCapacity(variant, file);
+                validateHard(variant, file);
+                if (variant.levelId !== 3 || variant.timeLimit !== 300 || data.timeLimit !== 300
+                    || variant.conveyorCapacity !== data.conveyorCapacity || variant.Hard !== data.Hard) {
+                    fail('第三关实验规则必须与 A 一致: ' + file);
+                }
+                variants[bucket] = variant;
+            }
+        }
+        return { levelId, file: name, data, prefix: info.prefix, kind: info.kind, ...(variants ? { variants } : {}) };
     };
     let levels = fs.readdirSync(sourceLevelDir)
         .map((name) => ({ name, info: parseLevelFileName(name) }))
@@ -198,6 +215,7 @@ function buildPack(group, packLevels) {
             levelId: entry.levelId,
             prefix: entry.prefix,
             data: entry.data,
+            ...(entry.variants ? { variants: entry.variants } : {}),
         })),
     };
     const hash = hashJson(payload);

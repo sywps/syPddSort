@@ -1089,6 +1089,7 @@ export function installGuideLeaderboardModule(target: any): void {
                 rank: 0,
                 displayName: profile.displayName,
                 avatarUrl: profile.avatarUrl,
+                avatarId: 0, frameId: 0,
                 progressLevel: profile.lastLevelId || 1,
             });
         },

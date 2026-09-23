@@ -365,7 +365,7 @@ assert.ok(!selfRank.includes('syncCollectionAvatarLabelNode'), 'runtime must not
 assert.ok(friendRank.includes('selfBox.active = false;'), 'global loading must hide prefab example self data');
 assert.ok(guideRank.includes('selfBox.active = false;'), 'friend loading and tab switches must hide prefab example self data');
 assert.ok(selfRank.includes('parent.active = true;'), 'real self data rendering must reveal the self panel');
-assert.ok(friendRank.includes('this.loadAvatarToNode(entry.avatarUrl, avatarNode);'), 'main-domain rows must use prefab-owned avatar sizing');
+assert.ok(friendRank.includes('this.loadAvatarToNode(entry.avatarUrl, avatarNode, entry);'), 'main-domain rows must use prefab-owned avatar sizing and pass customization identity');
 assert.ok(!selfRank.includes('AvatarFallbackInitial'), 'missing avatars must use artwork instead of nickname initials');
 
 const avatarSlots = prefab.filter((record) => record?.__type__ === 'cc.Node' && ['Avatar', 'LeaderboardSelfAvatar'].includes(record._name));

@@ -15,8 +15,8 @@ const mod = compile('EncouragementExperiment.ts'), State = mod.EncouragementExpe
 const data = {}; const storage = { getItem: k => data[k] ?? null, setItem: (k,v) => { data[k] = v; } };
 const receipt = { id: server.ID, status: 'enrolled', content: 'B', enrolledAt: 1000, reason: 'new_user' };
 const state = new State(); state.initialize(storage, true, false); state.accept('uid', receipt); state.freeze();
-assert.equal(state.content(), 'B'); state.accept('uid', { ...receipt, content: 'A' }); assert.equal(state.content(), 'B');
-const restore = new State(); restore.initialize(storage, true, false); restore.accept('uid', receipt); restore.freeze(); assert.equal(restore.content(), 'B');
+assert.equal(state.content(), 'A'); state.accept('uid', { ...receipt, content: 'A' }); assert.equal(state.content(), 'A');
+const restore = new State(); restore.initialize(storage, true, false); restore.accept('uid', receipt); restore.freeze(); assert.equal(restore.content(), 'A');
 const timeout = new State(); timeout.initialize(storage, true, false); timeout.freeze(); timeout.accept('uid', receipt);
 assert.equal(timeout.content(), 'A'); assert.equal(timeout.decision.reason, 'identity_unavailable_or_timeout');
 const test = new State(); test.initialize(storage, true, true); test.freeze(); assert.equal(test.decision.status, 'test');
@@ -43,9 +43,9 @@ async function cloudTest() {
   const cloud = { init() {}, getWXContext: () => ({OPENID:'uid'}), database: () => ({collection: () => collection}) };
   const m = { exports: {} };
   new Function('module','exports','require',fs.readFileSync(`${__dirname}/../cloudfunctions/getOpenid/index.js`,'utf8'))(m,m.exports,
-    id => id === 'wx-server-sdk' ? cloud : id === './first-level-experiment' ? first : id === './bean-selection-experiment' ? bean : server);
+    id => id === './third-level-experiment' ? require('../cloudfunctions/getOpenid/third-level-experiment') : id === 'wx-server-sdk' ? cloud : id === './first-level-experiment' ? first : id === './bean-selection-experiment' ? bean : server);
   const event = { encouragementExperiment: { id:server.ID, eligible:true }, firstLevelExperiment: { id:first.ID, eligible:true }, beanSelectionExperiment: { id:bean.ID, eligible:true } };
-  const one = await m.exports.main(event); assert.equal(one.ok,true); assert.equal(one.encouragementExperiment.status,'enrolled');
+  const one = await m.exports.main(event); assert.equal(one.ok,true); assert.equal(one.encouragementExperiment.status,'excluded');
   const original = JSON.stringify([profile.firstLevelExperiment, profile.beanSelectionExperiment]);
   const two = await m.exports.main(event); assert.deepEqual(two.encouragementExperiment,one.encouragementExperiment);
   await m.exports.main({encouragementExperiment:{id:server.ID,exclusionReason:'identity_timeout'}});

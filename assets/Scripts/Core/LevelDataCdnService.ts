@@ -54,7 +54,7 @@ type LevelPack = {
     dataVersion?: string;
     schemaVersion: number;
     levelRange: [number, number];
-    levels: Array<{ levelId: number; prefix?: string; data: LevelData }>;
+    levels: Array<{ levelId: number; prefix?: string; data: LevelData; variants?: Partial<Record<'B' | 'C', LevelData>> }>;
 };
 
 type StoredLevelPackRecord = {
@@ -243,13 +243,13 @@ export class LevelDataCdnService {
         });
     }
 
-    async loadLevel(levelId: number, prefix: string = 'level_'): Promise<LevelData | null> {
+    async loadLevel(levelId: number, prefix: string = 'level_', variant: 'A' | 'B' | 'C' = 'A'): Promise<LevelData | null> {
         const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
         const normalizedPrefix = normalizeLevelPrefix(prefix);
         if (!normalizedPrefix) return null;
         const context = this.resolveCdnContext(normalizedLevelId, normalizedPrefix);
         this.lastFailure = null;
-        return this.loadLevelFromContext(context, normalizedLevelId, normalizedPrefix, true);
+        return this.loadLevelFromContext(context, normalizedLevelId, normalizedPrefix, true, variant);
     }
 
     async loadCollectionEntries(): Promise<LevelCollectionEntry[]> {
@@ -289,6 +289,7 @@ export class LevelDataCdnService {
         levelId: number,
         prefix: string,
         foregroundLoad: boolean,
+        variant: 'A' | 'B' | 'C' = 'A',
     ): Promise<LevelData | null> {
         const manifest = await this.getLiveManifest(context, foregroundLoad);
         if (!manifest) {
@@ -311,11 +312,18 @@ export class LevelDataCdnService {
             return this.getPackPrefix(entry.prefix ? { prefix: entry.prefix } : pack) === prefix;
         });
         if (level) {
-            this.levelAnalyticsMetadata.set(level.data as object, {
+            const data = variant === 'A' ? level.data : level.variants?.[variant];
+            if (!data || (variant !== 'A' && (levelId !== 3 || prefix !== DEFAULT_LEVEL_PREFIX))) {
+                this.recordLoadFailure(context, levelId, prefix, 'experiment_variant_missing', 'third-level variant missing: ' + variant);
+                return null;
+            }
+            validateConveyorCapacity(data.conveyorCapacity, 'third-level variant ' + variant);
+            validateHard(data.Hard, 'third-level variant ' + variant);
+            this.levelAnalyticsMetadata.set(data as object, {
                 source: 'level_data_cdn',
                 namespace: context.namespace,
             });
-            return level.data;
+            return data;
         }
         this.recordLoadFailure(context, levelId, prefix, 'pack_level_missing', 'target level missing from loaded pack');
         return null;

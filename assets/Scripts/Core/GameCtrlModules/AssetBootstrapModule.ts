@@ -1,4 +1,5 @@
 import { getBrowserLevelPreview } from '../BrowserLevelPreview';
+import { ProfileCustomizationMgr } from '../ProfileCustomizationMgr';
 import { ensureRuntimeAssetReleaseId } from '../RuntimeAssetRelease';
 import { getBoardBeanSize } from '../GameplayBoardVisualMetrics';
 import {
@@ -36,6 +37,7 @@ import type {
 } from '../GameCtrlShared';
 import { ensureGameplaySkillUiController } from '../GameplaySkillUiController';
 import { LevelDataCdnService, normalizeLevelCollectionEntries } from '../LevelDataCdnService';
+import { thirdLevelExperiment } from '../ThirdLevelExperiment';
 import type { LevelCollectionEntry } from '../LevelDataCdnService';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import { applyLateCloudUserStateToRuntime, captureCloudGameStateRecoveryFingerprint, deferCloudGameStateSyncDuringStartup, deferLeaderboardProgressDuringStartup, ensureCloudGameStateSyncReadyForPvp, resolveStartupCloudRestorePending } from './StartupCloudRestoreHelper';
@@ -1531,9 +1533,9 @@ export function installAssetBootstrapModule(target: any): void {
             });
         },
 
-        _loadLevelDataFromLocalBundle(levelId: number, prefix: string, callback: (data: LevelData | null, source: string, err?: Error | null) => void) {
+        _loadLevelDataFromLocalBundle(levelId: number, prefix: string, callback: (data: LevelData | null, source: string, err?: Error | null) => void, variant: 'A' | 'B' | 'C' = 'A') {
             const levelPath = this.getLevelDataPath(levelId, prefix);
-            const bundlePath = `${prefix}${levelId}`;
+            const bundlePath = `${prefix}${levelId}${variant === 'A' ? '' : '_' + variant}`;
             this._withLevelDataBundle((bundle) => {
                 if (!bundle) {
                     callback(null, 'level_data_bundle', new Error('levelData bundle unavailable'));
@@ -1549,7 +1551,20 @@ export function installAssetBootstrapModule(target: any): void {
             });
         },
 
-        _loadLevelDataFromConfiguredSource(levelId: number, prefix: string, callback: (data: LevelData | null, source: string, err?: Error | null) => void) {
+        _loadLevelDataFromConfiguredSource(levelId: number, prefix: string, callback: (data: LevelData | null, source: string, err?: Error | null) => void, enteringGameplay: boolean = true) {
+            const eligible = enteringGameplay && levelId === 3 && prefix === 'level_' && !this._isThemeLevel
+                && !this._currentExternalLevelFilePath && !this.isRankedPvpMode?.() && !this.isCoopMode?.()
+                && !isWorkbenchPreviewRequested();
+            if (eligible) {
+                AnalyticsMgr.inst.prepareThirdLevelExperiment().then(() => {
+                    this._loadPreparedLevelDataFromConfiguredSource(levelId, prefix, callback, thirdLevelExperiment.content());
+                }).catch(error => callback(null, 'third_level_experiment', error instanceof Error ? error : new Error(String(error))));
+                return;
+            }
+            this._loadPreparedLevelDataFromConfiguredSource(levelId, prefix, callback, 'A');
+        },
+
+        _loadPreparedLevelDataFromConfiguredSource(levelId: number, prefix: string, callback: (data: LevelData | null, source: string, err?: Error | null) => void, variant: 'A' | 'B' | 'C') {
             if (this.isCoopMode?.() && prefix !== 'coop_level_') {
                 const data = CoopServiceMgr.inst.active?.half;
                 callback(data || null, 'coop', data ? null : new Error('合作存档未准备好'));
@@ -1563,10 +1578,10 @@ export function installAssetBootstrapModule(target: any): void {
                 return;
             }
             if (shouldUseLocalLevelDataMirror()) {
-                this._loadLevelDataFromLocalBundle(levelId, prefix, callback);
+                this._loadLevelDataFromLocalBundle(levelId, prefix, callback, variant);
                 return;
             }
-            LevelDataCdnService.inst.loadLevel(levelId, prefix).then((cdnLevelData) => {
+            LevelDataCdnService.inst.loadLevel(levelId, prefix, variant).then((cdnLevelData) => {
                 if (cdnLevelData) {
                     callback(cdnLevelData, 'level_data_cdn', null);
                     return;
@@ -2781,6 +2796,7 @@ export function installAssetBootstrapModule(target: any): void {
                 console.warn('[GameCtrl] keep higher cloud savedLevel, skip lower local progress save', { currentLevel, requestedLevel: normalizedLevel, nextLevel });
             }
             sys.localStorage.setItem(LS_LEVEL, '' + nextLevel);
+            ProfileCustomizationMgr.inst.refreshProgressUnlocks();
             UserMgr.inst.markLevelProgress(nextLevel, false, false);
             this.queueCloudGameStateSync();
             if (deferLeaderboardProgressDuringStartup(this, nextLevel)) return;
@@ -2788,10 +2804,11 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         captureCloudGameState(): CloudGameState {
+            const wechatGiftTotals = this.readWechatGiftTotals?.() || {};
             const backgroundSkinState = typeof this.captureBackgroundSkinCloudState === 'function'
                 ? this.captureBackgroundSkinCloudState()
                 : {
-                    ownedBackgroundSkinIds: [1000],
+                    ownedBackgroundSkinIds: [1005],
                     backgroundSkinAdProgress: {},
                     equippedBackgroundSkinId: 0,
                     equippedBackgroundSkinUpdatedAt: 0,
@@ -2806,6 +2823,8 @@ export function installAssetBootstrapModule(target: any): void {
                 };
             return {
                 savedLevel: this.getSavedLevel(),
+                wechatGiftProtocol: 1,
+                wechatGiftTotals,
                 vigor: this.getVigor(),
                 pvpEconomyRevision: Math.max(0, Number(sys.localStorage.getItem(PVP_ECONOMY_REVISION_KEY)) || 0),
                 vigorTime: this.getVigorTime(),
@@ -2971,6 +2990,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         applyCloudUserState(restoreResult: CloudUserState): UserStateRestoreStatus {
             const { profile, gameState } = restoreResult;
+            ProfileCustomizationMgr.inst.applyCloud(gameState?.customization);
             this.applyPvpEconomySnapshot?.(gameState);
             if (!profile && !gameState) {
                 return 'cloud_confirmed_empty';
@@ -2991,6 +3011,7 @@ export function installAssetBootstrapModule(target: any): void {
             const localUpdatedAt = this.getLocalUserStateUpdatedAt();
             const localSavedLevel = this.getSavedLevel();
             const shouldSkipVolatileRestore = cloudUpdatedAt > 0 && localUpdatedAt > cloudUpdatedAt && cloudSavedLevel <= localSavedLevel;
+            this.applyWechatGiftState?.(gameState, !shouldSkipVolatileRestore);
             if (shouldSkipVolatileRestore) {
                 console.warn('[GameCtrl] local user state is newer than cloud, skip restore', { localUpdatedAt, cloudUpdatedAt, localSavedLevel, cloudSavedLevel });
             }
@@ -3006,6 +3027,7 @@ export function installAssetBootstrapModule(target: any): void {
                 sys.localStorage.setItem(LS_LEVEL, String(effectiveLevel));
                 UserMgr.inst.markLevelProgress(effectiveLevel, false, false);
             }
+            ProfileCustomizationMgr.inst.refreshProgressUnlocks();
             if (typeof this.applyCloudBackgroundSkinState === 'function') {
                 const cloudEquippedBackgroundSkinId = gameState.equippedBackgroundSkinId;
                 const cloudEquippedBackgroundSkinUpdatedAt = gameState.equippedBackgroundSkinUpdatedAt;
@@ -3074,6 +3096,8 @@ export function installAssetBootstrapModule(target: any): void {
 
         applyAuthoritativeCloudUserStateFromSave(state: CloudUserState | null): void {
             const gameState = state?.gameState || null;
+            this.applyWechatGiftState?.(gameState);
+            ProfileCustomizationMgr.inst.applyCloud(gameState?.customization);
             if (gameState && typeof this.applyBeanSkinCloudState === 'function') {
                 this.applyBeanSkinCloudState(gameState as any);
             }
@@ -3140,6 +3164,8 @@ export function installAssetBootstrapModule(target: any): void {
 
         handleGameShowLifecycle(): void {
             this._gameForeground = true;
+            // A save merges unseen server gifts with current local gameplay changes.
+            if (this.queueCloudGameStateSync?.()) void UserStateSyncMgr.inst.flushPendingSave();
             this._pchConveyorGameplayController?.resumeAnalyticsMeasurement?.();
             this._pchConveyorGameplayController?.resetCapacityAdGesture?.();
             this.checkCoopInvitation?.();

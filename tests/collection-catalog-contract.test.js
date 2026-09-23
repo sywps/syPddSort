@@ -68,6 +68,9 @@ function loadClientCollectionCatalogContract(liveManifest = null, packs = {}) {
             if (id === './RuntimeLog') {
                 return { runtimeWarn: () => {} };
             }
+            if (id === './StartupTrace') {
+                return { recordStartupDiagnostic: () => {} };
+            }
             if (id === './LevelConfig') {
                 return {
                     validateConveyorCapacity: () => 60,
@@ -101,6 +104,9 @@ function loadCollectionUnlockPolicies() {
                 id === '../GameCtrlShared'
                 || id === '../Panels/CollectionPanelController'
                 || id === '../PixelPosterPreviewRenderer'
+                || id === '../CompletedPatternPreview'
+                || id === '../BrowserLevelPreview'
+                || id === '../ProfileAvatarView'
             ) {
                 return {};
             }

@@ -30,6 +30,7 @@ export class GameplaySessionController {
         let gameplayEntryMode: 'main' | 'theme' | 'external' = 'main';
         let tutorialMode: TutorialMode = 'none';
         try {
+            runtime.disposeSettingsPanel?.();
             ensureHardLevelIntroController(runtime).stop();
             ensurePchConveyorGameplayController(runtime).stop();
             runtime.cancelRewardedGrantInteraction?.('gameplay-init');
@@ -245,13 +246,6 @@ export class GameplaySessionController {
                     runtime._timerStarted = false;
                     runtime._adTimerSuspended = false;
 
-                    if (gameplayEntryMode === 'main' && analyticsLevelId >= 2
-                        && !runtime.isRankedPvpMode?.() && !runtime.isCoopMode?.()) {
-                        const bucket = pchController.getBeanSelectionBucket();
-                        AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'bean_selection_experiment_exposure',
-                            levelId: analyticsLevelId, source: 'bean_selection_playable', success: true,
-                            extra: { gameplayEntryMode: 'main', appliedBucket: bucket, selectorVersion: `${bucket}_v1` } });
-                    }
                     if (gameplayEntryMode === 'main' && analyticsLevelId === 1) {
                         AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'first_level_experiment_exposure',
                             levelId: 1, source: 'first_level_playable', success: true,

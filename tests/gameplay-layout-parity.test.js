@@ -280,7 +280,7 @@ assert.ok(
 );
 assert.deepStrictEqual(
     sceneChildren(fixedRoot).map((node) => node._name),
-    ['BackgroundLayer', 'BoardArea', 'BoardZoomControl', 'PchConveyorRoot', 'BottomHudGroup', 'TopBarGroup'],
+    ['BackgroundLayer', 'BoardArea', 'PchConveyorRoot', 'BottomHudGroup', 'TopBarGroup'],
     'Game.scene must own the complete gameplay fixed-root child order',
 );
 assert.ok(

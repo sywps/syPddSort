@@ -390,12 +390,13 @@ export class PvpServiceMgr {
     private async call<T>(action: string, data: Record<string, unknown>): Promise<CloudResult<T>> {
         const ready = await PlatformCloudMgr.inst.init();
         if (!ready) throw new Error('PVP 云服务不可用');
-        const profile = UserMgr.inst.getProfile();
+        const profile = UserMgr.inst.getDisplayProfile();
         const result = await PlatformCloudMgr.inst.callFunction<CloudResult<T>>(CLOUD_FUNCTION_NAME, {
             action,
             uuid: profile.uuid,
             displayName: profile.displayName,
             avatarUrl: profile.avatarUrl,
+            avatarId: profile.avatarId, frameId: profile.frameId,
             economyRevision: Math.max(0, Number(sys.localStorage.getItem(PVP_ECONOMY_REVISION_KEY)) || 0),
             ...data,
         });

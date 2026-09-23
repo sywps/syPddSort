@@ -5,6 +5,7 @@ const path = require("path");
 const CloudBase = require("@cloudbase/manager-node");
 const { buildFirstLevelExperimentReport } = require('./first-level-experiment-report');
 const { buildBeanSelectionExperimentReport } = require('./bean-selection-experiment-report');
+const { buildThirdLevelExperimentReport } = require('./third-level-experiment-report');
 const { buildAnalyticsV2Report, renderAnalyticsV2, compatibleFunnelRecords } = require('./analytics-v2-report');
 
 const DEFAULT_COLLECTION = "user_behavior";
@@ -4508,6 +4509,10 @@ function writeCombinedOutputs({
   combinedSummary.beanSelectionExperiment = buildBeanSelectionExperimentReport({ date: dateLabel,
     funnelRecords: experimentRecords('first_level_funnel'), behaviorRecords: experimentRecords('user_behavior'),
     levelRecords: experimentRecords('level_record'), nextDayRecords: nextExperimentRecords });
+
+  combinedSummary.thirdLevelExperiment = buildThirdLevelExperimentReport({ date: dateLabel,
+    funnelRecords: experimentRecords('first_level_funnel'), behaviorRecords: experimentRecords('user_behavior'),
+    levelRecords: experimentRecords('level_record') });
 
   const jsonPath = path.join(rootOutputDir, "combined_summary.json");
   const markdownPath = path.join(rootOutputDir, "combined_report.md");

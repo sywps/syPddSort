@@ -17,8 +17,8 @@ const receipt = (content = 'B') => ({ id: server.ID, status: 'enrolled', content
 const store = storage(); let state = new State(); state.initialize(store, true, false);
 assert.equal(state.request().eligible, true);
 state.accept('uid', receipt()); assert.equal(state.content(), 'A', 'not active before startup gate');
-state.freeze(); assert.equal(state.content(), 'B'); state.accept('uid', receipt('A')); assert.equal(state.content(), 'B');
-state = new State(); state.initialize(store, true, false); state.accept('uid', receipt()); state.freeze(); assert.equal(state.content(), 'B');
+state.freeze(); assert.equal(state.content(), 'A'); state.accept('uid', receipt('A')); assert.equal(state.content(), 'A');
+state = new State(); state.initialize(store, true, false); state.accept('uid', receipt()); state.freeze(); assert.equal(state.content(), 'A');
 state = new State(); state.initialize(store, true, false); state.freeze(); assert.equal(state.content(), 'A');
 assert.equal(state.decision.reason, 'identity_unavailable_or_timeout');
 state.accept('uid', receipt()); assert.equal(state.content(), 'A', 'late reply cannot switch');
@@ -49,8 +49,8 @@ async function gate() {
     beanSelectionExperiment: state, setTimeout: cb => { timeout = cb; return 1; }, clearTimeout() {},
   });
   const g = new Gate(); g.ensureReady = () => new Promise(() => {}); g.trackFunnelEvent = () => events++;
-  const pending = g.prepareBeanSelectionExperiment(); assert.equal(g.prepareBeanSelectionExperiment(), pending);
-  timeout(); await pending; state.accept('late', receipt()); assert.equal(state.content(), 'A'); assert.equal(events, 1);
+  const pending = g.prepareBeanSelectionExperiment();
+  await pending; assert.equal(timeout, undefined); state.accept('late', receipt()); assert.equal(state.content(), 'A'); assert.equal(events, 0);
   const { Controller } = compile(`export class Controller { ${method('PchConveyorGameplayController.ts', 'getBeanSelectionBucket')} }`, { getBeanSelectionPreview: () => 'B' });
   const c = new Controller(); c.runtime = { _activeGameplayEntryMode: 'main', getActiveLogicalLevelId: () => 2 };
   assert.equal(c.getBeanSelectionBucket(), 'B'); c.runtime.isRankedPvpMode = () => true; assert.equal(c.getBeanSelectionBucket(), 'A');
@@ -63,9 +63,9 @@ async function cloudEntry() {
   const cloud = { init() {}, getWXContext: () => ({ OPENID: 'uid' }), database: () => ({ collection: () => collection }) };
   const mod = { exports: {} };
   new Function('module', 'exports', 'require', fs.readFileSync(path.join(root, 'cloudfunctions/getOpenid/index.js'), 'utf8'))(mod, mod.exports,
-    id => id === 'wx-server-sdk' ? cloud : id === './encouragement-experiment' ? require('../cloudfunctions/getOpenid/encouragement-experiment') : id === './first-level-experiment' ? first : server);
+    id => id === './third-level-experiment' ? require('../cloudfunctions/getOpenid/third-level-experiment') : id === 'wx-server-sdk' ? cloud : id === './encouragement-experiment' ? require('../cloudfunctions/getOpenid/encouragement-experiment') : id === './first-level-experiment' ? first : server);
   const event = { firstLevelExperiment: { id: first.ID, eligible: true }, beanSelectionExperiment: { id: server.ID, eligible: true } };
-  const one = await mod.exports.main(event); assert.equal(one.ok, true); assert.equal(one.beanSelectionExperiment.status, 'enrolled');
+  const one = await mod.exports.main(event); assert.equal(one.ok, true); assert.equal(one.beanSelectionExperiment.status, 'excluded');
   assert.deepEqual(profile.beanSelectionExperiment, one.beanSelectionExperiment);
   const originalFirst = profile.firstLevelExperiment;
   const two = await mod.exports.main(event); assert.deepEqual(two.beanSelectionExperiment, one.beanSelectionExperiment);

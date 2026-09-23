@@ -7,25 +7,18 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 
 const groups = [
     {
-        id: 'bootstrap_conveyor_small',
+        id: 'bootstrap_conveyor',
         bundle: 'bootstrap',
-        directory: 'assets/BootstrapBundle/GameUI/RainbowConveyor/Atlases/ConveyorSmall',
-        atlas: 'conveyor_small',
-        names: ['wf_base_14', 'exit_1', 'exit_2', 'exit_1_2', 'exit_1_3', 'exit_1_4', 'gameProp_2007', 'conveyor_0', 'conveyor_1', 'conveyor_2', 'conveyor_3', 'conveyor_4', 'conveyor_5', 'conveyor_7a', 'conveyor_7b'],
-    },
-    {
-        id: 'bootstrap_pch_capacity',
-        bundle: 'bootstrap',
-        directory: 'assets/BootstrapBundle/GameUI/RainbowConveyor/Atlases/PchCapacity',
-        atlas: 'pch_capacity',
-        names: ['pch_capacity_fill_sliced', 'pch_capacity_track_sliced'],
+        directory: 'assets/BootstrapBundle/GameUI/Atlases/Conveyor',
+        atlas: 'conveyor',
+        names: ['exit_1', 'exit_2', 'exit_1_2', 'exit_1_3', 'exit_1_4', 'conveyor_7a', 'conveyor_7b', 'track', 'expand', 'arrow', 'capacity-gradient'],
     },
     {
         id: 'bootstrap_game_scene_small',
         bundle: 'bootstrap',
         directory: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall',
         atlas: 'game_scene_small',
-        names: ['倒计时', 'board_zoom_fill', 'board_zoom_track', 'board_zoom_thumb', 'board_zoom_locate', 'board_zoom_plus', 'board_zoom_minus', 'gameplay_skill_slot_background', 'guide_bubble_frame', 'guide_hand', 'pch_speed_inactive', 'popup_tool_add_badge', 'popup_tool_count_badge', 'solid_white', 'toast_bubble_background'],
+        names: ['倒计时', 'gameplay_skill_slot_background', 'guide_bubble_frame', 'guide_hand', 'pch_speed_inactive', 'popup_tool_add_badge', 'popup_tool_count_badge', 'solid_white', 'toast_bubble_background'],
     },
     {
         id: 'game_settings',
@@ -75,7 +68,8 @@ for (const group of groups) {
             .replace(/^assets\/BootstrapBundle\//, '')
             .replace(/^assets\/GameAssetsBundle\//, '')
             .replace(/\.png$/, '');
-        expectedRoutes.set(`${group.bundle}:${name}`, assetPath);
+        const conveyorKeys = {track:'conveyor_v2_track',expand:'conveyor_v2_expand',arrow:'conveyor_v2_arrow','capacity-gradient':'conveyor_v2_capacity_gradient'};
+        expectedRoutes.set(`${group.bundle}:${group.id==='bootstrap_conveyor'?(conveyorKeys[name]||name):name}`, assetPath);
         if (group.bundle === 'bootstrap') {
             assert.ok(
                 bootstrapPatch.includes(`'${assetPath}'`),
@@ -117,14 +111,13 @@ assert.ok(bootstrapPatch.includes('findAutoAtlasStandaloneSources'), 'Bootstrap 
 assert.ok(bootstrapPatch.includes('findAutoAtlasRemovableNativeUuids'), 'Bootstrap patch must gate native removal by .pac settings');
 assert.ok(bootstrapPatch.includes('removedAutoAtlasNative'), 'Bootstrap patch must report removed original natives');
 
-const fillMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/RainbowConveyor/Atlases/PchCapacity/pch_capacity_fill_sliced.png.meta'));
-const trackMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/RainbowConveyor/Atlases/PchCapacity/pch_capacity_track_sliced.png.meta'));
-for (const [label, meta] of [['fill', fillMeta], ['track', trackMeta]]) {
+const fillMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/Atlases/Conveyor/capacity-gradient.png.meta'));
+for (const [label, meta] of [['fill', fillMeta]]) {
     const frame = Object.values(meta.subMetas || {}).find((entry) => entry?.importer === 'sprite-frame');
     assert.ok(frame, `${label} SpriteFrame meta missing`);
     const borders = frame.userData || {};
     assert.ok(borders.borderLeft > 0 && borders.borderRight > 0, `${label} sliced horizontal borders must survive`);
 }
 
-assert.strictEqual(expectedRoutes.size, 48, 'local atlas migration must cover exactly 48 members after removing legacy leaderboard art');
+assert.strictEqual(expectedRoutes.size, 36, 'atlas membership excludes ten archived conveyor images and adds four current images');
 console.log('local-auto-atlas-contract.test.js passed');

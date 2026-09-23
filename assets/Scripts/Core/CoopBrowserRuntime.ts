@@ -16,6 +16,7 @@ const viewPost = post => ({ id: post.id, levelId: postLevelId(post), creatorName
     levelHash: coopLevelHash(fullLevel(postLevelId(post))), creatorDone: post.creatorDone, published: post.published, completedCount: post.completedCount });
 const runView = run => run && ({ id: run.id, postId: run.postId, role: run.role, version: run.version,
     status: run.status, elapsedMs: run.status === 'complete' ? run.elapsedMs : 0, completedAt: run.completedAt, displayName: run.displayName,
+    avatarUrl: run.avatarUrl || '', avatarId: run.avatarId || 0, frameId: run.frameId || 0,
     lastRequestId: run.lastRequestId || '' });
 function requireValue(condition, message) { if (!condition) throw new Error(message); }
 function fullLevel(id) {
@@ -50,6 +51,9 @@ function createCoopService(store, now = Date.now) {
         const postView = post => { const result = viewPost(post); if (legacyClient) result.levelId -= 1000; return result; };
         const uid = await userId(owner);
         const name = String(event.displayName || '像素玩家').slice(0, 24);
+        const identity = { avatarUrl: String(event.avatarUrl || '').slice(0, 512),
+            avatarId: Number.isInteger(event.avatarId) && event.avatarId >= 1001 && event.avatarId <= 1036 ? event.avatarId : 0,
+            frameId: Number.isInteger(event.frameId) && event.frameId >= 2001 && event.frameId <= 2014 ? event.frameId : 2001 };
         const id = String(event.postId || '');
         const cursor = String(event.cursor || '');
         requireValue(!cursor || /^[a-f0-9]{24,40}$/.test(cursor), '分页位置无效');
@@ -84,6 +88,7 @@ function createCoopService(store, now = Date.now) {
                     rulesVersion: event.rulesVersion,
                     creator: owner, creatorName: name, creatorDone: false, published: false, completedCount: 0, createdAt };
                 const run = await newRun(post, owner, 'creator', name, createdAt);
+                Object.assign(run, identity);
                 user.activeCreated = post.id;
                 await tx.set('posts', post.id, post); await tx.set('runs', run.id, run); await tx.set('users', uid, user);
                 return { post: postView(post), run: runView(run) };
@@ -94,7 +99,7 @@ function createCoopService(store, now = Date.now) {
             const post = await store.get('posts', id);
             requireValue(post && post.creator === owner, '只能查看自己发起的合作记录');
             const runs = await store.list('runs', { postId: id, role: 'collaborator' }, cursor, 21);
-            return { participants: runs.slice(0, 20).map(run => ({ displayName: run.displayName, status: run.status,
+            return { participants: runs.slice(0, 20).map(run => ({ displayName: run.displayName, avatarUrl: run.avatarUrl || '', avatarId: run.avatarId || 0, frameId: run.frameId || 0, status: run.status,
                 elapsedMs: run.status === 'complete' ? run.elapsedMs : 0, completedAt: run.completedAt })), next: runs.length > 20 ? runs[19].id : '' };
         }
         return store.transaction(async tx => {
@@ -117,6 +122,7 @@ function createCoopService(store, now = Date.now) {
                 if (run) return { post: postView(post), run: runView(run) };
                 requireValue(!user.activeJoined, '请先完成正在协助的图案');
                 run = await newRun(post, owner, 'collaborator', name, now());
+                Object.assign(run, identity);
                 user.activeJoined = id;
                 await tx.set('runs', rid, run); await tx.set('users', uid, user);
                 return { post: postView(post), run: runView(run) };

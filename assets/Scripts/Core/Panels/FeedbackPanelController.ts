@@ -5,13 +5,13 @@ import { SETTINGS_PANEL_TEXTURE_NAMES } from '../GameCtrlShared';
 
 const controllers = new WeakMap<object, FeedbackPanelController>();
 
-export function openFeedbackPanel(runtime: any): void {
+export function openFeedbackPanel(runtime: any, onClosed?: () => void): void {
     let controller = controllers.get(runtime);
     if (!controller) {
         controller = new FeedbackPanelController(runtime);
         controllers.set(runtime, controller);
     }
-    void controller.open();
+    void controller.open(onClosed);
 }
 
 export function disposeFeedbackPanel(runtime: any): void {
@@ -29,11 +29,13 @@ class FeedbackPanelController {
     private requestId = '';
     private requestText = '';
     private submitting = false;
+    private onClosed: (() => void) | undefined;
 
     constructor(private readonly runtime: any) {}
 
-    async open(): Promise<void> {
-        if (this.disposed || this.opening || this.overlay?.isValid) return;
+    async open(onClosed?: () => void): Promise<void> {
+        if (this.disposed || this.opening || this.overlay?.isValid) { onClosed?.(); return; }
+        this.onClosed = onClosed;
         this.opening = true;
         try {
             this.runtime._retainPanelTextureOwner('feedback', SETTINGS_PANEL_TEXTURE_NAMES);
@@ -56,6 +58,7 @@ class FeedbackPanelController {
             overlay.addComponent(BlockInputEvents);
             this.focus = this.runtime.beginModalFocus('feedback');
             const box = overlay.getChildByName('Box')!;
+            if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
             const input = box.getChildByName('Input')!.getComponent(EditBox)!;
             const submit = box.getChildByName('Submit')!.getComponent(Button)!;
             const close = box.getChildByName('XBtn')!.getComponent(Button)!;
@@ -71,10 +74,16 @@ class FeedbackPanelController {
             const originalCaption = caption.string;
             input.string = this.draft;
             input.node.on(EditBox.EventType.TEXT_CHANGED, () => { this.draft = input.string; }, this);
-            close.node.on(Button.EventType.CLICK, () => {
+            const dismiss = () => {
+                if (this.submitting || this.overlay !== overlay || !overlay.isValid || !overlay.active) return;
                 AudioMgr.inst.play('button');
                 this.draft = input.string;
                 this.close();
+            };
+            close.node.on(Button.EventType.CLICK, dismiss, this);
+            overlay.on(Node.EventType.TOUCH_END, (event: any) => {
+                if (event?.target && event.target !== overlay) return;
+                dismiss();
             }, this);
             submit.node.on(Button.EventType.CLICK, async () => {
                 if (this.submitting) return;
@@ -171,6 +180,9 @@ class FeedbackPanelController {
             this.retained = false;
             this.runtime._releasePanelTextureOwner('feedback', 'feedback-close');
         }
+        const onClosed = this.onClosed;
+        this.onClosed = undefined;
+        onClosed?.();
     }
 
     dispose(): void { this.disposed = true; this.close(); }

@@ -260,6 +260,7 @@ function publicProfile(source, opponentType) {
   return {
     displayName: cleanString(source?.displayName, 24) || '像素玩家',
     avatarUrl: cleanString(source?.avatarUrl, 512),
+    avatarId: int(source?.avatarId), frameId: int(source?.frameId),
     rankName: int(source?.gamesPlayed) < 5 ? `定位赛 ${int(source?.gamesPlayed)}/5` : rank.displayName,
     stars: rank.stars,
     opponentType,

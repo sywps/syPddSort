@@ -1,3 +1,5 @@
+> 状态更新：第三关 ABC 版本起停止此实验。新客户端统一使用 A，历史分组保留，新记录标记 retired；旧预览参数不再切换实际玩法。以下为历史设计，当前方案见 third-level-experiment.md。
+
 # 鼓励效果 A/B
 
 实验 ID：`encouragement_ab_v1`。

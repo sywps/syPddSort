@@ -14,6 +14,8 @@ export interface PvpPublicProfile {
     rankName: string;
     stars: number;
     avatarUrl?: string;
+    avatarId?: number;
+    frameId?: number;
     opponentType?: PvpOpponentType;
 }
 

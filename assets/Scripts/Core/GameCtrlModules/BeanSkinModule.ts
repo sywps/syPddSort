@@ -19,6 +19,8 @@ import {
 } from '../GameCtrlShared';
 import type { LevelData } from '../GameCtrlShared';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
+import { getBrowserLevelPreview } from '../BrowserLevelPreview';
+import { PreviewRewardSave } from '../PreviewRewardSave';
 
 export type BeanSkinRow = {
     id: number;
@@ -30,7 +32,7 @@ export type BeanSkinRow = {
     atlasTextureKey: string;
     iconKey: string;
     previewColorId: number;
-    unlockType: 'default' | 'ad';
+    unlockType: 'default' | 'ad' | 'chapter';
     unlockValue: number;
     enabled: boolean;
 };
@@ -56,8 +58,8 @@ const BEAN_SKIN_CONFIG_PATH = 'BeanSkins/bean-skins';
 const DEFAULT_BEAN_SKIN_ID = 2000;
 const BEAN_SKIN_IDS = [2000, 2001, 2002, 2003, 2004];
 const BEAN_SKIN_ID_SET = new Set<number>(BEAN_SKIN_IDS);
-const LS_OWNED_BEAN_SKINS = 'pdd.skin.bean.owned';
-const LS_EQUIPPED_BEAN_SKIN_STATE = 'pdd.skin.bean.equippedState';
+const LS_OWNED_BEAN_SKINS = (getBrowserLevelPreview().active ? 'pdd.preview.' : '') + 'pdd.skin.bean.owned';
+const LS_EQUIPPED_BEAN_SKIN_STATE = (getBrowserLevelPreview().active ? 'pdd.preview.' : '') + 'pdd.skin.bean.equippedState';
 const EXPECTED_BEAN_FRAME_COUNT = 60;
 const MIN_BEAN_COLOR_ID = 1;
 const MAX_BEAN_COLOR_ID = 20;
@@ -173,8 +175,8 @@ function parseBeanSkinConfig(json: any): BeanSkinConfig {
                 row.resourceMode !== 'game_assets_atlas'
                 || !row.atlasDataKey
                 || !row.atlasTextureKey
-                || row.unlockType !== 'ad'
-                || row.unlockValue !== 1
+                || !['ad', 'chapter'].includes(row.unlockType)
+                || (row.unlockType === 'ad' ? row.unlockValue !== 1 : row.unlockValue <= 0)
             ) {
                 throw new Error(`[bean-skin] invalid unlock/resource row: ${JSON.stringify(raw)}`);
             }
@@ -299,9 +301,10 @@ export function installBeanSkinModule(target: any): void {
         },
 
         _readBeanSkinOwnedIds(): Set<number> {
+            const previewOwned = getBrowserLevelPreview().active ? PreviewRewardSave.beanSkins() : [];
             try {
                 const parsed = JSON.parse(sys.localStorage.getItem(LS_OWNED_BEAN_SKINS) || '[]');
-                return new Set(normalizeBeanSkinIdList(parsed));
+                return new Set(normalizeBeanSkinIdList([...parsed, ...previewOwned]));
             } catch (_) {
                 return new Set<number>([DEFAULT_BEAN_SKIN_ID]);
             }
@@ -770,13 +773,14 @@ export function installBeanSkinModule(target: any): void {
             requireBeanPanelSprite(action, 'AdIcon', `${card.name}/ActionBtn`);
             const owned = this.isBeanSkinOwned(skin.id);
             const equipped = owned && this.getEquippedBeanSkinId() === skin.id;
-            actionLabel.node.active = owned;
-            actionLabel.string = equipped ? '已使用' : '使用';
-            adIcon.active = !owned;
+            actionLabel.node.active = owned || skin.unlockType === 'chapter';
+            actionLabel.string = owned ? (equipped ? '已使用' : '使用') : `通关${skin.unlockValue}关`;
+            adIcon.active = !owned && skin.unlockType === 'ad';
             action.targetOff(this);
             const button = action.getComponent(Button);
             if (!button) throw new Error(`[bean-skin-panel] missing Button: ${card.name}/ActionBtn`);
-            button.interactable = !equipped;
+            button.interactable = !equipped && (owned || skin.unlockType === 'ad');
+            if (!owned && skin.unlockType === 'chapter') return;
             if (equipped) return;
             if (owned) {
                 bindBeanPanelAction(this, action, () => {

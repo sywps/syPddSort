@@ -5,10 +5,8 @@ function bucket(openid) {
 }
 function resolveAssignment(openid, current, request, now) {
   const excluded = reason => ({ id: ID, status: 'excluded', content: 'A', enrolledAt: 0, reason });
-  if (request?.test === true) return excluded('preview');
-  if (request?.id === ID && request.exclusionReason) return excluded(String(request.exclusionReason).slice(0, 64));
   if (current?.beanSelectionExperiment?.id === ID) return current.beanSelectionExperiment;
-  if (current || request?.id !== ID || request?.eligible !== true) return excluded(current ? 'existing_user' : 'not_eligible');
-  return { id: ID, status: 'enrolled', content: bucket(openid), enrolledAt: now, reason: 'new_user' };
+  return excluded('experiment_closed');
+
 }
 module.exports = { ID, bucket, resolveAssignment };

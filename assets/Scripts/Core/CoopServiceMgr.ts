@@ -58,7 +58,9 @@ export class CoopServiceMgr {
         if (PlatformCloudMgr.inst.getPlatform() !== 'wechat') throw new Error('合作模式需要微信云服务，请在微信中体验');
         if (!await PlatformCloudMgr.inst.init()) throw new Error('合作云服务不可用，请重试');
         const result = await PlatformCloudMgr.inst.callFunction<any>('coopService', {
-            ...data, action, rulesVersion: COOP_RULES_VERSION, displayName: UserMgr.inst.getProfile().displayName || '像素玩家',
+            ...data, action, rulesVersion: COOP_RULES_VERSION, displayName: UserMgr.inst.getDisplayProfile().displayName || '像素玩家',
+            avatarUrl: UserMgr.inst.getDisplayProfile().avatarUrl,
+            avatarId: UserMgr.inst.getDisplayProfile().avatarId, frameId: UserMgr.inst.getDisplayProfile().frameId,
         });
         if (!result?.ok) throw new Error(result?.errorMessage || '合作服务返回异常');
         return result as T;

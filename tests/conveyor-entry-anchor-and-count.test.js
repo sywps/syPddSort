@@ -48,7 +48,8 @@ assert.ok(
 );
 assert.ok(start.includes('this.entryFlyAnchor = activeLayout.entryFlyAnchor;'), 'runtime must select the active layout anchor');
 assert.ok(
-    start.includes("const normalLayout = this.bindConveyorLayout(this.root, 'NormalLayout');")
+    start.includes('const normalLayout = this.bindConveyorLayout(this.root, PCH_CONVEYOR_LAYOUT);')
+        && pch.includes("const PCH_CONVEYOR_LAYOUT = 'NormalLayoutV2';")
         && !start.includes("this.bindConveyorLayout(this.root, 'CompactLayout')")
         && !start.includes("'CompactLayout'"),
     'runtime must bind Normal without requiring the removed Compact root',
@@ -91,7 +92,7 @@ assert.ok(
 );
 
 const conveyorRoot = gameScene.find((record) => record?.__type__ === 'cc.Node' && record._name === 'PchConveyorRoot');
-for (const layoutName of ['NormalLayout']) {
+for (const layoutName of ['NormalLayoutV2']) {
     const layout = sceneChild(conveyorRoot, layoutName);
     const tableEntry = sceneChild(layout, 'TableEntryItem');
     const image = sceneChild(sceneChild(tableEntry, 'Pieces'), 'Img');
@@ -110,7 +111,7 @@ for (const layoutName of ['NormalLayout']) {
     );
 }
 
-const normalLayout = sceneChild(conveyorRoot, 'NormalLayout');
+const normalLayout = sceneChild(conveyorRoot, 'NormalLayoutV2');
 const normalImage = sceneChild(sceneChild(sceneChild(normalLayout, 'TableEntryItem'), 'Pieces'), 'Img');
 const queueLayer = sceneChild(normalImage, 'EntranceQueueLayer');
 const queueTemplate = sceneChild(queueLayer, 'PchEntryBeanTemplate');

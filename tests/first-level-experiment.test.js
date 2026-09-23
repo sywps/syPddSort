@@ -73,7 +73,7 @@ async function testCloudEntry() {
   const cloud = { init() {}, DYNAMIC_CURRENT_ENV: 'test', database: () => ({ collection: () => collection }), getWXContext: () => ({ OPENID: nowUser }) };
   const mod = { exports: {} };
   new Function('module', 'exports', 'require', fs.readFileSync(path.join(root, 'cloudfunctions/getOpenid/index.js'), 'utf8'))(mod, mod.exports,
-    id => id === 'wx-server-sdk' ? cloud : id === './encouragement-experiment' ? require('../cloudfunctions/getOpenid/encouragement-experiment') : id === './bean-selection-experiment' ? require('../cloudfunctions/getOpenid/bean-selection-experiment') : server);
+    id => id === './third-level-experiment' ? require('../cloudfunctions/getOpenid/third-level-experiment') : id === 'wx-server-sdk' ? cloud : id === './encouragement-experiment' ? require('../cloudfunctions/getOpenid/encouragement-experiment') : id === './bean-selection-experiment' ? require('../cloudfunctions/getOpenid/bean-selection-experiment') : server);
   const first = await mod.exports.main({ firstLevelExperiment: { id: ID, eligible: true } });
   assert.equal(first.ok, true); assert.equal(first.firstLevelExperiment.status, 'enrolled');
   assert.deepEqual(profile.firstLevelExperiment, first.firstLevelExperiment);

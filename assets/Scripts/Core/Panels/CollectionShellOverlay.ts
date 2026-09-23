@@ -10,6 +10,7 @@ import {
     Vec3,
     instantiate,
 } from '../GameCtrlShared';
+import { releaseCompletedPatternPreviewTree } from '../CompletedPatternPreview';
 
 export type CollectionShellOverlayContext = {
     overlay: Node;
@@ -60,28 +61,35 @@ function resolveShellActionNode(overlay: Node, name: 'ArrowLeft' | 'ArrowRight',
 
 export function openCollectionShellOverlay(runtime: any, options: CollectionShellOverlayOptions) {
     const popupRoot = runtime.requireCanvasUiRoot('PopupRoot');
-    if (popupRoot.getChildByName(options.overlayName)) {
+    const pending: Set<string> = runtime.__pendingArtworkShells ||= new Set<string>();
+    if (popupRoot.getChildByName(options.overlayName) || pending.has(options.overlayName)) {
         return;
     }
+    pending.add(options.overlayName);
+    const collectionOwner = options.overlayName === 'CollectionImageModal' ? runtime._collectionOverlay : null;
 
     const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
-    const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
+    const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid
+        && (!collectionOwner || (collectionOwner.isValid && collectionOwner.active && runtime._collectionOverlay === collectionOwner));
     const cancelStaleOpen = () => {
+        pending.delete(options.overlayName);
         if (!isRuntimeAlive()) return;
         options.onError?.();
     };
-    const prefabPath = options.prefabPath ?? 'UI/Prefabs/Panels/CollectionPanel';
+    const prefabPath = options.prefabPath || 'UI/Prefabs/Panels/ArtworkPreview';
     runtime._withGameAssetsBundle((bundle: Bundle | null) => {
         if (!isOpenTargetAlive()) {
             cancelStaleOpen();
             return;
         }
         if (!bundle) {
+            pending.delete(options.overlayName);
             options.onError?.();
             console.error(`[collection-shell] gameAssets bundle unavailable for ${options.overlayName}`);
             return;
         }
         bundle.load(prefabPath, Prefab, (err: Error | null, prefab: Prefab | null) => {
+            pending.delete(options.overlayName);
             if (!isOpenTargetAlive()) {
                 cancelStaleOpen();
                 return;
@@ -93,6 +101,7 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
             }
 
             const overlay = instantiate(prefab);
+            overlay.active = true;
             overlay.name = options.overlayName;
             popupRoot.addChild(overlay);
             overlay.setSiblingIndex(options.siblingIndex ?? 1000);
@@ -101,7 +110,7 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
             }
 
             const box = runtime.requirePanelChild(overlay, 'Box');
-            syncPrefabPopupTitle(box, options.title);
+            syncPrefabPopupTitle(box, options.prefabPath ? options.title : undefined);
             if (!box.getComponent(BlockInputEvents)) {
                 box.addComponent(BlockInputEvents);
             }
@@ -111,12 +120,15 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
             const leftArrow = resolveShellActionNode(overlay, 'ArrowLeft', requireActionNodes);
             const rightArrow = resolveShellActionNode(overlay, 'ArrowRight', requireActionNodes);
             const close = () => {
-                if (!overlay.isValid) return;
+                if (!overlay.isValid || !overlay.active) return;
+                overlay.active = false;
                 AudioMgr.inst.play('button');
                 options.onClose?.();
+                releaseCompletedPatternPreviewTree(overlay);
                 runtime._clearSpriteFramesBeforeDestroy(overlay);
                 runtime._destroyDetachedNodeNextFrame(overlay);
             };
+            (overlay as any).__collectionDetailClose = close;
 
             if (options.hidePager !== false) {
                 if (pageIndicator) pageIndicator.active = false;
@@ -133,9 +145,12 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
             };
 
             overlay.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
+                e.propagationStopped = true;
                 const uiPos = e.getUILocation();
                 const point = new Vec3(uiPos.x, uiPos.y, 0);
                 if (isInsideNode(box, point)) return;
+                const replay = box.getChildByName('CollectionReplayButton');
+                if (replay?.active && isInsideNode(replay, point)) return;
                 if ((leftArrow?.active && isInsideNode(leftArrow, point)) || (rightArrow?.active && isInsideNode(rightArrow, point))) return;
                 close();
             }, runtime);

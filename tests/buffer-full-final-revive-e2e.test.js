@@ -315,7 +315,7 @@ async function main() {
         },
         continueAfterBufferFull() { return runContinueAfterBufferFull.call(this); },
         checkBufferDeadlock() { return runCheckBufferDeadlock.call(this); },
-        update(deltaTime) { return runUpdate.call(this, deltaTime, 0.25, 0.2); },
+        update(deltaTime) { return runUpdate.call(this, deltaTime, 0.30, 0.2); },
     };
     runtime._pchConveyorGameplayController = pchController;
     runtime.continueAfterLose = (addSeconds, resumeTimerImmediately) => {
@@ -325,18 +325,18 @@ async function main() {
 
     const bufferFullLossCount = () => events.filter((event) => event === 'gameLose:buffer-full').length;
     const carrierCount = rules.carrierCount;
-    pchController.update(0.25);
+    pchController.update(0.30);
     assert.strictEqual(bufferFullLossCount(), 0, 'the first full-buffer frame must only start the one-loop delay');
     assert.strictEqual(pchController.pendingBufferDeadlockStartTravel, 1, 'the delay must record the real belt distance');
     assert.strictEqual(pchController.inputLocked, false, 'the pending loop must keep player input available');
     assert.strictEqual(runtime.isGameEnd, false, 'the pending loop must not open a revive flow early');
     assert.ok(events.includes('belt-updated'), 'the conveyor must keep rendering during the pending loop');
 
-    pchController.update((carrierCount - 1) * 0.25);
+    pchController.update((carrierCount - 1) * 0.30);
     assert.strictEqual(bufferFullLossCount(), 0, 'less than one full carrier cycle must not lose');
     assert.strictEqual(pchController.inputLocked, false, 'input must remain available until the loop completes');
 
-    pchController.update(0.25);
+    pchController.update(0.30);
     assert.strictEqual(bufferFullLossCount(), 1, 'one complete carrier cycle must enter the existing buffer-full loss route');
     assert.strictEqual(pchController.pendingBufferDeadlockStartTravel, null, 'a committed loss must consume its pending marker');
     assert.strictEqual(pchController.inputLocked, true, 'input must lock only when the revive flow actually starts');
@@ -393,12 +393,12 @@ async function main() {
     pchController.beltTravel = 0;
     pchController.pendingBufferDeadlockStartTravel = null;
     pchController.inputLocked = false;
-    pchController.update(0.25);
+    pchController.update(0.30);
     assert.strictEqual(pchController.pendingBufferDeadlockStartTravel, 1, 'a later deadlock must begin a new pending loop');
     assert.strictEqual(bufferFullLossCount(), 1, 'the new pending loop must not lose immediately');
 
     assert.strictEqual(pchController.expandCapacity(), true, 'expansion must recover the pending full-buffer state');
-    pchController.update(0.25);
+    pchController.update(0.30);
     assert.strictEqual(pchController.pendingBufferDeadlockStartTravel, null, 'recovery during the loop must cancel the pending loss');
     assert.strictEqual(bufferFullLossCount(), 1, 'a recovered conveyor must not open another revive flow');
     assert.strictEqual(pchController.inputLocked, false, 'recovery must leave normal input available');

@@ -98,6 +98,7 @@ const runTickTimer = compileMethod(
         Vec3: class Vec3 {},
         AudioMgr: { inst: { play() {} } },
         COUNTDOWN_WARNING_TICK_SECONDS: new Set(),
+        AnalyticsMgr: { inst: { recordCountdownConsumption() {} } },
     },
 );
 

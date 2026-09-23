@@ -1,7 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const metadata = { firstLevelExperimentId: 'first_level_abc_v1', firstLevelExperimentStatus: 'enrolled',
+const metadata = { thirdLevelExperimentId: 'third_level_abc_v1', thirdLevelExperimentStatus: 'enrolled',
+  thirdLevelExperimentBucket: 'C', thirdLevelEnrolledAt: 1789434000000, thirdLevelExperimentReason: 'first_level_3_entry', firstLevelExperimentId: 'first_level_abc_v1', firstLevelExperimentStatus: 'enrolled',
   encouragementExperimentId: 'encouragement_ab_v1', encouragementExperimentStatus: 'enrolled',
   encouragementExperimentBucket: 'B', encouragementEnrolledAt: 1789434000000, encouragementExperimentReason: 'new_user',
   beanSelectionExperimentId: 'bean_selection_ab_v1', beanSelectionExperimentStatus: 'enrolled',

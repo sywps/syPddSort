@@ -1,4 +1,5 @@
 import { getBrowserLevelPreview } from '../BrowserLevelPreview';
+import { beginChapterRewards, renderChapterRewards } from '../ChapterRewardView';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
@@ -40,8 +41,7 @@ const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
 const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.25;
 const WIN_BONUS_REWARD_GATE_PAGE = 'win_bonus_reward';
-// Temporarily hide the win settlement's 5x reward entry.
-const SHOW_WIN_AD_BONUS_BUTTON = false;
+const SHOW_WIN_SHARE_BONUS_BUTTON = true;
 const LEVEL_3_IDLE_HINT_LEVEL_ID = 3;
 const LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS = 4;
 const LEVEL_3_IDLE_HINT_FAST_SHOW_LIMIT = 5;
@@ -380,10 +380,14 @@ export function installSettlementHudModule(target: any): void {
 
         calcWinGoldReward(): number {
             const rewardCfg = ECONOMY_NUMERIC_TABLE.reward;
-            return Math.max(1, Math.floor(Number(rewardCfg.winGoldMin) || 10));
+            return Math.max(1, Math.floor(Number(rewardCfg.winGoldMin) || 25));
         },
 
         updateWinRewardLabel(rewardGold: number) {
+            const homeBtn = this.panelWin?.getChildByName('SettlementTopHud')?.getChildByName('WinHomeBtn');
+            if (homeBtn) homeBtn.active = this._isThemeLevel || this.getActiveLogicalLevelId() !== 1;
+            const collectionBtn = this.panelWin?.getChildByName('SettlementTopHud')?.getChildByName('CollectionBtn');
+            if (collectionBtn) collectionBtn.active = this._isThemeLevel || this.getActiveLogicalLevelId() !== 1;
             const root = this.panelWin?.getChildByName('Box');
             const box = (this.panelWin as any)?.__basicSettlement ? root : root?.getChildByName('BottomGroup');
             const costBadge = box?.getChildByName('PrimaryBtn')?.getChildByName('VigorCostBadge');
@@ -452,23 +456,18 @@ export function installSettlementHudModule(target: any): void {
             if (!panel?.isValid) return null;
             const root = panel.getChildByName('SettlementTopHud');
             const settingsBtn = root?.getChildByName('SettingsButton') || null;
-            const settingsIcon = settingsBtn?.getChildByName('SettingsIcon') || null;
             const goldBox = root?.getChildByName('GoldGroup') || null;
             const goldBanner = goldBox?.getChildByName('GoldBanner') || null;
             const goldCount = goldBox?.getChildByName('GoldCount') || null;
-            const settingsSprite = settingsIcon?.getComponent(Sprite) || null;
             const goldBannerSprite = goldBanner?.getComponent(Sprite) || null;
             const goldLabel = goldCount?.getComponent(Label) || null;
-            if (!root?.isValid || !settingsBtn?.isValid || !settingsSprite?.spriteFrame
+            if (!root?.isValid
                 || !goldBox?.isValid || !goldBannerSprite?.spriteFrame || !goldLabel) {
                 throw new Error('[WinPanel] missing route-owned SettlementTopHud widgets');
             }
 
             root.setSiblingIndex(Math.max(0, panel.children.length - 1));
-            this.bindResultPanelButton(settingsBtn, () => {
-                AudioMgr.inst.play('button');
-                this.openSettingsPanel?.();
-            });
+            if (settingsBtn) settingsBtn.active = false;
             goldLabel.string = `${this.getGold?.() ?? 0}`;
             this._settlementGoldCountLbl = goldLabel;
             return { settingsBtn, goldBox };
@@ -477,7 +476,7 @@ export function installSettlementHudModule(target: any): void {
         refreshWinAdBonusUI() {
             const root = this.panelWin?.getChildByName('Box');
             const box = (this.panelWin as any)?.__basicSettlement ? root : root?.getChildByName('BottomGroup');
-            const adBtn = box?.getChildByName('AdBonusBtn');
+            const adBtn = box?.getChildByName('ShareBonusBtn');
             if (!adBtn) return;
         
             const titleLbl = adBtn.getChildByName('AdBonusBtnLbl')?.getComponent(Label)
@@ -486,19 +485,21 @@ export function installSettlementHudModule(target: any): void {
                 || adBtn.getChildByName('ContinueBtnSubLblAnchor')?.getChildByName('AdBonusSubLbl')?.getComponent(Label);
             const btn = adBtn.getComponent(Button);
             const opacity = adBtn.getComponent(UIOpacity) ?? adBtn.addComponent(UIOpacity);
-            const eligible = SHOW_WIN_AD_BONUS_BUTTON && this.levelData?.winAdBonusEnabled !== false
+            const eligible = SHOW_WIN_SHARE_BONUS_BUTTON && this.levelData?.winAdBonusEnabled !== false
                 && this._pendingWinAdBonusReward > 0
                 && !this._settlementNextTransitioning;
-            const coinIcon = adBtn.getChildByName('AdBonusCoinIcon');
-            const adIcon = adBtn.getChildByName('AdBonusAdIcon') || coinIcon;
+            const coinIcon = adBtn.getChildByName('ShareIcon');
+            const shareIcon = adBtn.getChildByName('ShareBadge');
+            const adIcon = adBtn.getChildByName('AdBonusAdIcon');
             const claimedLbl = adBtn.getChildByName('AdBonusClaimedLbl');
         
             adBtn.active = eligible;
             if (!eligible) return;
         
             if (this._winAdRewardClaimed) {
+                if (shareIcon) shareIcon.active = false;
                 if (titleLbl) titleLbl.node.active = false;
-                if (subLbl) subLbl.string = '';
+                if (subLbl) subLbl.node.active = false;
                 if (coinIcon) coinIcon.active = false;
                 if (adIcon) adIcon.active = false;
                 if (claimedLbl) claimedLbl.active = true;
@@ -515,11 +516,12 @@ export function installSettlementHudModule(target: any): void {
             }
         
             if (titleLbl) titleLbl.node.active = true;
-            if (subLbl) subLbl.string = '';
+            if (shareIcon) shareIcon.active = true;
+            if (subLbl) subLbl.node.active = false;
             if (claimedLbl) claimedLbl.active = false;
-            if (coinIcon) coinIcon.active = false;
+            if (coinIcon) coinIcon.active = true;
             if (adIcon) {
-                adIcon.active = true;
+                adIcon.active = false;
             }
             if (btn) {
                 btn.enabled = true;
@@ -534,10 +536,12 @@ export function installSettlementHudModule(target: any): void {
 
         claimWinAdBonusReward() {
             if (this.levelData?.winAdBonusEnabled === false || this._winAdRewardClaimed
-                || this._pendingWinAdBonusReward <= 0 || this._adShowing || this._settlementNextTransitioning) {
+                || this._pendingWinAdBonusReward <= 0 || this._adShowing || this._shareShowing || this._settlementNextTransitioning) {
                 return;
             }
+            const revealToken = this._settlementRevealToken;
             const grantWinBonusReward = () => {
+                if (this._settlementRevealToken !== revealToken || this._settlementNextTransitioning || this._winAdRewardClaimed) return false;
                 const rewardAmount = Math.max(0, Math.floor(Number(this._pendingWinAdBonusReward) || 0));
                 const baseAmount = Math.max(0, Math.floor(Number(this._pendingWinGoldReward) || 0));
                 this.addGold(rewardAmount);
@@ -545,10 +549,12 @@ export function installSettlementHudModule(target: any): void {
                 this.updateWinRewardLabel(baseAmount + rewardAmount);
                 this.syncWinSettlementGoldBox?.();
             };
-            this.runRewardedGrant(WIN_BONUS_REWARD_GATE_PAGE, grantWinBonusReward, {
-                busyFlag: '_adShowing',
-                adFailToast: '广告未完成，未获得加领奖励',
-                grantFailToast: '加领奖励发放失败，请重试',
+            this.runShareGrant(WIN_BONUS_REWARD_GATE_PAGE, grantWinBonusReward, {
+                busyFlag: '_shareShowing',
+                shareType: 'win_bonus_reward',
+                shareFailToast: () => '',
+                grantFailToast: () => '',
+                onFinally: () => this.refreshWinAdBonusUI(),
             });
         },
 
@@ -649,6 +655,7 @@ export function installSettlementHudModule(target: any): void {
             try {
                 this.showBasicSettlement('win');
                 this._settlementRevealState = 'shown';
+                renderChapterRewards(this);
             } catch (fatalUiError) {
                 console.error('[settlement] basic controls unavailable:', message, fatalUiError);
             }
@@ -677,8 +684,11 @@ export function installSettlementHudModule(target: any): void {
                 }
                 panel.active = true;
                 panel.setSiblingIndex(999);
+                const bottomHud = this.getGameplayBottomHudGroup?.();
+                if (bottomHud) bottomHud.active = false;
                 this.playWinSettlementBannerFx?.();
                 this._settlementRevealState = 'shown';
+                renderChapterRewards(this);
                 return true;
             } catch (error) {
                 this.failWinSettlementReveal?.(error, revealToken);
@@ -708,6 +718,7 @@ export function installSettlementHudModule(target: any): void {
         playPatternCompleteThenWin(delaySeconds: number = 0) {
             if (this.isGameEnd || this._patternCompleteWinPending) return;
             this._patternCompleteWinPending = true;
+            this.disposeSettingsPanel?.();
             this.clearIdleHint();
             this.clearEndgameHints(false);
             this.unschedule(this.tickTimer);
@@ -727,6 +738,7 @@ export function installSettlementHudModule(target: any): void {
 
         gameWin() {
             if (this.isGameEnd) return;
+            this.disposeSettingsPanel?.();
             if (this.handleCoopTerminal?.(true)) return;
             if (this.handlePvpTerminal?.('PASS')) return;
             this.isGameEnd = true;
@@ -765,7 +777,7 @@ export function installSettlementHudModule(target: any): void {
             this._pendingWinGoldReward = this.calcWinGoldReward();
             this._pendingWinAdBonusReward = Math.max(
                 0,
-                this._pendingWinGoldReward * (ECONOMY_NUMERIC_TABLE.adReward.winTotalMultiplier - 1),
+                ECONOMY_NUMERIC_TABLE.reward.winShareGold,
             );
             this._winAdRewardClaimed = false;
             this._settlementNextTransitioning = false;
@@ -773,6 +785,7 @@ export function installSettlementHudModule(target: any): void {
             this._settlementRevealToken = revealToken;
             this._settlementRevealState = 'waiting';
             this.addGold(this._pendingWinGoldReward);
+            beginChapterRewards(this, logicalLevelId);
             try {
                 this.ensureGameplayResultPanelsCreated?.('win');
                 this.updateWinRewardLabel(this._pendingWinGoldReward);
@@ -902,6 +915,7 @@ export function installSettlementHudModule(target: any): void {
 
         gameLose(reason: 'timeout' | 'buffer-full' = 'timeout') {
             if (this.isGameEnd) return;
+            this.disposeSettingsPanel?.();
             if (this.handlePvpTerminal?.(reason === 'buffer-full' ? 'DEAD_CONVEYOR_FULL' : 'DEAD_TIMEOUT')) return;
             if (this.isBoardCompletionCommittedForSettlement()) {
                 this.playPatternCompleteThenWin();
@@ -1041,6 +1055,7 @@ export function installSettlementHudModule(target: any): void {
 
         /** 看广告后继续游戏；普通超时等待重新选豆，PCH 与满槽复活立即恢复原倒计时。 */
         continueAfterLose(addSeconds: number, resumeTimerImmediately: boolean = false) {
+            if (!Number.isFinite(addSeconds) || addSeconds < 0) throw new Error('Invalid revival time');
             const timerWasStarted = !!this._timerStarted;
             const conveyor = this._pchConveyorGameplayController;
             const shouldResumePchTimer = conveyor?.isActive?.() === true;
@@ -1078,6 +1093,7 @@ export function installSettlementHudModule(target: any): void {
             this._activeLoseReason = null;
             this.isGameEnd = false;
             conveyor?.resumeAfterSettlement?.();
+            AnalyticsMgr.inst.recordSuccessfulRevive(addSeconds);
             this.unschedule(this.tickTimer);
             if ((resumeTimerImmediately || shouldResumePchTimer)
                 && timerWasStarted

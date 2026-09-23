@@ -2,6 +2,7 @@ const cloud = require('wx-server-sdk');
 const { resolveAssignment } = require('./first-level-experiment');
 const { resolveAssignment: resolveBeanSelection } = require('./bean-selection-experiment');
 const { resolveAssignment: resolveEncouragement } = require('./encouragement-experiment');
+const { resolveAssignment: resolveThirdLevel } = require('./third-level-experiment');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
@@ -98,6 +99,17 @@ exports.main = async (event = {}) => {
     const firstLevelExperiment = resolveAssignment(openid, current, event.firstLevelExperiment, now);
     const beanSelectionExperiment = resolveBeanSelection(openid, current, event.beanSelectionExperiment, now);
     const encouragementExperiment = resolveEncouragement(openid, current, event.encouragementExperiment, now);
+    let thirdLevelExperiment = resolveThirdLevel(openid, current, event.thirdLevelExperiment, now);
+    // Concurrent entry requests must return the same first persisted receipt.
+    if (current && thirdLevelExperiment && event.thirdLevelExperiment?.test !== true) {
+      thirdLevelExperiment = await db.runTransaction(async transaction => {
+        const doc = transaction.collection(USER_PROFILE_COLLECTION).doc(current._id);
+        const latest = await doc.get();
+        const assignment = resolveThirdLevel(openid, latest.data, event.thirdLevelExperiment, now);
+        if (!latest.data?.thirdLevelExperiment) await doc.update({ data: { thirdLevelExperiment: assignment } });
+        return assignment;
+      });
+    }
 
     if (!current) {
       const profile = {
@@ -113,6 +125,7 @@ exports.main = async (event = {}) => {
         firstLevelExperiment,
         beanSelectionExperiment,
         encouragementExperiment,
+        ...(thirdLevelExperiment ? { thirdLevelExperiment } : {}),
         ...buildStarterInventoryFields(),
       };
 
@@ -124,6 +137,7 @@ exports.main = async (event = {}) => {
         firstLevelExperiment,
         beanSelectionExperiment,
         encouragementExperiment,
+        ...(thirdLevelExperiment ? { thirdLevelExperiment } : {}),
         profile,
       };
     }
@@ -158,6 +172,7 @@ exports.main = async (event = {}) => {
       firstLevelExperiment,
       beanSelectionExperiment,
       encouragementExperiment,
+      ...(thirdLevelExperiment ? { thirdLevelExperiment } : {}),
       profile: {
         ...current,
         ...patch,

@@ -169,7 +169,7 @@ function renderList(friendData) {
 
         // 关卡进度
         var scoreX = 5 + (LIST_WIDTH - 10) / 2 + 160 - 60;
-        drawText(ctx, '第' + (item.score || 1) + '关', scoreX, y + ITEM_HEIGHT / 2 - 2, FONT_SIZE_SCORE, '#8B674F', 'right');
+        drawText(ctx, '通关' + Math.max(0, Math.floor(Number(item.score) || 1) - 1) + '关', scoreX, y + ITEM_HEIGHT / 2 - 2, FONT_SIZE_SCORE, '#8B674F', 'right');
 
         // 下载头像
         if (item.avatarUrl && !avatarCache[item.avatarUrl]) {

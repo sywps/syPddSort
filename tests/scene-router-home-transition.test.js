@@ -64,7 +64,7 @@ assert.ok(appRoot.includes('assetManager.loadBundle(APP_TRANSITION_BUNDLE_NAME')
 assert.ok(!fs.existsSync(path.join(root, 'assets/resources/UI/Prefabs/AppTransition.prefab')), 'the old resources transition prefab must be removed after migration');
 assert.equal(appTransitionPrefabMeta.uuid, '124871a8-8107-4658-98e3-ff7315c12537', 'prefab migration must preserve its asset UUID');
 assert.equal(appTransitionBackgroundMeta.uuid, '8e8f0bea-1f21-4ca8-bc0f-e2ba4cd62432', 'the themed background must keep its authored UUID');
-assert.equal(appTransitionBackgroundMeta.subMetas.f9941.userData.rawWidth, 960, 'the imported background must keep its optimized width');
+assert.equal(appTransitionBackgroundMeta.subMetas.f9941.userData.rawWidth, 720, 'the imported background must keep its optimized width');
 assert.equal(appTransitionBackgroundMeta.subMetas.f9941.userData.rawHeight, 1280, 'the imported background must keep its optimized height');
 for (const [entryIndex, entry] of appTransitionPrefabJson.entries()) {
     for (const match of JSON.stringify(entry).matchAll(/"__id__":(\d+)/g)) {

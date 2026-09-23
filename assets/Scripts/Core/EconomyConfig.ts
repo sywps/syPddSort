@@ -11,7 +11,8 @@ export const ECONOMY_NUMERIC_TABLE = {
         continueSeconds: 120,
     },
     reward: {
-        winGoldMin: 10,
+        winGoldMin: 25,
+        winShareGold: 100,
         winGoldPerCell: 0.18,
         levelBonusEvery: 10,
         levelBonusStep: 1,
@@ -22,6 +23,5 @@ export const ECONOMY_NUMERIC_TABLE = {
     },
     adReward: {
         goldShopReward: 30,
-        winTotalMultiplier: 5,
     },
 } as const;

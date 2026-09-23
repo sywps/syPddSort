@@ -56,7 +56,7 @@ async function run() {
   const serviceModule = load('assets/Scripts/Core/PvpServiceMgr.ts', id => {
     if (id === 'cc') return { sys, _decorator: { ccclass: () => Type => Type } };
     if (id.endsWith('UserStateSyncMgr')) return { PVP_ECONOMY_REVISION_KEY: revisionKey, UserStateSyncMgr: { inst: userStateSyncManager } };
-    if (id.endsWith('UserMgr')) return { UserMgr: { inst: { getProfile: () => ({ uuid: 'test' }) } } };
+    if (id.endsWith('UserMgr')) return { UserMgr: { inst: { getDisplayProfile: () => ({ uuid: 'test' }) } } };
     if (id.endsWith('PvpModeConfig')) return { createDemoPvpBattle: levelId => ({ demo: true, levelId }) };
     if (id.endsWith('PvpBotReplay')) return require('../cloudfunctions/pvpService/bot-runtime/PvpBotReplay');
     if (id.endsWith('PvpHumanReplay')) return require('../cloudfunctions/pvpService/bot-runtime/PvpHumanReplay');

@@ -3,7 +3,7 @@ import {
 } from '../GameCtrlShared';
 
 const ENDGAME_HINT_PREFAB_PATH = 'UI/Prefabs/Fx/EndgameHintCell';
-const ENDGAME_HINT_THRESHOLD = 3;
+const ENDGAME_HINT_THRESHOLD = 5;
 const ENDGAME_HINT_POOL_LIMIT = 12;
 const ENDGAME_BOARD_HINT_EXTRA_SIZE = 8;
 const ENDGAME_HINT_STAR_FRAME_NAME = 'block_match-animation_16';

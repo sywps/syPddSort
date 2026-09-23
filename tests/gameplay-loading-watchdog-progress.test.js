@@ -24,8 +24,10 @@ const completionFxSource = fs.readFileSync(
 
 function createRuntime() {
     const notices = [];
+    const milestones = [];
     let restartCount = 0;
     const loading = {
+        noteMilestone(stage) { milestones.push(stage); },
         showSlowLoading(restart) { notices.push(restart); },
         clearSlowLoading() {},
     };
@@ -70,8 +72,15 @@ function createRuntime() {
         restartGameFromRemoteLoadFatalError() { restartCount++; },
     };
     module.exports.installGameplayShareLoadingModule(runtime);
-    return { runtime, scheduled, failures, notices, getRestartCount: () => restartCount };
+    return { runtime, scheduled, failures, notices, milestones, getRestartCount: () => restartCount };
 }
+
+const early = createRuntime();
+early.runtime.noteGameplayLoadingProgress('critical-ui-ready');
+assert.deepStrictEqual(early.milestones, ['critical-ui-ready'], 'startup progress must not depend on an armed watchdog');
+early.runtime._levelDataLoadStopped = true;
+early.runtime.noteGameplayLoadingProgress('bean-atlas-ready');
+assert.strictEqual(early.milestones.length, 1, 'stopped loads must not report progress');
 
 const { runtime, scheduled, failures, notices, getRestartCount } = createRuntime();
 runtime.beginGameplayLoadingWatchdog(1, 'LevelData/level_1', 'local');

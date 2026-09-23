@@ -1,4 +1,5 @@
 import { getBrowserLevelPreview } from '../BrowserLevelPreview';
+import { renderProfileAvatar, invalidateProfileAvatar } from '../ProfileAvatarView';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
@@ -148,7 +149,7 @@ function requireCollectionAvatarLabel(parent: Node, name: string): Label {
 export function installCollectionAvatarModule(target: any): void {
     Object.assign(target, {
         /** Reuse the leaderboard's authored avatar subtree without mounting the panel. */
-        mountLeaderboardAvatar(url: string, host: Node, diameter: number): void {
+        mountLeaderboardAvatar(url: string, host: Node, diameter: number, identity?: { avatarId?: number; frameId?: number }): void {
             const isAlive = () => host.isValid && !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
             this._withGameAssetsBundle((bundle: Bundle | null) => {
                 if (!isAlive()) return;
@@ -175,7 +176,7 @@ export function installCollectionAvatarModule(target: any): void {
                         prefab.addRef();
                         host.once(Node.EventType.NODE_DESTROYED, () => prefab.decRef());
                         // The default portrait is already in the prefab; remote loading never gates gameplay.
-                        this.loadAvatarToNode(url, avatar);
+                        this.loadAvatarToNode(url, avatar, identity);
                     } catch (error) {
                         console.warn('[Avatar] unable to mount leaderboard avatar:', error);
                     }
@@ -191,17 +192,33 @@ export function installCollectionAvatarModule(target: any): void {
         loadAvatarToNode(
             url: string,
             node: Node,
+            identity?: { avatarId?: number; frameId?: number },
         ) {
             const maskNode = requireCollectionAvatarNode(node, 'AvatarMask');
             const spriteNode = requireCollectionAvatarNode(maskNode, 'AvatarSpriteNode');
             const defaultNode = requireCollectionAvatarNode(maskNode, 'AvatarDefault');
             const frameNode = requireCollectionAvatarNode(node, 'AvatarFrame');
+            const frameSprite = frameNode.getComponent(Sprite)!;
+            if (!('__profileDefaultFrame' in frameNode)) (frameNode as any).__profileDefaultFrame = frameSprite.spriteFrame;
+            if (identity?.avatarId || identity?.frameId) {
+                (spriteNode as any).__leaderboardAvatarRequest = {};
+                // Match the profile window for both catalog and authorized portraits.
+                maskNode.getComponent(Mask)!.enabled = false;
+                defaultNode.active = false; spriteNode.active = true;
+                void renderProfileAvatar(spriteNode, frameNode, { ...identity, avatarUrl: url }).catch(error => console.error('[Profile] leaderboard avatar failed', error));
+                return;
+            }
+            invalidateProfileAvatar(spriteNode);
+            spriteNode.setPosition(0, 0, 0);
+            frameSprite.spriteFrame = (frameNode as any).__profileDefaultFrame;
+            maskNode.getComponent(Mask)!.enabled = true;
+            maskNode.getComponent(Mask)!.type = Mask.Type.GRAPHICS_RECT;
             const sp = spriteNode.getComponent(Sprite);
             const ut = spriteNode.getComponent(UITransform);
             const maskSize = maskNode.getComponent(UITransform)?.contentSize;
             if (!sp || !ut || !maskSize || !maskNode.getComponent(Mask)
                 || !defaultNode.getComponent(Sprite)?.spriteFrame || !frameNode.getComponent(Sprite)?.spriteFrame) {
-                throw new Error('[leaderboard-prefab] incomplete circular avatar components');
+                throw new Error('[leaderboard-prefab] incomplete avatar components');
             }
             const request = {};
             (spriteNode as any).__leaderboardAvatarRequest = request;
@@ -438,13 +455,14 @@ export function installCollectionAvatarModule(target: any): void {
         },
 
         renderLeaderboardSelfBox(parent: Node, result: LeaderboardResult) {
-            const profile = UserMgr.inst.getProfile();
+            const profile = UserMgr.inst.getDisplayProfile();
             const progressLevel = result.self?.progressLevel || profile.lastLevelId || 1;
             const resolvedRank = Number(result.self?.rank) > 0 ? Math.floor(Number(result.self?.rank)) : 0;
             const selfEntry: RankListEntry = {
                 rank: resolvedRank,
-                displayName: result.self?.displayName || profile.displayName,
-                avatarUrl: result.self?.avatarUrl || profile.avatarUrl,
+                displayName: profile.displayName,
+                avatarUrl: profile.avatarUrl,
+                avatarId: profile.avatarId, frameId: profile.frameId,
                 progressLevel,
             };
             this.renderLeaderboardSelfEntry(parent, selfEntry);
@@ -457,11 +475,13 @@ export function installCollectionAvatarModule(target: any): void {
         },
 
         async buildFriendSelfEntry(profile: ReturnType<typeof UserMgr.inst.getProfile>): Promise<RankListEntry> {
+            const display = UserMgr.inst.getDisplayProfile();
             const progressLevel = profile.lastLevelId || 1;
             const selfEntry: RankListEntry = {
                 rank: 0,
-                displayName: profile.displayName,
+                displayName: display.displayName,
                 avatarUrl: profile.avatarUrl,
+                avatarId: 0, frameId: 0,
                 progressLevel,
             };
             const wx = this.getWeChatRuntime();
@@ -470,7 +490,7 @@ export function installCollectionAvatarModule(target: any): void {
             try {
                 await new Promise((resolve, reject) => {
                     wx.getFriendCloudStorage({
-                        keyList: ['score'],
+                        keyList: ['score', 'profile_v1'],
                         success: () => resolve(true),
                         fail: (err: any) => reject(err),
                     });
@@ -503,10 +523,10 @@ export function installCollectionAvatarModule(target: any): void {
 
             const resolvedAvatarNode = requireCollectionAvatarNode(parent, 'LeaderboardSelfAvatar');
             resolvedAvatarNode.active = true;
-            this.loadAvatarToNode(entry.avatarUrl, resolvedAvatarNode);
+            this.loadAvatarToNode(entry.avatarUrl, resolvedAvatarNode, entry);
 
             requireCollectionAvatarLabel(parent, 'LeaderboardSelfName').string = displayName;
-            requireCollectionAvatarLabel(parent, 'LeaderboardSelfProgress').string = `第${progressLevel}关`;
+            requireCollectionAvatarLabel(parent, 'LeaderboardSelfProgress').string = `通关${Math.max(0, progressLevel - 1)}关`;
         },
 
         // ==================== 图鉴 ====================
@@ -596,6 +616,13 @@ export function installCollectionAvatarModule(target: any): void {
             const completedThemeLevelIds = activeTab === 'theme'
                 ? this.getThemeCompletedSet() as Set<number>
                 : new Set<number>();
+            const progressLabel = viewport.parent?.getChildByName('CollectionProgress')?.getComponent(Label);
+            if (progressLabel) {
+                const completed = allEntries.filter((entry: LevelCollectionEntry) => entry.prefix === 'coop_level_'
+                    ? !!(entry as any).unlocked
+                    : isCollectionEntryUnlockedForProgress(entry, savedLevel, completedThemeLevelIds)).length;
+                progressLabel.string = `已收集：${completed} / ${allEntries.length}`;
+            }
             const columnCount = Math.max(1, columnXs.length);
             const rowCount = Math.max(1, Math.ceil(allEntries.length / columnCount));
             const totalH = Math.max(viewportH, topPadding + Math.max(0, rowCount - 1) * rowPitch + bottomPadding);
@@ -1078,7 +1105,9 @@ export function installCollectionAvatarModule(target: any): void {
 
         closeCollectionImageModal() {
             if (this._collectionImageModal) {
-                this._collectionImageModal.destroy();
+                const close = (this._collectionImageModal as any).__collectionDetailClose;
+                if (close) close();
+                else this._collectionImageModal.destroy();
             }
             this._collectionImageModal = null;
         },

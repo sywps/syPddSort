@@ -266,6 +266,9 @@ export function installGameplayShareLoadingModule(target: any): void {
         },
 
         noteGameplayLoadingProgress(stage: string) {
+            if (this._levelDataLoadStopped || !this.isValid) return;
+            if (this._loadingWatchdogContext && this._loadingWatchdogContext.requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
+            AppRoot.tryGet()?.startupLoading?.noteMilestone(stage);
             const previous = this._loadingWatchdogContext;
             if (!previous || this._levelDataLoadStopped || !this.isValid) return;
             if (previous.requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;

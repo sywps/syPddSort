@@ -53,7 +53,7 @@ import {
     type RainbowConveyorTableType,
 } from './PchConveyorGeometry';
 
-const BELT_STEP_SECONDS = 0.25;
+const BELT_STEP_SECONDS = 0.30;
 const PCH_TRANSFER_SECONDS = 0.16;
 const PCH_ENTRY_STAGGER_SECONDS = 0.012;
 const PCH_RETURN_TRANSFER_SECONDS = 0.2;
@@ -134,18 +134,7 @@ type PchOpeningGuideAnalyticsMeta = {
     stepName: string;
 };
 
-const RAINBOW_CONVEYOR_TRACK_PARTS: Record<'NormalLayout' | 'CompactLayout', readonly string[]> = {
-    NormalLayout: [
-        'BottomStraight', 'BottomLeftCorner', 'TopLeftCorner', 'LeftSide',
-        'BottomRightCorner', 'TopRightCorner', 'RightSide', 'TopStraight',
-    ],
-    CompactLayout: [
-        'BottomStraight', 'BottomLeftCorner', 'LeftSide', 'TopLeftOuterCorner',
-        'TopLeftStraight', 'TopLeftInnerCorner', 'MiddleLeftInnerCorner', 'MiddleStraight',
-        'MiddleRightInnerCorner', 'TopRightInnerCorner', 'TopRightStraight',
-        'TopRightOuterCorner', 'RightSide', 'BottomRightCorner',
-    ],
-};
+const PCH_CONVEYOR_LAYOUT = 'NormalLayoutV2';
 
 interface OpeningPatternVisual {
     move: OpeningPatternMove;
@@ -227,6 +216,8 @@ export class PchConveyorGameplayController {
     private inputRoot: Node | null = null;
     private statusLabel: Label | null = null;
     private countLabel: Label | null = null;
+    private capacityTextColor = PCH_CAPACITY_TEXT_COLOR.clone();
+    private capacityOutlineColor = PCH_CAPACITY_OUTLINE_COLOR.clone();
     private capacityBadge: Node | null = null;
     private capacityProgress: ProgressBar | null = null;
     private capacityTrack: Node | null = null;
@@ -267,7 +258,6 @@ export class PchConveyorGameplayController {
     private capacityGuideArmed = false;
     private capacityGuideEligibleSent = false;
     private capacityHint: Node | null = null;
-    private capacityHintSeconds = 0;
     private capacityHintWasShown = false;
     private capacityRewardGrantedAt = 0;
     private capacityRewardTransactionId = '';
@@ -388,6 +378,8 @@ export class PchConveyorGameplayController {
     private levelThreeProgressSent = new Set<number>();
     private levelThreeLeaveSent = new Set<string>();
     private firstStoreEventSent = false;
+    private levelTwoSoftHand: Node | null = null;
+    private levelTwoSoftHandTarget: { row: number; col: number } | null = null;
     private firstReturnEventSent = false;
 
     constructor(private readonly runtime: any) {}
@@ -570,7 +562,7 @@ export class PchConveyorGameplayController {
         const fixedRoot = this.runtime.getGameplayFixedRoot();
         this.root = this.requireConveyorNode(fixedRoot, 'PchConveyorRoot', 'GameplayFixedRoot/PchConveyorRoot');
         this.bindWarningOverlay();
-        const normalLayout = this.bindConveyorLayout(this.root, 'NormalLayout');
+        const normalLayout = this.bindConveyorLayout(this.root, PCH_CONVEYOR_LAYOUT);
         this.clearConveyorLayoutRuntime(normalLayout.node);
         normalLayout.node.active = true;
         const activeLayout = normalLayout;
@@ -592,6 +584,8 @@ export class PchConveyorGameplayController {
         this.capacityProgress = activeLayout.capacityProgress;
         this.capacityTrack = activeLayout.capacityTrack;
         this.countLabel = activeLayout.countLabel;
+        this.capacityTextColor = this.countLabel.color.clone();
+        this.capacityOutlineColor = this.countLabel.outlineColor.clone();
         this.capacityWarningAnimation = activeLayout.capacityWarningAnimation;
         const hideFirstLevelControls = this.runtime._activeGameplayEntryMode === 'main'
             && Math.floor(Number(this.runtime.levelData?.levelId) || 0) === 1;
@@ -599,6 +593,8 @@ export class PchConveyorGameplayController {
         const hideSecondLevelCapacity = this.runtime._activeGameplayEntryMode === 'main'
             && Number(this.runtime.getActiveLogicalLevelId()) === 2;
         this.adButton = activeLayout.adButton;
+        const capacityButtonLabel = this.adButton.getChildByName('Node')?.getComponent(Label);
+        if (capacityButtonLabel) capacityButtonLabel.string = `+${this.getCapacityButtonIncrement()}`;
         this.adButton.active = !hideFirstLevelControls && !rankedPvp
             && !hideSecondLevelCapacity
             && !(this.isLevelThreeFreeCapacity() && this.rules!.bufferCapacity >= PCH_LEVEL_THREE_MAX_CAPACITY);
@@ -946,7 +942,8 @@ export class PchConveyorGameplayController {
                 extra: { placement: 'pch_conveyor_expand', mode: offerMode, triggerSource: offerSource, freeGuideCompleted: this.levelThreeGuideDoneAt > 0,
                     bufferCapacity: this.rules?.bufferCapacity || 0 } });
         }
-        this.updateCapacityHint(deltaTime);
+        this.updateCapacityHint();
+        this.updateLevelTwoSoftHand();
         if (this.runtime.isCoopMode?.() && this.runtime._gameForeground === false) return;
         if (this.settingsPaused) return;
         if (this.coopOpening) {
@@ -1269,14 +1266,15 @@ export class PchConveyorGameplayController {
 
     continueAfterBufferFull(): boolean {
         if (!this.rules || !this.runtime.isGameEnd) return false;
-        if (!this.expandCapacity()) return false;
+        if (!this.grantReviveCapacity()) return false;
         this.inputLocked = false;
         this.runtime.continueAfterLose(0, true);
         return true;
     }
 
     grantReviveCapacity(): boolean {
-        return this.expandCapacity();
+        const earlyProgress = this.runtime.boardModel?.getInitiallyUnsettledCompletionRatio() <= 0.5;
+        return this.expandCapacity(PCH_EXPAND_CAPACITY, earlyProgress);
     }
 
     private checkBufferDeadlock(): boolean {
@@ -1502,6 +1500,7 @@ export class PchConveyorGameplayController {
             this.maybeShowCapacityBlockedToast();
             return 'capacity_blocked';
         }
+        this.clearLevelTwoSoftHand();
         if (this.analyticsStats) this.analyticsStats.validActionCount += 1;
         if (this.isLevelThreeMeasurementActive() && !this.levelThreeFirstActionSent) {
             this.levelThreeFirstActionSent = true;
@@ -2363,14 +2362,11 @@ export class PchConveyorGameplayController {
     private renderNormalCapacityTrack(capacityTrack: Node | null | undefined, ratio: number): void {
         if (!capacityTrack?.isValid) return;
         const transform = capacityTrack.getComponent(UITransform);
-        const trackSpriteNode = capacityTrack.getChildByName('TrackSprite');
         const fillSpriteNode = capacityTrack.getChildByName('FillSprite');
-        const trackTransform = trackSpriteNode?.getComponent(UITransform);
         const fillTransform = fillSpriteNode?.getComponent(UITransform);
-        const trackSprite = trackSpriteNode?.getComponent(Sprite);
         const fillSprite = fillSpriteNode?.getComponent(Sprite);
-        if (!transform || !trackSpriteNode || !fillSpriteNode || !trackTransform || !fillTransform || !trackSprite || !fillSprite) {
-            throw new Error('[pch-core] NormalLayout PchCapacityTrack must provide TrackSprite, FillSprite, Sprite, and UITransform components');
+        if (!transform || !fillSpriteNode || !fillTransform || !fillSprite) {
+            throw new Error('[pch-core] PchCapacityTrack must provide FillSprite, Sprite, and UITransform components');
         }
         const { width, height } = transform.contentSize;
         if (width <= 0 || height <= 0) {
@@ -2379,21 +2375,47 @@ export class PchConveyorGameplayController {
         }
 
         const safeRatio = Math.min(1, Math.max(0, Number(ratio) || 0));
-        const fillWidth = Math.max(0, width - PCH_CAPACITY_PROGRESS_INSET * 2) * safeRatio;
-        const fillHeight = Math.max(0, height - PCH_CAPACITY_PROGRESS_INSET * 2);
-        const highResolutionScale = PCH_CAPACITY_SLICED_RENDER_SCALE;
-        trackTransform.setContentSize(width / highResolutionScale, height / highResolutionScale);
-        trackSpriteNode.setPosition(0, 0, 0);
-        trackSpriteNode.setScale(highResolutionScale, highResolutionScale, 1);
+        const isV2 = capacityTrack.parent?.parent?.name === 'NormalLayoutV2';
+        const inset = isV2 ? 0 : PCH_CAPACITY_PROGRESS_INSET;
+        // Overlap the left inner rim slightly without moving the progress endpoint.
+        const leftOverlap = isV2 ? 2 : 0;
+        const fillLeft = -width / 2 + inset - leftOverlap;
+        const fillWidth = safeRatio > 0
+            ? Math.max(0, width - inset * 2) * safeRatio + leftOverlap
+            : 0;
+        const fillHeight = Math.max(0, height - inset * 2);
+        const highResolutionScale = isV2
+            ? fillHeight / fillSprite.spriteFrame!.originalSize.height
+            : PCH_CAPACITY_SLICED_RENDER_SCALE;
+
+        if (isV2) {
+            const mask = capacityTrack.getComponent(Mask) || capacityTrack.addComponent(Mask);
+            mask.type = Mask.Type.GRAPHICS_STENCIL;
+            const graphics = capacityTrack.getComponent(Graphics);
+            if (!graphics) throw new Error('[pch-core] V2 capacity mask must provide Graphics');
+            graphics.clear();
+            if (fillWidth > 0 && fillHeight > 0) {
+                graphics.roundRect(
+                    fillLeft,
+                    -fillHeight / 2,
+                    fillWidth,
+                    fillHeight,
+                    Math.min(fillWidth, fillHeight) / 2,
+                );
+                graphics.fill();
+            }
+        }
 
         if (fillWidth <= 0 || fillHeight <= 0) {
             fillSpriteNode.active = false;
             return;
         }
         fillSpriteNode.active = true;
-        fillTransform.setContentSize(fillWidth / highResolutionScale, fillHeight / highResolutionScale);
+        // Keep V2's colour field fixed; only the rounded stencil reveals progress.
+        const imageWidth = isV2 ? width - inset * 2 + leftOverlap : fillWidth;
+        fillTransform.setContentSize(imageWidth / highResolutionScale, fillHeight / highResolutionScale);
         fillSpriteNode.setPosition(
-            -width / 2 + PCH_CAPACITY_PROGRESS_INSET + fillWidth / 2,
+            fillLeft + imageWidth / 2,
             0,
             0,
         );
@@ -2433,8 +2455,8 @@ export class PchConveyorGameplayController {
     private resetCapacityNumberWarning(): void {
         this.capacityWarningAnimation?.stop();
         if (this.countLabel?.isValid) {
-            this.countLabel.color = PCH_CAPACITY_TEXT_COLOR;
-            this.countLabel.outlineColor = PCH_CAPACITY_OUTLINE_COLOR;
+            this.countLabel.color = this.capacityTextColor;
+            this.countLabel.outlineColor = this.capacityOutlineColor;
         }
         this.capacityWarningActive = false;
     }
@@ -2466,7 +2488,7 @@ export class PchConveyorGameplayController {
         const sprite = overlay.getComponent(Sprite) || overlay.addComponent(Sprite);
         sprite.sizeMode = Sprite.SizeMode.CUSTOM;
         sprite.spriteFrame = this.runtime.requireWarningMaskSpriteFrame();
-        sprite.color = new Color(255, 0, 0, 255);
+        sprite.color = new Color(255, 82, 112, 255);
         const opacity = overlay.getComponent(UIOpacity) || overlay.addComponent(UIOpacity);
         opacity.opacity = 0;
         overlay.active = false;
@@ -2904,18 +2926,12 @@ export class PchConveyorGameplayController {
         return label;
     }
 
-    private bindConveyorLayout(root: Node, name: 'NormalLayout' | 'CompactLayout'): ConveyorLayoutBindings {
+    private bindConveyorLayout(root: Node, name: 'NormalLayoutV2'): ConveyorLayoutBindings {
         const basePath = `GameplayFixedRoot/PchConveyorRoot/${name}`;
         const node = this.requireConveyorNode(root, name, basePath);
-        const track = this.requireConveyorNode(node, 'PchMovingTrack', `${basePath}/PchMovingTrack`);
-        const trackPartNames = RAINBOW_CONVEYOR_TRACK_PARTS[name];
-        if (track.children.length !== trackPartNames.length
-            || track.children.some((part, index) => part.name !== trackPartNames[index])) {
-            throw new Error(`[pch-core] Game.scene has an invalid original-package track hierarchy on ${basePath}`);
-        }
-        for (const partName of trackPartNames) {
-            this.requireConveyorSprite(track, partName, `${basePath}/PchMovingTrack/${partName}`);
-        }
+        // Empty bounds node is retained for opening-guide positioning, not legacy art.
+        this.requireConveyorNode(node, 'PchMovingTrack', `${basePath}/PchMovingTrack`);
+        this.requireConveyorSprite(node, 'TrackSkinV2', `${basePath}/TrackSkinV2`);
         const carrierLayer = this.requireConveyorNode(node, 'CarrierLayer', `${basePath}/CarrierLayer`);
         const carrierTemplate = this.requireConveyorNode(
             carrierLayer,
@@ -3018,57 +3034,13 @@ export class PchConveyorGameplayController {
         const capacityBadge = this.requireConveyorNode(node, 'PchCapacityBadge', `${basePath}/PchCapacityBadge`);
         let capacityProgress: ProgressBar | null = null;
         let capacityTrack: Node | null = null;
-        if (name === 'NormalLayout') {
-            capacityTrack = this.requireConveyorNode(
-                capacityBadge,
-                'PchCapacityTrack',
-                `${basePath}/PchCapacityBadge/PchCapacityTrack`,
-            );
-            const trackSpriteNode = this.requireConveyorSprite(
-                capacityTrack,
-                'TrackSprite',
-                `${basePath}/PchCapacityBadge/PchCapacityTrack/TrackSprite`,
-            );
-            const fillSpriteNode = this.requireConveyorSprite(
-                capacityTrack,
-                'FillSprite',
-                `${basePath}/PchCapacityBadge/PchCapacityTrack/FillSprite`,
-            );
-            if (!capacityTrack.getComponent(UITransform)
-                || !trackSpriteNode.getComponent(UITransform)
-                || !fillSpriteNode.getComponent(UITransform)
-                || trackSpriteNode.getComponent(Sprite)?.type !== Sprite.Type.SLICED
-                || fillSpriteNode.getComponent(Sprite)?.type !== Sprite.Type.SLICED) {
-                throw new Error(`[pch-core] Game.scene must provide Sliced TrackSprite and FillSprite with UITransform on ${basePath}/PchCapacityBadge/PchCapacityTrack`);
-            }
-            this.renderNormalCapacityTrack(capacityTrack, 0);
-        } else {
-            const progressTrack = this.requireConveyorSprite(
-                capacityBadge,
-                'ProgressTrack',
-                `${basePath}/PchCapacityBadge/ProgressTrack`,
-            );
-            this.requireConveyorSprite(
-                progressTrack,
-                'Background',
-                `${basePath}/PchCapacityBadge/ProgressTrack/Background`,
-            );
-            const progressBarNode = this.requireConveyorSprite(
-                progressTrack,
-                'Bar',
-                `${basePath}/PchCapacityBadge/ProgressTrack/Bar`,
-            );
-            const capacityMask = progressTrack.getComponent(Mask);
-            if (!capacityMask || capacityMask.type !== Mask.Type.SPRITE_STENCIL) {
-                throw new Error(`[pch-core] Game.scene must provide SpriteStencil Mask on ${basePath}/PchCapacityBadge/ProgressTrack`);
-            }
-            capacityProgress = progressTrack.getComponent(ProgressBar);
-            if (!capacityProgress
-                || capacityProgress.mode !== ProgressBar.Mode.HORIZONTAL
-                || capacityProgress.barSprite !== progressBarNode.getComponent(Sprite)) {
-                throw new Error(`[pch-core] Game.scene must provide horizontal ProgressBar on ${basePath}/PchCapacityBadge/ProgressTrack`);
-            }
+        capacityTrack = this.requireConveyorNode(capacityBadge, 'PchCapacityTrack', `${basePath}/PchCapacityBadge/PchCapacityTrack`);
+        const fillSpriteNode = this.requireConveyorSprite(capacityTrack, 'FillSprite', `${basePath}/PchCapacityBadge/PchCapacityTrack/FillSprite`);
+        if (!capacityTrack.getComponent(UITransform) || !fillSpriteNode.getComponent(UITransform)
+            || fillSpriteNode.getComponent(Sprite)?.type !== Sprite.Type.SLICED) {
+            throw new Error('[pch-core] Capacity track must provide a sliced FillSprite and UITransform');
         }
+        this.renderNormalCapacityTrack(capacityTrack, 0);
         const countLabel = this.requireConveyorLabel(
             capacityBadge,
             'CapacityCount',
@@ -3089,7 +3061,6 @@ export class PchConveyorGameplayController {
             throw new Error(`[pch-core] Game.scene must provide Button on ${basePath}/PchCapacityAdButton`);
         }
         this.requireConveyorSprite(adButton, 'Visual', `${basePath}/PchCapacityAdButton/Visual`);
-        this.requireConveyorSprite(adButton, 'ExpandIcon', `${basePath}/PchCapacityAdButton/ExpandIcon`);
         return {
             node,
             carrierLayer,
@@ -3256,7 +3227,7 @@ export class PchConveyorGameplayController {
         const background = this.makeNode('OpeningGuideBubbleBackground', this.capacityHint, width, height, 0, 0);
         this.runtime._applySpriteFrame(background, guideBubbleFrame, width, height, Sprite.Type.SLICED);
         const title = this.makeLabel(this.capacityHint, '传送带快满了', 32, Color.WHITE, 0, 26, width - 64);
-        const detail = this.makeLabel(this.capacityHint, '本次扩容免费，点击增加12格', 28, Color.WHITE, 0, -22, width - 64);
+        const detail = this.makeLabel(this.capacityHint, `本次扩容免费，点击增加${this.getCapacityButtonIncrement()}格`, 28, Color.WHITE, 0, -22, width - 64);
         this.applyOpeningGuidePromptLabelStyle(title);
         this.applyOpeningGuidePromptLabelStyle(detail);
         const hand = instantiate(sourceHand);
@@ -3289,25 +3260,22 @@ export class PchConveyorGameplayController {
                 remainingCapacity: Math.max(0, this.rules.bufferCapacity - this.rules.bufferCount),
             },
         });
-        this.capacityHintSeconds = 5;
     }
 
-    private updateCapacityHint(deltaTime: number): void {
+    private updateCapacityHint(): void {
         if (!this.capacityHint) return;
-        if (this.runtime.isGameEnd || this.settingsPaused || this.settlementPaused
-            || this.externalInputBlocked || this.skillMovementPaused || this.runtime._gameForeground === false
-            || this.runtime._adShowing || this.runtime._rewardedGrantTransaction) {
+        if (this.runtime.isGameEnd) {
             this.clearCapacityHint();
             return;
         }
-        this.capacityHintSeconds -= Math.max(0, deltaTime);
-        if (this.capacityHintSeconds <= 0) this.clearCapacityHint();
+        this.capacityHint.active = !(this.settingsPaused || this.settlementPaused
+            || this.externalInputBlocked || this.skillMovementPaused || this.runtime._gameForeground === false
+            || this.runtime._adShowing || this.runtime._rewardedGrantTransaction);
     }
 
     private clearCapacityHint(): void {
         if (this.capacityHint?.isValid) this.capacityHint.destroy();
         this.capacityHint = null;
-        this.capacityHintSeconds = 0;
     }
 
     private showLevelOneBoardGuide(parent: Node): void {
@@ -3404,6 +3372,7 @@ export class PchConveyorGameplayController {
     }
 
     private showLevelOneBoardGuideStep(parent: Node): void {
+        const promptY = this.prepareLevelOnePromptLayout(parent);
         const cell = this.openingGuideLevelOneCells[this.openingGuideLevelOneStep];
         if (!cell) throw new Error('[pch-core] level 1 guide cell is unavailable');
         const parentTransform = parent.getComponent(UITransform);
@@ -3457,7 +3426,7 @@ export class PchConveyorGameplayController {
             copy,
             this.onOpeningGuideLevelOneTap,
             true,
-            undefined,
+            promptY,
             handTargetLocal,
         );
         this.showOpeningGuideBeanRings(targetCells);
@@ -3798,6 +3767,50 @@ export class PchConveyorGameplayController {
         this.showOpeningTargetGuideAt(parent, targetLocal, targetWidth, targetHeight, guideName, copy, onTargetTap, true, promptYOverride);
     }
 
+    private chooseLevelOnePromptLayout(boardBottom: number, boardTop: number,
+        safeBottom: number, safeTop: number, height: number): { y: number; scale: number; boardY: number } {
+        const gap = 24;
+        const boardY = (boardBottom + boardTop) / 2;
+        if (boardTop + gap + height <= safeTop) {
+            return { y: boardTop + gap + height / 2, scale: 1, boardY };
+        }
+        if (boardBottom - gap - height >= safeBottom) {
+            return { y: boardBottom - gap - height / 2, scale: 1, boardY };
+        }
+        const room = safeTop - safeBottom - height - gap;
+        if (room <= 0 || boardTop <= boardBottom) {
+            throw new Error('[pch-guide] insufficient viewport space for level 1 prompt');
+        }
+        const scale = Math.min(1, room / (boardTop - boardBottom));
+        const boardHeight = (boardTop - boardBottom) * scale;
+        return { y: safeTop - height / 2, scale, boardY: safeBottom + boardHeight / 2 };
+    }
+
+    private prepareLevelOnePromptLayout(parent: Node): number {
+        const parentUi = parent.getComponent(UITransform)!;
+        const bounds = this.runtime.getGameplayNodeBoundsInFixedRoot(this.runtime.boardNode);
+        const beltBounds = this.runtime.getGameplayNodeBoundsInFixedRoot(this.belt);
+        if (!bounds || !beltBounds) throw new Error('[pch-guide] level 1 layout bounds unavailable');
+        const topBarBottom = this.runtime.getTopBarAvoidBottomY();
+        const parentTop = parentUi.height * (1 - parentUi.anchorY) - 24;
+        const safeTop = topBarBottom === null ? parentTop : Math.min(parentTop, topBarBottom - 24);
+        const safeBottom = Math.max(-parentUi.height * parentUi.anchorY + 24, beltBounds.top + 24);
+        const layout = this.chooseLevelOnePromptLayout(bounds.bottom, bounds.top,
+            safeBottom, safeTop, OPENING_GUIDE_PROMPT_HEIGHT);
+        if (layout.scale < 1 || Math.abs(layout.boardY - (bounds.bottom + bounds.top) / 2) > 0.1) {
+            const group = this.runtime.boardGroup as Node;
+            const groupParent = group.parent!.getComponent(UITransform)!;
+            const centerWorld = parentUi.convertToWorldSpaceAR(new Vec3((bounds.left + bounds.right) / 2, layout.boardY, 0));
+            const centerLocal = groupParent.convertToNodeSpaceAR(centerWorld);
+            const scale = this.runtime.boardViewport.scale * layout.scale;
+            const board = this.runtime.boardNode as Node;
+            this.runtime.boardViewport.setViewTransformClamped(scale,
+                new Vec2(centerLocal.x - board.position.x * scale, centerLocal.y - board.position.y * scale), false);
+            this.runtime.boardViewScale = this.runtime.boardViewport.scale;
+        }
+        return layout.y;
+    }
+
     private getOpeningGuidePromptCenterYAboveConveyor(parent: Node, promptHeight: number): number {
         const parentTransform = parent.getComponent(UITransform);
         const conveyorTrack = this.belt?.getChildByName('PchMovingTrack') || null;
@@ -3860,7 +3873,7 @@ export class PchConveyorGameplayController {
             ? OPENING_GUIDE_PROMPT_HEIGHT
             : (useGuideBubbleFrame ? 128 : 64);
         const sharedPromptY = promptYOverride ?? Math.max(-520, targetLocal.y - targetHeight / 2 - promptHeight / 2 - 40);
-        const promptY = usesVideoGuideBubbleLayout
+        const promptY = isLevelOneBoardGuide && promptYOverride !== undefined ? promptYOverride : usesVideoGuideBubbleLayout
             ? this.getOpeningGuidePromptCenterYAboveConveyor(parent, promptHeight)
             : sharedPromptY;
         const promptXLimit = useGuideBubbleFrame ? 80 : 100;
@@ -3981,7 +3994,82 @@ export class PchConveyorGameplayController {
         this.refreshSpeedButtonState();
         if (this.statusLabel) this.statusLabel.string = '3 倍速度已开启';
         this.dismissOpeningGuide();
+        this.showLevelTwoSoftHand();
         AudioMgr.inst.play('button');
+    }
+
+    private showLevelTwoSoftHand(): void {
+        if (this.runtime._activeGameplayEntryMode !== 'main'
+            || this.runtime.getActiveLogicalLevelId?.() !== 2
+            || this.runtime.isRankedPvpMode?.() || this.runtime.isCoopMode?.()
+            || !this.rules || this.runtime.isGameEnd || this.levelTwoSoftHand) return;
+        const source = this.runtime.requireCanvasUiRoot('OverlayRoot')
+            .getChildByName('TutorialGuideHands')?.getChildByName('GuideHandSingle');
+        const sprite = source?.getComponent(Sprite);
+        const transform = source?.getComponent(UITransform);
+        if (!sprite?.spriteFrame || !transform) {
+            console.error('[pch-guide] level 2 soft hand sprite unavailable');
+            return;
+        }
+        const parent = this.runtime.getGameplayFixedRoot();
+        const anchor = this.makeNode('LevelTwoSoftHandAnchor', parent, 1, 1, 0, 0);
+        this.levelTwoSoftHand = anchor;
+        // Copy only the artwork: no Button, touch listener, or input-blocking component.
+        const handWidth = 110;
+        const handHeight = handWidth * transform.height / transform.width;
+        const hand = this.makeNode('LevelTwoSoftHand', anchor,
+            handWidth, handHeight, 42, -52);
+        hand.getComponent(UITransform)!.setAnchorPoint(transform.anchorPoint);
+        const handSprite = hand.addComponent(Sprite);
+        handSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        handSprite.spriteFrame = sprite.spriteFrame;
+        hand.setScale(0.92, 0.92, 1);
+        tween(hand).repeatForever(tween()
+            .to(0.42, { position: new Vec3(42, -36, 0), scale: new Vec3(1.08, 1.08, 1) }, { easing: 'sineInOut' })
+            .to(0.42, { position: new Vec3(42, -52, 0), scale: new Vec3(0.92, 0.92, 1) }, { easing: 'sineInOut' }))
+            .start();
+        this.updateLevelTwoSoftHand();
+    }
+
+    private updateLevelTwoSoftHand(): void {
+        const anchor = this.levelTwoSoftHand;
+        if (!anchor?.isValid) return;
+        if (!this.rules || this.runtime.isGameEnd) {
+            this.clearLevelTwoSoftHand();
+            return;
+        }
+        anchor.active = !(this.settingsPaused || this.settlementPaused || this.skillMovementPaused
+            || this.externalInputBlocked || this.inputLocked || this.runtime._gameForeground === false
+            || this.runtime._adShowing || this.runtime._rewardedGrantTransaction
+            || Number(this.runtime._modalFocusRefs) > 0);
+        if (!anchor.active) return;
+        const available = (cell: { row: number; col: number }) =>
+            this.rules!.board.currentColors[cell.row]?.[cell.col] > 0
+            && !this.rules!.board.locked[cell.row]?.[cell.col]
+            && this.runtime.cellNodes?.[cell.row]?.[cell.col]?.activeInHierarchy;
+        let target = this.levelTwoSoftHandTarget;
+        if (!target || !available(target)) {
+            const candidates = this.rules.cells.filter(available);
+            // Palette 3 is the bright yellow bean (#F8C811).
+            target = candidates.find(cell => cell.current === 3) || candidates[0] || null;
+            this.levelTwoSoftHandTarget = target;
+        }
+        if (!target) {
+            anchor.active = false;
+            return;
+        }
+        const local = anchor.parent!.getComponent(UITransform)!
+            .convertToNodeSpaceAR(this.getBoardCellWorldPosition(target.row, target.col));
+        anchor.setPosition(local);
+    }
+
+    private clearLevelTwoSoftHand(): void {
+        if (this.levelTwoSoftHand?.isValid) {
+            for (const child of this.levelTwoSoftHand.children) Tween.stopAllByTarget(child);
+            this.levelTwoSoftHand.destroy();
+        }
+        this.levelTwoSoftHand = null;
+        this.levelTwoSoftHandTarget = null;
     }
 
     private playCapacityGuideTapRings(parent: Node, position: Vec3): void {
@@ -4039,7 +4127,7 @@ export class PchConveyorGameplayController {
         this.reportOpeningGuideTutorialFinish();
         this.runtime.markDynamicCountdownAssisted?.();
         this.dismissOpeningGuide();
-        this.runtime.showToast('传送带已扩容 +12');
+        this.runtime.showToast(`传送带已扩容 +${this.rules.bufferCapacity - capacityBefore}`);
     }
 
     private dismissOpeningGuide(): void {
@@ -4051,6 +4139,7 @@ export class PchConveyorGameplayController {
     }
 
     private clearOpeningGuideNodes(): void {
+        this.clearLevelTwoSoftHand();
         this.clearCapacityHint();
         this.openingGuideRingLoadVersion += 1;
         for (const ring of this.openingGuideRingNodes) {
@@ -4245,7 +4334,7 @@ export class PchConveyorGameplayController {
             this.resetCapacityAdGesture();
             this.capacityRewardGrantedAt = Date.now();
             this.runtime.markDynamicCountdownAssisted?.();
-            this.runtime.showToast('传送带已扩容 +12');
+            this.runtime.showToast(`传送带已扩容 +${this.rules.bufferCapacity - capacityBefore}`);
             return;
         }
         let timerToken = '';
@@ -4268,7 +4357,7 @@ export class PchConveyorGameplayController {
                 timerToken = '';
             },
             grantFailToast: '传送带扩容失败，请重试',
-            successToast: '传送带已扩容 +12',
+            successToast: `传送带已扩容 +${this.getCapacityButtonIncrement()}`,
             onRewardGranted: (context: { transactionId: string; attemptId: number }) => {
                 if (triggerSource !== 'capacity_soft_hint') return;
                 this.capacityRewardGrantedAt = Date.now();
@@ -4283,12 +4372,19 @@ export class PchConveyorGameplayController {
             && !this.runtime.isRankedPvpMode?.() && !this.runtime.isCoopMode?.();
     }
 
-    private expandCapacity(): boolean {
+    private getCapacityButtonIncrement(): number {
+        const levelId = this.runtime.getActiveLogicalLevelId?.() || 0;
+        return this.runtime._activeGameplayEntryMode === 'main'
+            && !this.runtime.isRankedPvpMode?.() && !this.runtime.isCoopMode?.()
+            && levelId >= 1 && levelId <= 20 ? 30 : PCH_EXPAND_CAPACITY;
+    }
+
+    private expandCapacity(requestedAmount: number = this.getCapacityButtonIncrement(), isRevive: boolean = false): boolean {
         if (!this.rules) return false;
         const levelThreeFree = this.isLevelThreeFreeCapacity();
-        const amount = levelThreeFree
-            ? Math.min(PCH_EXPAND_CAPACITY, Math.max(0, PCH_LEVEL_THREE_MAX_CAPACITY - this.rules.bufferCapacity))
-            : PCH_EXPAND_CAPACITY;
+        const amount = levelThreeFree && !isRevive
+            ? Math.min(requestedAmount, Math.max(0, PCH_LEVEL_THREE_MAX_CAPACITY - this.rules.bufferCapacity))
+            : requestedAmount;
         if (amount <= 0) return false;
         const added = this.rules.addBufferSlots(amount);
         if (levelThreeFree && this.adButton) {

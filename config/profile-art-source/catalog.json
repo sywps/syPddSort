@@ -1,0 +1,381 @@
+{
+  "items": [
+    {
+      "id": 1001,
+      "kind": "avatar",
+      "name": "默认鸭鸭",
+      "unlock": "default",
+      "value": 0,
+      "activityKey": "",
+      "source": "头像1.png"
+    },
+    {
+      "id": 1002,
+      "kind": "avatar",
+      "name": "头像2",
+      "unlock": "ad",
+      "value": 1,
+      "activityKey": "",
+      "source": "头像 (1).png"
+    },
+    {
+      "id": 1003,
+      "kind": "avatar",
+      "name": "头像3",
+      "unlock": "ad",
+      "value": 1,
+      "activityKey": "",
+      "source": "头像 (2).png"
+    },
+    {
+      "id": 1004,
+      "kind": "avatar",
+      "name": "头像4",
+      "unlock": "ad",
+      "value": 2,
+      "activityKey": "",
+      "source": "头像 (3).png"
+    },
+    {
+      "id": 1005,
+      "kind": "avatar",
+      "name": "头像5",
+      "unlock": "ad",
+      "value": 2,
+      "activityKey": "",
+      "source": "头像 (4).png"
+    },
+    {
+      "id": 1009,
+      "kind": "avatar",
+      "name": "头像6",
+      "unlock": "mainline",
+      "value": 18,
+      "activityKey": "",
+      "source": "头像 (6).png"
+    },
+    {
+      "id": 1010,
+      "kind": "avatar",
+      "name": "头像7",
+      "unlock": "mainline",
+      "value": 54,
+      "activityKey": "",
+      "source": "头像 (7).png"
+    },
+    {
+      "id": 1011,
+      "kind": "avatar",
+      "name": "头像8",
+      "unlock": "mainline",
+      "value": 90,
+      "activityKey": "",
+      "source": "头像 (8).png"
+    },
+    {
+      "id": 1012,
+      "kind": "avatar",
+      "name": "头像9",
+      "unlock": "mainline",
+      "value": 126,
+      "activityKey": "",
+      "source": "头像 (9).png"
+    },
+    {
+      "id": 1029,
+      "kind": "avatar",
+      "name": "头像10",
+      "unlock": "gold",
+      "value": 300,
+      "activityKey": "",
+      "source": "头像 (10).png"
+    },
+    {
+      "id": 1030,
+      "kind": "avatar",
+      "name": "头像11",
+      "unlock": "gold",
+      "value": 300,
+      "activityKey": "",
+      "source": "头像 (11).png"
+    },
+    {
+      "id": 1031,
+      "kind": "avatar",
+      "name": "头像12",
+      "unlock": "gold",
+      "value": 300,
+      "activityKey": "",
+      "source": "头像 (12).png"
+    },
+    {
+      "id": 2001,
+      "kind": "frame",
+      "name": "默认蓝色皇冠框",
+      "unlock": "default",
+      "value": 0,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_38 (8).png"
+    },
+    {
+      "id": 2003,
+      "kind": "frame",
+      "name": "头像框3",
+      "unlock": "ad",
+      "value": 1,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_39 (9).png"
+    },
+    {
+      "id": 2004,
+      "kind": "frame",
+      "name": "头像框4",
+      "unlock": "ad",
+      "value": 2,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_40 (10).png"
+    },
+    {
+      "id": 2005,
+      "kind": "frame",
+      "name": "头像框5",
+      "unlock": "ad",
+      "value": 2,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_30 (1).png"
+    },
+    {
+      "id": 2006,
+      "kind": "frame",
+      "name": "头像框6",
+      "unlock": "mainline",
+      "value": 27,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_30 (2).png"
+    },
+    {
+      "id": 2007,
+      "kind": "frame",
+      "name": "头像框7",
+      "unlock": "mainline",
+      "value": 63,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_30 (3).png"
+    },
+    {
+      "id": 2008,
+      "kind": "frame",
+      "name": "头像框8",
+      "unlock": "mainline",
+      "value": 99,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_30 (4).png"
+    },
+    {
+      "id": 2009,
+      "kind": "frame",
+      "name": "头像框9",
+      "unlock": "mainline",
+      "value": 135,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_35 (1).png"
+    },
+    {
+      "id": 2010,
+      "kind": "frame",
+      "name": "头像框10",
+      "unlock": "mainline",
+      "value": 200,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_35 (2).png"
+    },
+    {
+      "id": 2011,
+      "kind": "frame",
+      "name": "头像框11",
+      "unlock": "gold",
+      "value": 300,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_36 (3).png"
+    },
+    {
+      "id": 2012,
+      "kind": "frame",
+      "name": "头像框12",
+      "unlock": "gold",
+      "value": 300,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_36 (4).png"
+    },
+    {
+      "id": 2013,
+      "kind": "frame",
+      "name": "头像框13",
+      "unlock": "gold",
+      "value": 300,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_37 (5).png"
+    },
+    {
+      "id": 2014,
+      "kind": "frame",
+      "name": "头像框14",
+      "unlock": "mainline",
+      "value": 240,
+      "activityKey": "",
+      "source": "ChatGPT Image 2026年9月18日 14_13_38 (7).png"
+    }
+  ],
+  "retired": [
+    {
+      "id": 1006,
+      "kind": "avatar",
+      "unlock": "activity",
+      "value": 1001
+    },
+    {
+      "id": 1007,
+      "kind": "avatar",
+      "unlock": "activity",
+      "value": 1002
+    },
+    {
+      "id": 1008,
+      "kind": "avatar",
+      "unlock": "activity",
+      "value": 1003
+    },
+    {
+      "id": 1013,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 50
+    },
+    {
+      "id": 1014,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 60
+    },
+    {
+      "id": 1015,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 70
+    },
+    {
+      "id": 1016,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 80
+    },
+    {
+      "id": 1017,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 90
+    },
+    {
+      "id": 1018,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 100
+    },
+    {
+      "id": 1019,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 110
+    },
+    {
+      "id": 1020,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 120
+    },
+    {
+      "id": 1021,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 130
+    },
+    {
+      "id": 1022,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 140
+    },
+    {
+      "id": 1023,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 150
+    },
+    {
+      "id": 1024,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 160
+    },
+    {
+      "id": 1025,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 170
+    },
+    {
+      "id": 1026,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 180
+    },
+    {
+      "id": 1027,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 190
+    },
+    {
+      "id": 1028,
+      "kind": "avatar",
+      "unlock": "mainline",
+      "value": 200
+    },
+    {
+      "id": 1032,
+      "kind": "avatar",
+      "unlock": "gold",
+      "value": 200
+    },
+    {
+      "id": 1033,
+      "kind": "avatar",
+      "unlock": "gold",
+      "value": 300
+    },
+    {
+      "id": 1034,
+      "kind": "avatar",
+      "unlock": "gold",
+      "value": 300
+    },
+    {
+      "id": 1035,
+      "kind": "avatar",
+      "unlock": "gold",
+      "value": 150
+    },
+    {
+      "id": 1036,
+      "kind": "avatar",
+      "unlock": "gold",
+      "value": 150
+    },
+    {
+      "id": 2002,
+      "kind": "frame",
+      "unlock": "ad",
+      "value": 1
+    }
+  ]
+}

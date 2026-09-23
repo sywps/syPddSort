@@ -8,6 +8,7 @@ import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime, getMiniGameBuildPlat
 import { firstLevelExperiment } from './FirstLevelExperiment';
 import { beanSelectionExperiment } from './BeanSelectionExperiment';
 import { encouragementExperiment } from './EncouragementExperiment';
+import { thirdLevelExperiment, THIRD_LEVEL_EXPERIMENT_ID, getThirdLevelPreview } from './ThirdLevelExperiment';
 import { getFirstLevelPreview } from './FirstLevelContent';
 import { runtimeLog } from './RuntimeLog';
 import { isWorkbenchPreviewRequested } from './WorkbenchPreviewService';
@@ -62,6 +63,7 @@ type CloudResult = {
     firstLevelExperiment?: unknown;
     beanSelectionExperiment?: unknown;
     encouragementExperiment?: unknown;
+    thirdLevelExperiment?: unknown;
 };
 
 export type ReportDataOptions = {
@@ -163,6 +165,9 @@ export type UpdateUserProfileAssetsOptions = {
 };
 
 type LevelSessionState = {
+    countdownConsumedSeconds: number;
+    reviveCount: number;
+    addedTimeSeconds: number;
     exitReason: string;
     sessionId: string;
     roundId: string;
@@ -379,6 +384,8 @@ export class AnalyticsMgr {
             isWeChatMiniGameRuntime() || getMiniGameBuildPlatform() === 'wechat', getFirstLevelPreview() !== null);
         encouragementExperiment.initialize(sys.localStorage,
             isWeChatMiniGameRuntime() || getMiniGameBuildPlatform() === 'wechat', getFirstLevelPreview() !== null);
+        thirdLevelExperiment.initialize(sys.localStorage, isOfficialAnalyticsRuntime(getWeChatMiniGameRuntime()),
+            getFirstLevelPreview() !== null ? (getThirdLevelPreview() || 'A') : getThirdLevelPreview());
         this.openid = this.readCachedOpenid();
         this.delivery = new AnalyticsDelivery(sys.localStorage,
             () => this.resolveDeliveryOwner(),
@@ -406,8 +413,6 @@ export class AnalyticsMgr {
     }
 
     private firstLevelAssignmentReported = false;
-    private beanSelectionPrepared: Promise<void> | null = null;
-    private encouragementPrepared: Promise<void> | null = null;
 
     private async resolveDeliveryOwner(): Promise<string> {
         let timer: ReturnType<typeof setTimeout>;
@@ -424,44 +429,35 @@ export class AnalyticsMgr {
         } finally { clearTimeout(timer!); }
     }
 
-    prepareBeanSelectionExperiment(): Promise<void> {
-        if (this.beanSelectionPrepared) return this.beanSelectionPrepared;
-        this.beanSelectionPrepared = (async () => {
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            try {
-                if (beanSelectionExperiment.decision?.status !== 'test' && beanSelectionExperiment.decision?.status !== 'excluded') {
-                    await Promise.race([this.ensureReady(), new Promise<boolean>(resolve => {
-                        timer = setTimeout(() => resolve(false), 5000);
-                    })]);
-                }
-            } finally {
-                if (timer !== undefined) clearTimeout(timer);
-                beanSelectionExperiment.freeze();
-            }
-            this.trackFunnelEvent({ eventName: 'bean_selection_experiment_assignment', source: 'bean_selection_identity',
-                success: beanSelectionExperiment.decision?.status === 'enrolled' });
-        })();
-        return this.beanSelectionPrepared;
-    }
+    prepareBeanSelectionExperiment(): Promise<void> { return Promise.resolve(); }
+    prepareEncouragementExperiment(): Promise<void> { return Promise.resolve(); }
 
-    prepareEncouragementExperiment(): Promise<void> {
-        if (this.encouragementPrepared) return this.encouragementPrepared;
-        this.encouragementPrepared = (async () => {
+    private thirdLevelPrepared: Promise<void> | null = null;
+    async prepareThirdLevelExperiment(): Promise<void> {
+        thirdLevelExperiment.assertStorageReady();
+        if (thirdLevelExperiment.decision?.status === 'test') return Promise.resolve();
+        if (this.thirdLevelPrepared) return this.thirdLevelPrepared;
+        this.thirdLevelPrepared = (async () => {
             let timer: ReturnType<typeof setTimeout> | undefined;
             try {
-                if (encouragementExperiment.decision?.status !== 'test' && encouragementExperiment.decision?.status !== 'excluded') {
-                    await Promise.race([this.ensureReady(), new Promise<boolean>(resolve => {
-                        timer = setTimeout(() => resolve(false), 5000);
-                    })]);
-                }
-            } finally {
-                if (timer !== undefined) clearTimeout(timer);
-                encouragementExperiment.freeze();
-            }
-            this.trackFunnelEvent({ eventName: 'encouragement_experiment_assignment', source: 'encouragement_identity',
-                success: encouragementExperiment.decision?.status === 'enrolled' });
-        })();
-        return this.encouragementPrepared;
+                await Promise.race([(async () => {
+                    if (!await this.ensureReady()) throw new Error('第三关实验身份确认失败');
+                    const result = await PlatformCloudMgr.inst.callFunction<CloudResult>('getOpenid', {
+                        thirdLevelExperiment: { id: THIRD_LEVEL_EXPERIMENT_ID, enteringLevel: 3,
+                            progress: Math.max(1, Number(sys.localStorage.getItem('pdd.level')) || 1) },
+                    });
+                    if (!result?.ok || !result.openid) throw new Error(result?.errorMessage || '第三关实验云端回执缺失');
+                    return result;
+                })(), new Promise<never>((_, reject) => {
+                    timer = setTimeout(() => reject(new Error('第三关实验准备超时，请重试')), 12000);
+                })]).then(result => {
+                    thirdLevelExperiment.accept(result.openid!, result.thirdLevelExperiment);
+                });
+                this.trackFunnelEvent({ eventName: 'third_level_experiment_assignment', levelId: 3,
+                    source: 'third_level_entry', success: thirdLevelExperiment.decision?.status === 'enrolled' });
+            } finally { if (timer !== undefined) clearTimeout(timer); }
+        })().catch(error => { this.thirdLevelPrepared = null; throw error; });
+        return this.thirdLevelPrepared;
     }
 
     private reportFirstLevelAssignment(): void {
@@ -632,7 +628,7 @@ export class AnalyticsMgr {
             || resolveClientBuildIdentity().id;
         const abId = normalizeAnalyticsText(opt.abId ?? session?.abId ?? levelContext.abId, 64);
         const abBucket = normalizeAnalyticsText(opt.abBucket ?? session?.abBucket ?? levelContext.abBucket, 64);
-        const firstLevelFields = { ...firstLevelExperiment.fields(), ...beanSelectionExperiment.fields(), ...encouragementExperiment.fields() };
+        const firstLevelFields = { ...firstLevelExperiment.fields(), ...beanSelectionExperiment.fields(), ...encouragementExperiment.fields(), ...thirdLevelExperiment.fields() };
         try {
             if (!this.isCollectionEnabled()) return { ok: false, skipped: true };
             const queued = this.delivery.enqueue('addBehaviorData', {
@@ -749,7 +745,7 @@ export class AnalyticsMgr {
             ...(opt.extra || {}),
             ...firstLevelExperiment.fields(),
             ...beanSelectionExperiment.fields(),
-            ...encouragementExperiment.fields(),
+            ...encouragementExperiment.fields(), ...thirdLevelExperiment.fields(),
             clientBuildId: clientBuild.id,
             clientBuildIdSource: clientBuild.source,
             launchChannelAtEvent: this.resolveChannel(),
@@ -859,6 +855,9 @@ export class AnalyticsMgr {
         }
 
         this.levelSession = {
+            countdownConsumedSeconds: 0,
+            reviveCount: 0,
+            addedTimeSeconds: 0,
             exitReason: '',
             sessionId: this.funnelSessionId,
             roundId,
@@ -988,6 +987,21 @@ export class AnalyticsMgr {
             failureReason: session?.failureReason,
         });
         void this.finalizeActiveLevel(true, 'pass');
+    }
+
+    recordCountdownConsumption(seconds: number): void {
+        const session = this.levelSession;
+        if (!session || session.finalized || session.effectiveTimeLimit <= 0) return;
+        if (!Number.isFinite(seconds) || seconds < 0) throw new Error('Invalid countdown consumption');
+        session.countdownConsumedSeconds += seconds;
+    }
+
+    recordSuccessfulRevive(addedSeconds: number): void {
+        const session = this.levelSession;
+        if (!session || session.finalized) return;
+        if (!Number.isFinite(addedSeconds) || addedSeconds < 0) throw new Error('Invalid revival time');
+        session.reviveCount += 1;
+        session.addedTimeSeconds += addedSeconds;
     }
 
     markAdRevive(): void {
@@ -1385,7 +1399,7 @@ export class AnalyticsMgr {
             const queued = this.delivery.enqueue('saveLevelRecord', {
                 ...firstLevelExperiment.fields(),
                 ...beanSelectionExperiment.fields(),
-                ...encouragementExperiment.fields(),
+                ...encouragementExperiment.fields(), ...thirdLevelExperiment.fields(),
                 openid: this.openid,
                 sessionId: session.sessionId,
                 roundId: session.roundId,
@@ -1404,6 +1418,11 @@ export class AnalyticsMgr {
                 exitReason: session.exitReason,
                 useAdRevive: session.useAdRevive,
                 useShareRevive: session.useShareRevive,
+                countdownTimingVersion: 1,
+                countdownTimingApplicable: session.effectiveTimeLimit > 0,
+                countdownConsumedSeconds: session.countdownConsumedSeconds,
+                reviveCount: session.reviveCount,
+                addedTimeSeconds: session.addedTimeSeconds,
                 startTime: session.startTime,
                 endTime: Date.now(),
                 gameplayMode: session.gameplayMode,

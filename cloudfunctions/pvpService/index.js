@@ -69,6 +69,8 @@ function sanitizeIdentity(event) {
   return {
     displayName: cleanString(event.displayName, 24) || '像素玩家',
     avatarUrl: cleanString(event.avatarUrl, 512),
+    avatarId: Number.isInteger(event.avatarId) && event.avatarId >= 1001 && event.avatarId <= 1036 ? event.avatarId : 0,
+    frameId: Number.isInteger(event.frameId) && event.frameId >= 2001 && event.frameId <= 2014 ? event.frameId : 2001,
     clientUuid: cleanString(event.uuid, 64),
   };
 }
@@ -119,6 +121,8 @@ async function ensureProfile(openid, event) {
     const patch = { updatedAt: now };
     if (identity.displayName && identity.displayName !== current.displayName) patch.displayName = identity.displayName;
     if (identity.avatarUrl && identity.avatarUrl !== current.avatarUrl) patch.avatarUrl = identity.avatarUrl;
+    if (identity.avatarId !== current.avatarId) patch.avatarId = identity.avatarId;
+    if (identity.frameId !== current.frameId) patch.frameId = identity.frameId;
     if (identity.clientUuid && identity.clientUuid !== current.clientUuid) patch.clientUuid = identity.clientUuid;
     if (Object.keys(patch).length > 1) await transaction.collection(COLLECTIONS.profiles).doc(openid).update({ data: patch });
     return { ...current, ...patch };

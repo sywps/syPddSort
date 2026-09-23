@@ -49,4 +49,5 @@ const command = parseCommand(process.argv.slice(2));
 console.log(`=== 微信 CDN 槽位 ${command.slot} ${command.dryRun ? 'Dry-run' : '同步'} ===`);
 runSync('sync-level-data-cdn-wechat.js', command);
 runSync('sync-skin-data-cdn-wechat.js', command);
+runSync('sync-profile-data-cdn-wechat.js', command);
 console.log(`=== 微信 CDN 槽位 ${command.slot} ${command.dryRun ? 'Dry-run 校验完成' : '完整同步完成'} ===`);

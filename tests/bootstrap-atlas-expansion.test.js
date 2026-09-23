@@ -14,7 +14,6 @@ const groups = [
         pacMeta: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/game_scene_small.pac.meta',
         members: [
             'popup_ad_play_icon',
-            'popup_primary_button',
             'popup_tool_brush_icon',
             'popup_tool_freeze_icon',
             'popup_tool_magnet_icon',
@@ -67,7 +66,7 @@ for (const group of groups) {
     }
 }
 
-for (const member of ['progress_fill', '进度条']) {
+for (const member of ['progress_fill', '进度条', 'popup_primary_button']) {
     for (const relativePath of [
         `assets/BootstrapBundle/GameUI/${member}.png`,
         `assets/BootstrapBundle/GameUI/${member}.png.meta`,
@@ -89,7 +88,7 @@ assert.ok(
     'WeChat package validation must verify the packed SpriteFrame path instead of a removed standalone ImageAsset path',
 );
 assert.equal(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/guide_prompt_button.png')), false);
-assert.equal(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/home_bg.jpeg')), true);
+assert.equal(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/home_bg.png')), true);
 assert.equal(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/loading_cover.jpeg')), false, 'startup cover belongs only to main');
 
 console.log('bootstrap-atlas-expansion.test.js passed');

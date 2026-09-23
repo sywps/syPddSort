@@ -48,7 +48,7 @@ const panelSource = fs.readFileSync(
 );
 
 const helperStart = source.indexOf('export function resolveCollectionVirtualWindow(');
-const helperEnd = source.indexOf('function getRankTextColor', helperStart);
+const helperEnd = source.indexOf('function requireCollectionAvatarNode', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'collection virtual window helper must remain extractable');
 
 const helperSource = source.slice(helperStart, helperEnd);
@@ -129,6 +129,24 @@ const nextRowWindow = resolveCollectionVirtualWindow(
 );
 assert.strictEqual(nextRowWindow.poolSize, initialWindow.poolSize, 'scrolling must keep the pool size fixed');
 assert.ok(nextRowWindow.firstIndex >= initialWindow.firstIndex, 'scrolling down must advance or retain the first bound entry');
+
+// Exercise the shipped V2 geometry against the full 600-level main catalog.
+const v2 = JSON.parse(fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/UI/Prefabs/Panels/CollectionPanelV2.prefab'), 'utf8'));
+const v2Viewport = v2.find(node => node._name === 'CollContent');
+const v2Height = v2Viewport._components.map(ref => v2[ref.__id__]).find(component => component.__type__ === 'cc.UITransform')._contentSize.height;
+const v2Rows = [...new Set(v2Viewport._children.map(ref => v2[ref.__id__]._lpos.y))].sort((a, b) => b - a);
+const v2Pitch = v2Rows[0] - v2Rows[1];
+const v2Top = v2Height / 2 - v2Rows[0];
+const v2Bottom = v2Height / 2 + v2Rows[v2Rows.length - 1];
+const v2Total = v2Top + 299 * v2Pitch + v2Bottom;
+const v2Start = v2Total / 2 - v2Top;
+let lastWindow;
+for (let y = -(v2Total - v2Height) / 2; y <= (v2Total - v2Height) / 2; y += 1) {
+    lastWindow = resolveCollectionVirtualWindow(600, 2, v2Height, v2Pitch, v2Start, y, 2);
+    assert.equal(lastWindow.poolSize, 20, 'V2 keeps twenty reusable cards even with 600 levels');
+    assert(lastWindow.lastIndexExclusive - lastWindow.firstIndex <= 20);
+}
+assert.equal(lastWindow.lastIndexExclusive, 600, 'the final level remains reachable');
 
 const previewCache = new Map();
 const gridA = [[1]];

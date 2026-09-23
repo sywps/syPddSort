@@ -104,7 +104,14 @@ export class WxCloudMgr {
         }
 
         const result = await wx?.cloud?.callFunction?.(callOptions);
-        return (result?.result ?? {}) as T;
+        const payload = result?.result ?? {};
+        if (name === 'syncUserState' && payload && typeof payload === 'object') {
+            Object.defineProperty(payload, '__cloudRequestId', {
+                value: result?.requestID || result?.requestId || null,
+                enumerable: false,
+            });
+        }
+        return payload as T;
     }
 
     getSystemInfo(): { device: string; system: string } {

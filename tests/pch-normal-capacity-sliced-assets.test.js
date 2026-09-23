@@ -6,7 +6,8 @@ const path = require('node:path');
 const { PNG } = require('pngjs');
 
 const root = path.resolve(__dirname, '..');
-const assetDirectory = path.join(root, 'assets/BootstrapBundle/GameUI/RainbowConveyor/Atlases/PchCapacity');
+// Archived source art is retained losslessly for recovery, not shipped in Bootstrap.
+const assetDirectory = path.join(root, 'assets/PreviewBundle/ArtCandidates/ConveyorLegacy');
 
 function readImage(name) {
     return PNG.sync.read(fs.readFileSync(path.join(assetDirectory, name)));

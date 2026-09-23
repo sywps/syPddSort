@@ -59,9 +59,9 @@ function verifyPrefab(relativePath) {
     const prefixLabel = findLabel(records, prefix);
     const percentLabel = findLabel(records, percent);
 
-    assert.deepStrictEqual([summary._lpos?.x, summary._lpos?.y], [0, 268], 'summary must retain the user-adjusted position');
+    assert.strictEqual(summary._lpos?.y, 442, 'completion summary must occupy the former main prompt row');
     assert.strictEqual(findChild(records, box, 'TitleRibbon')._active, false, 'redundant revive ribbon must stay hidden');
-    assert.deepStrictEqual([findChild(records, box, 'Label')._lpos.x, findChild(records, box, 'Label')._lpos.y], [0, 442]);
+    assert.deepStrictEqual([findChild(records, box, 'Label')._lpos.x, findChild(records, box, 'Label')._lpos.y], [0, 268]);
     const prefixUi = componentsOf(records, prefix).find(component => component.__type__ === 'cc.UITransform');
     const percentUi = componentsOf(records, percent).find(component => component.__type__ === 'cc.UITransform');
     const prefixRight = prefix._lpos.x + prefixUi._contentSize.width * (1 - prefixUi._anchorPoint.x);

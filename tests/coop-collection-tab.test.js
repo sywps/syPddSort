@@ -49,14 +49,32 @@ function method(file, name, dependencies) {
 const settle = () => new Promise(resolve => setImmediate(resolve));
 async function main() {
     const box = new Node('Box'), renders = [], messages = [];
+    // Use the real V2 hierarchy to catch controller/prefab naming drift.
+    const prefab = JSON.parse(fs.readFileSync(path.join(__dirname, '../assets/GameAssetsBundle/UI/Prefabs/Panels/CollectionPanelV2.prefab'), 'utf8'));
+    function fromPrefab(record) {
+        const node = new Node(record._name);
+        node.active = record._active;
+        for (const ref of record._components) {
+            const component = prefab[ref.__id__];
+            if (component.__type__ === 'cc.Label') node.addComponent(Label).string = component._string;
+        }
+        for (const ref of record._children) node.addChild(fromPrefab(prefab[ref.__id__]));
+        return node;
+    }
+    box.addChild(fromPrefab(prefab.find(record => record._name === 'CollectionTabs')));
+    box.addChild(fromPrefab(prefab.find(record => record._name === 'CollectionProgress')));
     const runtime = { _collectionActiveTab: 'main', _collectionContentNode: { active: true }, showToast: text => messages.push(text),
+        requirePanelChild(parent, name) { const node = parent.getChildByName(name); assert.ok(node, name); return node; },
         renderCollectionScroll() { renders.push(this._collectionActiveTab); } };
     loaded.exports.createCollectionTabs(box, runtime);
     const tabs = box.getChildByName('CollectionTabs');
     assert.equal(tabs.children.filter(node => node.name.startsWith('CollectionTab_')).length, 3);
     const status = tabs.getChildByName('CollectionTabStatus');
     const click = key => tabs.getChildByName(`CollectionTab_${key}`).handlers.touch();
+    assert.equal(tabs.getChildByName('CollectionTab_main').getChildByName('Selected').active, true);
     click('coop'); await settle();
+    assert.equal(tabs.getChildByName('CollectionTab_main').getChildByName('Selected').active, false);
+    assert.equal(tabs.getChildByName('CollectionTab_coop').getChildByName('Selected').active, true);
     assert.equal(runtime._collectionActiveTab, 'coop');
     assert.equal(runtime._collectionCoopEntries.length, catalog.length);
     assert.equal(runtime._collectionCoopEntries.filter(entry => entry.unlocked).length, 1);

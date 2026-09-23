@@ -1,4 +1,5 @@
 import { getBrowserLevelPreview } from '../BrowserLevelPreview';
+import { PreviewRewardSave } from '../PreviewRewardSave';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button, Prefab, instantiate,
@@ -31,7 +32,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
-import { PVP_ECONOMY_REVISION_KEY } from '../UserStateSyncMgr';
+import { PVP_ECONOMY_REVISION_KEY, rebaseWechatGiftState, WECHAT_GIFT_TOTALS_KEY, WECHAT_GIFT_JOURNAL_KEY } from '../UserStateSyncMgr';
 
 const RECOVER_VIGOR_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/RecoverVigorPanel';
 const DEBUG_RECOVER_VIGOR_LAYOUT = false;
@@ -94,6 +95,53 @@ function logRecoverVigorNodeSize(name: string, node: Node | null): void {
 
 export function installPlayerMetaStateModule(target: any): void {
     Object.assign(target, {
+        recoverWechatGiftJournal(): void {
+            const raw = sys.localStorage.getItem(WECHAT_GIFT_JOURNAL_KEY);
+            if (!raw) return;
+            const journal = JSON.parse(raw);
+            const keys = [LS_GOLD, LS_PROP_BRUSH, LS_PROP_MAGNET, LS_PROP_FREEZE];
+            if (!Array.isArray(journal.values) || journal.values.length !== 4 || journal.values.some((n: number) => !Number.isSafeInteger(n) || n < 0)) {
+                throw new Error('Invalid WeChat gift recovery journal');
+            }
+            if (!journal.totals || typeof journal.totals !== 'object' || Object.values(journal.totals).some((n: number) => !Number.isSafeInteger(n) || n < 0)) {
+                throw new Error('Invalid WeChat gift recovery totals');
+            }
+            keys.forEach((key, index) => sys.localStorage.setItem(key, String(journal.values[index])));
+            sys.localStorage.setItem(WECHAT_GIFT_TOTALS_KEY, JSON.stringify(journal.totals));
+            sys.localStorage.removeItem(WECHAT_GIFT_JOURNAL_KEY);
+        },
+
+        readWechatGiftTotals(): Record<string, number> {
+            this.recoverWechatGiftJournal();
+            return JSON.parse(sys.localStorage.getItem(WECHAT_GIFT_TOTALS_KEY) || '{}');
+        },
+
+        applyWechatGiftState(state: Partial<CloudGameState> | null | undefined, replace: boolean = false): void {
+            if (state?.wechatGiftProtocol !== 1) return;
+            const previous = this.readWechatGiftTotals();
+            const totals = state.wechatGiftTotals || {};
+            const fields = ['gold', 'brushCount', 'magnetCount', 'freezeCount'];
+            if (fields.some(field => (totals[field] || 0) < (previous[field] || 0))) {
+                if (replace) throw new Error('Stale WeChat gift inventory snapshot');
+                return; // delayed delta response
+            }
+            const changed = fields.some(field => (totals[field] || 0) !== (previous[field] || 0));
+            if (!changed && !replace) return;
+            const next: Partial<CloudGameState> = replace ? { ...state, wechatGiftTotals: totals } : {
+                gold: this.getGold(), brushCount: this.getPropCount('brush'), magnetCount: this.getPropCount('magnet'),
+                freezeCount: this.getPropCount('freeze'), wechatGiftTotals: previous,
+            };
+            rebaseWechatGiftState(next, totals);
+            const values = fields.map(field => next[field]);
+            if (values.some(n => !Number.isSafeInteger(n) || n < 0)) throw new Error('Incomplete WeChat gift snapshot');
+            // Write-ahead record makes interrupted multi-key localStorage updates replayable.
+            sys.localStorage.setItem(WECHAT_GIFT_JOURNAL_KEY, JSON.stringify({ values, totals }));
+            this.recoverWechatGiftJournal();
+            if (changed && !replace) this.setLocalUserStateUpdatedAt(Date.now());
+            this.refreshGoldUI?.();
+            this.syncSkillButtonRuntimeStates?.();
+        },
+
         applyPvpEconomySnapshot(state: Partial<CloudGameState> | null | undefined): void {
             const revision = Number(state?.pvpEconomyRevision) || 0;
             const localRevision = Number(sys.localStorage.getItem(PVP_ECONOMY_REVISION_KEY)) || 0;
@@ -102,6 +150,7 @@ export function installPlayerMetaStateModule(target: any): void {
             if (!Number.isSafeInteger(revision) || fields.some(key => !Number.isSafeInteger(state?.[key]) || state![key] < 0)) {
                 throw new Error('[PvpEconomy] invalid authoritative inventory snapshot');
             }
+            this.applyWechatGiftState(state, true);
             const keys = [(this.constructor as any).LS_VIGOR, (this.constructor as any).LS_VIGOR_TIME,
                 LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND, LS_PROP_FREEZE, LS_PROP_BRUSH, LS_PROP_MAGNET];
             fields.forEach((field, index) => sys.localStorage.setItem(keys[index], String(state![field])));
@@ -131,12 +180,15 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         getGold(): number {
+            if (getBrowserLevelPreview().active) return PreviewRewardSave.gold();
+            this.recoverWechatGiftJournal();
             const raw = sys.localStorage.getItem(LS_GOLD);
             const value = raw ? parseInt(raw, 10) : 0;
             return Number.isFinite(value) && value > 0 ? value : 0;
         },
 
         setGold(value: number, options: { syncCloud?: boolean } = {}): void {
+            if (getBrowserLevelPreview().active) { PreviewRewardSave.setGold(value); this.refreshGoldUI(); return; }
             sys.localStorage.setItem(LS_GOLD, String(Math.max(0, Math.floor(Number(value) || 0))));
             this.refreshGoldUI();
             if (options.syncCloud !== false) {
@@ -172,12 +224,15 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         getPropCount(kind: InventoryPropKind): number {
+            if (getBrowserLevelPreview().active) return PreviewRewardSave.prop(kind);
+            this.recoverWechatGiftJournal();
             const raw = sys.localStorage.getItem(this.getPropStorageKey(kind));
             const value = raw ? parseInt(raw, 10) : 0;
             return Number.isFinite(value) && value > 0 ? value : 0;
         },
 
         setPropCount(kind: InventoryPropKind, value: number): void {
+            if (getBrowserLevelPreview().active) { PreviewRewardSave.setProp(kind, value); return; }
             sys.localStorage.setItem(this.getPropStorageKey(kind), String(Math.max(0, Math.floor(Number(value) || 0))));
             this.queueCloudGameStateSync();
         },
@@ -198,6 +253,7 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         grantStarterPropsForNewUser(): void {
+            if (getBrowserLevelPreview().active) { PreviewRewardSave.ensureStarterProps(NEW_USER_STARTER_PROP_COUNT); return; }
             const starterKinds: InventoryPropKind[] = ['freeze', 'brush', 'magnet'];
             let changed = false;
             const freezeStorageKey = this.getPropStorageKey('freeze');

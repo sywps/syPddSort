@@ -10,6 +10,7 @@ import {
     instantiate,
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
+import { openFeedbackPanel } from './FeedbackPanelController';
 
 const SETTINGS_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/SettingsPanel';
 const SETTINGS_PREFAB_IN_FLIGHT_KEY = 'settings-prefab';
@@ -175,6 +176,8 @@ export class SettingsPanelController {
     open() {
         if (this.disposed) return;
         const runtime = this.runtime;
+        if (runtime.getRuntimeSceneName('Game') === 'Game'
+            && (runtime.isGameEnd || runtime._patternCompleteWinPending || runtime._gameplayTransitionPromise)) return;
         const popupRoot = runtime.requireCanvasUiRoot('PopupRoot');
         if (popupRoot.getChildByName('SettingsOverlay')) return;
         if (runtime._panelOpenInFlight.has(SETTINGS_PREFAB_IN_FLIGHT_KEY)) return;
@@ -431,6 +434,15 @@ export class SettingsPanelController {
                     && !runtime.isTutorialVigorFreeLevel(runtime.getActiveLogicalLevelId(), entryMode);
 
                 bindClick(xBtn, closeSettings);
+                const feedbackEntry = requireChild(box, 'FeedbackEntry');
+                bindClick(feedbackEntry, () => {
+                    if (settingsClosed || homeRouteInFlight || !overlay?.isValid || !overlay.active) return;
+                    AudioMgr.inst.play('button');
+                    overlay.active = false;
+                    openFeedbackPanel(runtime, () => {
+                        if (!settingsClosed && isOpenTargetAlive() && overlay?.isValid) overlay.active = true;
+                    });
+                });
                 if (showGameplayActions) {
                     bindClick(restartBtn, () => {
                         if (settingsClosed || homeRouteInFlight || !overlay?.isValid) return;

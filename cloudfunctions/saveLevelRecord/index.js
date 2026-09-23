@@ -12,6 +12,22 @@ const PCH_GAMEPLAY_MODE = 'pch_conveyor';
 const PCH_GAMEPLAY_SCHEMA_VERSION = 1;
 const MAX_GAMEPLAY_STAT_COUNT = 1000000000;
 
+function normalizeCountdownTiming(event) {
+  if (event.countdownTimingVersion === undefined) return {}; // Legacy is unknown, never zero.
+  if (event.countdownTimingVersion !== 1 || typeof event.countdownTimingApplicable !== 'boolean') {
+    throw new Error('Invalid countdown timing version/applicability');
+  }
+  const fields = { countdownTimingVersion: 1, countdownTimingApplicable: event.countdownTimingApplicable };
+  for (const name of ['countdownConsumedSeconds', 'reviveCount', 'addedTimeSeconds']) {
+    const value = event[name];
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > MAX_GAMEPLAY_STAT_COUNT
+        || (name === 'reviveCount' && !Number.isInteger(value))) throw new Error('Invalid ' + name);
+    fields[name] = value;
+  }
+  if (!fields.countdownTimingApplicable && fields.countdownConsumedSeconds !== 0) throw new Error('Untimed round has countdown consumption');
+  return fields;
+}
+
 function cleanString(value, maxLength = 64) {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
@@ -159,6 +175,11 @@ exports.main = async (event = {}) => {
         encouragementExperimentBucket: cleanString(event.encouragementExperimentBucket, 8),
         encouragementEnrolledAt: Math.max(0, Number(event.encouragementEnrolledAt) || 0),
         encouragementExperimentReason: cleanString(event.encouragementExperimentReason, 64),
+        thirdLevelExperimentId: cleanString(event.thirdLevelExperimentId, 64),
+        thirdLevelExperimentStatus: cleanString(event.thirdLevelExperimentStatus, 16),
+        thirdLevelExperimentBucket: cleanString(event.thirdLevelExperimentBucket, 8),
+        thirdLevelEnrolledAt: Math.max(0, Number(event.thirdLevelEnrolledAt) || 0),
+        thirdLevelExperimentReason: cleanString(event.thirdLevelExperimentReason, 64),
         firstLevelExperimentStatus: cleanString(event.firstLevelExperimentStatus, 16),
         firstLevelExperimentBucket: cleanString(event.firstLevelExperimentBucket, 8),
         firstLevelContentVersion: cleanString(event.firstLevelContentVersion, 32),
@@ -176,6 +197,7 @@ exports.main = async (event = {}) => {
         gameplaySchemaVersion,
         failureReason: normalizeFailureReason(event.failureReason),
         gameplayStats: normalizePchGameplayStats(event.gameplayStats, gameplayMode, gameplaySchemaVersion),
+        ...normalizeCountdownTiming(event),
         effectiveTimeLimit: normalizeGameplayStatCount(event.effectiveTimeLimit),
         ddaFactor: Math.min(10, Math.max(0, Number(event.ddaFactor) || 0)),
         ddaReason: cleanString(event.ddaReason, 64),

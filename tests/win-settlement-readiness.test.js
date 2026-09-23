@@ -107,8 +107,8 @@ assert.match(
     'final lose home and replay actions must remain bound to their real Cocos Buttons',
 );
 assert.ok(
-    settlement.includes('this.bindResultPanelButton(settingsBtn, () => {'),
-    'win settlement settings must remain bound to its real Cocos Button',
+    settlement.includes('if (settingsBtn) settingsBtn.active = false;'),
+    'win settlement must hide its settings entry',
 );
 assert.strictEqual(
     (resultPanel.match(/runtime\.bindPanelButton\(/g) || []).length,

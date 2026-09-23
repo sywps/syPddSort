@@ -1217,11 +1217,14 @@ export function installGameplayPlacementFxModule(target: any): void {
         
         tickTimer() {
             if (this.isGameEnd) return;
+            if (this._gameForeground === false || this._adTimerSuspended) return;
             if (this._currentLevelUnlimitedTime) return;
             if (this._timerPauseRefs > 0) return;
             if (this.isCoopMode?.()) this.recordCoopRuleEvent(8);
             if (this.tickFreezeTimer()) return;
+            const countdownBefore = Math.max(0, Number(this.timeRemain) || 0);
             this.timeRemain--;
+            AnalyticsMgr.inst.recordCountdownConsumption(Math.min(1, countdownBefore));
             if (this.timerLabel) {
                 this.timerLabel.string = this.formatTime(this.timeRemain);
                 if (this.timeRemain <= 30) {

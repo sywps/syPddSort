@@ -258,7 +258,7 @@ async function run() {
 
     const guide = read('assets/Scripts/Core/GameCtrlModules/CollectionGuideModule.ts');
     const collectionPanelController = read('assets/Scripts/Core/Panels/CollectionPanelController.ts');
-    const collectionPrefab = JSON.parse(read('assets/GameAssetsBundle/UI/Prefabs/Panels/CollectionPanel.prefab'));
+    const collectionPrefab = JSON.parse(read('assets/GameAssetsBundle/UI/Prefabs/Panels/ArtworkPreview.prefab'));
     const sceneEntry = read('assets/Scripts/Core/GameCtrlModules/SceneHomeEntryModule.ts');
     const playerMeta = read('assets/Scripts/Core/GameCtrlModules/PlayerMetaStateModule.ts');
     const progressOwner = read('assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts');
@@ -271,7 +271,9 @@ async function run() {
         .map((ref) => collectionPrefab[ref?.__id__])
         .find((component) => component?.__type__ === type);
 
-    const boxIndex = findNodeIndex('Box');
+    const detailIndex = findNodeIndex('ArtworkPreview');
+    assert.equal(collectionPrefab[detailIndex]._active, true, 'shared preview starts active when instantiated');
+    const boxIndex = childIds(collectionPrefab[detailIndex]).find(id => collectionPrefab[id]._name === 'Box');
     const replayIndex = findNodeIndex('CollectionReplayButton');
     const replayButton = collectionPrefab[replayIndex];
     assert.ok(boxIndex >= 0 && replayIndex >= 0, 'collection prefab must contain the replay button under Box');
@@ -301,9 +303,11 @@ async function run() {
     assert.ok(!guide.includes("this.getSF('popup_primary_button')"), 'replay button art must come from the prefab');
     assert.ok(!guide.includes("this.getSF('popup_vigor_icon')"), 'replay vigor art must come from the prefab');
     assert.ok(
-        collectionPanelController.includes("runtime.requirePanelChild(box, 'CollectionReplayButton').active = false;"),
-        'catalog view must explicitly hide the shared replay button',
+        collectionPanelController.includes("'UI/Prefabs/Panels/CollectionPanelV2'"),
+        'catalog uses V2 while the detail shell retains the existing replay prefab',
     );
+    const catalogPrefab = JSON.parse(read('assets/GameAssetsBundle/UI/Prefabs/Panels/CollectionPanelV2.prefab'));
+    assert.ok(!catalogPrefab.some(record => record._name === 'CollectionImageModal'), 'catalog must use the shared detail prefab');
     assert.ok(guide.includes("'重玩本关'"), 'replay button must show its main action label');
     assert.ok(guide.includes("'-1'"), 'replay button must show one-vigor cost below the title');
     assert.ok(sceneEntry.includes('routeReason: string ='), 'normal gameplay route must carry the replay source');

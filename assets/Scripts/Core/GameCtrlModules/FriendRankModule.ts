@@ -1,3 +1,4 @@
+import { ProfileResourceService } from '../ProfileResourceService';
 import {
     _decorator, Component, Node, UITransform, Sprite, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
@@ -31,6 +32,36 @@ import type {
 } from '../GameCtrlShared';
 import { debugPerfSnapshot, debugPerfTrace, isDebugPerfTraceEnabled } from '../DebugPerfTrace';
 import { runtimeLog } from '../RuntimeLog';
+
+const friendProfileFiles = new Map<string, Promise<string>>();
+async function downloadFriendProfileArt(wx: any, snapshot: ReturnType<typeof ProfileResourceService.openDataArt>): Promise<Record<string, string>> {
+    const files: Record<string, string> = {};
+    if (!snapshot) return files;
+    const rows = snapshot.manifest.items.slice();
+    await Promise.all(Array.from({ length: 4 }, async () => {
+        while (rows.length) {
+            const row = rows.shift()!;
+            const url = snapshot.baseUrl + row.asset;
+            let pending = friendProfileFiles.get(url);
+            if (pending) {
+                try { wx.getFileSystemManager().accessSync(await pending); }
+                catch (_) { friendProfileFiles.delete(url); pending = undefined; }
+            }
+            if (!pending) {
+                pending = new Promise<string>((resolve, reject) => {
+                    wx.downloadFile({ url, timeout: 15000,
+                        success: (r: any) => r.statusCode === 200 && r.tempFilePath
+                            ? resolve(r.tempFilePath) : reject(Error('Profile image HTTP ' + r.statusCode)),
+                        fail: reject });
+                });
+                friendProfileFiles.set(url, pending);
+            }
+            try { files[url] = await pending; }
+            catch (error) { friendProfileFiles.delete(url); console.error('[FriendRank] profile image download failed', row.id, error); }
+        }
+    }));
+    return files;
+}
 
 function requireFriendRankNode(parent: Node, name: string): Node {
     const node = parent.getChildByName(name);
@@ -125,7 +156,7 @@ export function installFriendRankModule(target: any): void {
             try {
                 const friendData: any[] = await new Promise((resolve, reject) => {
                     wx.getFriendCloudStorage({
-                        keyList: ['score'],
+                        keyList: ['score', 'profile_v1'],
                         success: (res: any) => resolve(res.data || []),
                         fail: (err: any) => reject(err),
                     });
@@ -182,6 +213,7 @@ export function installFriendRankModule(target: any): void {
                     displayName: item.nickname || item.nickName || '微信用户',
                     avatarUrl: item.avatarUrl || '',
                     progressLevel: this.extractFriendScore(item),
+                    ...this.readFriendCustomization(item),
                 }))
                 .sort((a, b) => this.compareFriendRankEntries(a, b))
                 .slice(0, 100)
@@ -189,6 +221,17 @@ export function installFriendRankModule(target: any): void {
                     ...entry,
                     rank: index + 1,
                 }));
+        },
+
+        readFriendCustomization(item: any): Partial<RankListEntry> {
+            const entry = Array.isArray(item?.KVDataList) ? item.KVDataList.find((x: any) => x.key === 'profile_v1') : null;
+            if (!entry) return {};
+            try {
+                const value = JSON.parse(entry.value);
+                if (value.version !== 1 || typeof value.displayName !== 'string') return {};
+                return { displayName: value.displayName.slice(0, 24),
+                    avatarId: 0, frameId: 0 };
+            } catch (error) { console.warn('[Profile] invalid friend customization', error); return {}; }
         },
 
         async getWeChatFriendAvatarEntries(forceRefresh: boolean = false): Promise<RankListEntry[]> {
@@ -209,7 +252,7 @@ export function installFriendRankModule(target: any): void {
                 const friendData: any[] = await withFriendRankTimeout(
                     new Promise((resolve, reject) => {
                         wx.getFriendCloudStorage({
-                            keyList: ['score'],
+                            keyList: ['score', 'profile_v1'],
                             success: (res: any) => resolve(res.data || []),
                             fail: (err: any) => reject(err),
                         });
@@ -404,9 +447,9 @@ export function installFriendRankModule(target: any): void {
             listNode.addChild(host);
             host.layer = Layers.Enum.UI_2D;
             // One-time alignment with the saved nationwide viewport, not live Prefab coupling.
-            host.setPosition(0, -4.933);
+            host.setPosition(0, -34.933);
             const hostWidth = 596;
-            const hostHeight = 580;
+            const hostHeight = 640;
             host.addComponent(UITransform).setContentSize(hostWidth, hostHeight);
             const subContextView = host.addComponent(SubContextView);
             (subContextView as any)._designResolutionSize = new Size(hostWidth, hostHeight);
@@ -471,7 +514,7 @@ export function installFriendRankModule(target: any): void {
             setFriendRankLoadingVisible(listNode, true);
         
             const profile = UserMgr.inst.getProfile();
-            void LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
+            await LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
             let loadFailed = false;
             let result: LeaderboardResult = {
                 source: 'local-preview',
@@ -566,7 +609,7 @@ export function installFriendRankModule(target: any): void {
             }
 
             const avatarNode = requireFriendRankNode(resolvedRow, 'Avatar');
-            this.loadAvatarToNode(entry.avatarUrl, avatarNode);
+            this.loadAvatarToNode(entry.avatarUrl, avatarNode, entry);
 
             const nameLabel = requireFriendRankNode(resolvedRow, 'Name').getComponent(Label);
             if (!nameLabel) throw new Error('[leaderboard-prefab] missing Name label');
@@ -574,7 +617,7 @@ export function installFriendRankModule(target: any): void {
 
             const progressLabel = requireFriendRankNode(resolvedRow, 'Progress').getComponent(Label);
             if (!progressLabel) throw new Error('[leaderboard-prefab] missing Progress label');
-            progressLabel.string = `第${entry.progressLevel}关`;
+            progressLabel.string = `通关${Math.max(0, Math.floor(Number(entry.progressLevel) || 1) - 1)}关`;
         },
 
         renderLeaderboardRows(parent: Node, entries: RankListEntry[]) {
@@ -610,7 +653,8 @@ export function installFriendRankModule(target: any): void {
             if (!bgTransform) throw new Error('[leaderboard-prefab] RowBg is missing UITransform');
             const lastBottom = rowY(entries.length - 1) + lastBg.position.y
                 - bgTransform.height * bgTransform.anchorPoint.y;
-            const totalH = Math.max(viewportH, viewportH / 2 - lastBottom + bottomPadding);
+            const viewportTop = viewportH * (1 - viewportTransform.anchorPoint.y);
+            const totalH = Math.max(viewportH, viewportTop - lastBottom + bottomPadding);
             content.active = true;
             (content.getComponent(UITransform) || content.addComponent(UITransform)).setContentSize(viewW, totalH);
         

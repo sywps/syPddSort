@@ -9,6 +9,7 @@ export const COOP_ROUTE_REASON = 'pixel-coop';
 export type CoopLevelEntry = { levelId: number; name: string; beanCount: number; collectionId: string; file: string };
 export type CoopPost = { id: string; levelId: number; levelHash: string; creatorName: string; creatorDone: boolean; published: boolean; completedCount: number };
 export type CoopRun = { id: string; postId: string; role: 'creator' | 'collaborator'; version: number;
+    avatarUrl?: string; avatarId?: number; frameId?: number;
     status: 'playing' | 'complete'; elapsedMs: number; completedAt: number | null; displayName: string;
     lastRequestId?: string };
 export type CoopOverview = { activeCreated: string | null; activeJoined: string | null; unlocked: Record<string, number> };

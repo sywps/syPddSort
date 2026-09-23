@@ -7,7 +7,7 @@ const source = fs.readFileSync(
     path.join(root, 'assets/Scripts/Core/PchConveyorGameplayController.ts'),
     'utf8',
 );
-assert.match(source, /const BELT_STEP_SECONDS = 0\.25;/, 'conveyor cadence must match the competitor 0.25-second step');
+assert.match(source, /const BELT_STEP_SECONDS = 0\.30;/, 'conveyor cadence must match the verified 0.30-second step');
 
 function methodBody(marker) {
     const start = source.indexOf(marker);

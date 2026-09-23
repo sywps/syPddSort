@@ -25,7 +25,11 @@ class Camera extends Component {}
 Camera.ProjectionType = { ORTHO: 1 }; Camera.ClearFlag = { SOLID_COLOR: 1 };
 class Sprite extends Component {} Sprite.SizeMode = { CUSTOM: 1 };
 class Label extends Component {}
-class BoardSlotBatchRenderer extends Component { configure(cells) { this.cells = cells; } }
+class BoardSlotBatchRenderer extends Component {
+    configure(cells) { this.cells = cells.map(c => ({ ...c, uv: c.spriteFrame.uv.slice() })); }
+    getPreparedCells() { return this.cells; }
+    markForUpdateRenderData() {}
+}
 class Color {}
 const textures = [];
 class RenderTexture {
@@ -33,14 +37,14 @@ class RenderTexture {
     reset({ width, height }) { this.width = width; this.height = height; }
     destroy() { this.isValid = false; }
 }
-class SpriteFrame { constructor() { this.isValid = true; } reset(options) { Object.assign(this, options); } addRef() {} decRef() {} destroy() { this.isValid = false; } }
+class SpriteFrame { constructor() { this.isValid = true; this.uv = [0, 1, 1, 1, 0, 0, 1, 0]; } reset(options) { Object.assign(this, options); } addRef() {} decRef() {} destroy() { this.isValid = false; } }
 const scene = new Node('Scene'); scene.addComponent(Canvas);
 const screenCamera = scene.addComponent(Camera); screenCamera.visibility = 0xffffffff;
 const captures = [], outlines = [];
 const cc = { _decorator: { ccclass: () => C => C }, Component, Node, UITransform, Canvas, Camera, Sprite, Label, Color, RenderTexture, SpriteFrame,
     Director: { EVENT_AFTER_DRAW: 'draw' }, director: { getScene: () => scene, once: (_, fn) => {
         const board = scene.getChildByName('CompletedPatternCapture').getChildByName('CompletedBoard');
-        captures.push(board.children.map(layer => ({ name: layer.name, cells: layer.children.flatMap(n => (n.getComponent(BoardSlotBatchRenderer)?.cells || []).map(c => ({size:c.size, frame:c.spriteFrame, layer:n.layer}))) })));
+        captures.push(board.children.map(layer => ({ name: layer.name, cells: layer.children.flatMap(n => (n.getComponent(BoardSlotBatchRenderer)?.cells || []).map(c => ({size:c.size, frame:c.spriteFrame, layer:n.layer, uv:Array.from(c.uv)}))) })));
         queueMicrotask(fn);
     }, off() {} } };
 const source = fs.readFileSync('assets/Scripts/Core/CompletedPatternPreview.ts', 'utf8');
@@ -77,8 +81,12 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 5));
     assert.notStrictEqual(captures[0][0].cells[0].frame, slotFrame, 'capture must not mutate live board SpriteFrames');
     assert.strictEqual(captures[0][0].cells[0].frame.texture, slotFrame.texture);
     assert.equal(captures[0][0].cells[0].size, 62);
-    assert.equal(captures[0][3].cells[0].size, 50, 'completed beans must not fill the entire target cell');
-    assert.equal(outlines.length, 1, 'use the real board outline path once per capture');
+    assert.deepEqual(captures[0][0].cells[0].uv, [0.02, 0.98, 0.02, 0.98, 0.02, 0.98, 0.02, 0.98], 'preview slots sample the outer background uniformly');
+    assert.deepEqual(captures[0][1].cells[0].uv, frame.uv, 'bean texture details remain unchanged');
+    assert.deepEqual(slotFrame.uv, [0, 1, 1, 1, 0, 0, 1, 0], 'live slot frame UVs remain unchanged');
+    assert.equal(captures[0][1].cells[0].size, 50, 'completed beans must not fill the entire target cell');
+    assert.equal(outlines.length, 0, 'shared Home, collection and win previews omit gameplay outlines');
+    assert.deepEqual(captures[0].map(layer => layer.name), ['BoardSlots', 'CompletedBeans']);
     for (let dim = 1; dim <= 120; dim++) {
         const padding = dim > 20 ? 8 : 28;
         const expected = Math.max(dim > 48 ? 6 : dim > 32 ? 8 : 12, Math.min(62, Math.floor((660 - padding) / dim)));

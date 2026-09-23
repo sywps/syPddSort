@@ -34,6 +34,7 @@ function formatEntry(entry, rank) {
     uuid: typeof entry.uuid === 'string' ? entry.uuid : '',
     displayName: normalizeDisplayName(entry.displayName, entry.uuid),
     avatarUrl: typeof entry.avatarUrl === 'string' ? entry.avatarUrl : '',
+    avatarId: Number(entry.avatarId) || 0, frameId: Number(entry.frameId) || 0,
     progressLevel: normalizeProgress(entry.progressLevel),
     updatedAt: Math.floor(Number(entry.updatedAt) || 0),
   };
@@ -57,6 +58,8 @@ async function submitProgress(event, wxContext) {
   const uuid = typeof event.uuid === 'string' ? event.uuid : '';
   const displayName = normalizeDisplayName(event.displayName, uuid);
   const avatarUrl = typeof event.avatarUrl === 'string' ? event.avatarUrl : '';
+  const avatarId = Number.isInteger(event.avatarId) && event.avatarId >= 1001 && event.avatarId <= 1036 ? event.avatarId : 0;
+  const frameId = Number.isInteger(event.frameId) && event.frameId >= 2001 && event.frameId <= 2014 ? event.frameId : 2001;
   const now = Date.now();
   const collection = db.collection(COLLECTION_NAME);
   const current = await findEntryByOpenId(openid);
@@ -71,6 +74,7 @@ async function submitProgress(event, wxContext) {
           uuid,
           displayName,
           avatarUrl,
+          avatarId, frameId,
           progressLevel,
           createdAt: now,
           updatedAt: now,
@@ -96,6 +100,8 @@ async function submitProgress(event, wxContext) {
   if (uuid && current.uuid !== uuid) patch.uuid = uuid;
   if (displayName && current.displayName !== displayName) patch.displayName = displayName;
   if (avatarUrl && current.avatarUrl !== avatarUrl) patch.avatarUrl = avatarUrl;
+  if (current.avatarId !== avatarId) patch.avatarId = avatarId;
+  if (current.frameId !== frameId) patch.frameId = frameId;
   if (nextProgress > currentProgress) {
     patch.progressLevel = nextProgress;
     patch.updatedAt = now;

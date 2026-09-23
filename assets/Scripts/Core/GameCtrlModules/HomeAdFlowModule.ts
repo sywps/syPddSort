@@ -1,3 +1,6 @@
+import { openProfilePanel, disposeProfilePanel } from '../Panels/ProfilePanelController';
+import { ProfileCustomizationMgr } from '../ProfileCustomizationMgr';
+import { renderProfileAvatar } from '../ProfileAvatarView';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
@@ -35,6 +38,8 @@ import type { ResultPanelKind } from '../GameplayResultPanelController';
 import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { runtimeLog } from '../RuntimeLog';
 import { openFeedbackPanel } from '../Panels/FeedbackPanelController';
+import { renderHomeChapter } from '../HomeChapterView';
+import { HomeContentLayout } from '../HomeContentLayout';
 import type { RewardedAdOutcome, RewardedAdStateSnapshot } from '../../Platform/RewardedAdProvider';
 import { weChatShareReturnService } from '../../Platform/WeChatShareReturnService';
 import type { WeChatShareReturnHandle } from '../../Platform/WeChatShareReturnService';
@@ -1386,9 +1391,17 @@ export function installHomeAdFlowModule(target: any): void {
 
         renderMainMenuFixedRoot(menu: Node) {
             const bgLayer = this.requireUiChild(menu, 'BackgroundLayer', 'MainMenuFixedRoot/BackgroundLayer');
-            const topBarGroup = this.requireUiChild(menu, 'TopBarGroup', 'MainMenuFixedRoot/TopBarGroup');
-            const heroLayer = this.requireUiChild(menu, 'HeroLayer', 'MainMenuFixedRoot/HeroLayer');
-            const primaryActionLayer = this.requireUiChild(menu, 'PrimaryActionLayer', 'MainMenuFixedRoot/PrimaryActionLayer');
+            const safeArea = this.requireUiChild(menu, 'TopBarGroup', 'MainMenuFixedRoot/TopBarGroup');
+            const topBarGroup = this.requireUiChild(safeArea, 'TopInfoGroup', 'TopBarGroup/TopInfoGroup');
+            const contentArea = this.requireUiChild(safeArea, 'HomeContentArea', 'TopBarGroup/HomeContentArea');
+            if (!contentArea.getComponent(HomeContentLayout)) {
+                throw new Error('[HomeScene] HomeContentArea is missing HomeContentLayout');
+            }
+            const heroLayer = this.requireUiChild(contentArea, 'HomeContentGroup', 'HomeContentArea/HomeContentGroup');
+            const actionArea = this.requireUiChild(heroLayer, 'ActionArea', 'HomeContentGroup/ActionArea');
+            const primaryActionLayer = this.requireUiChild(actionArea, 'PrimaryActionLayer', 'ActionArea/PrimaryActionLayer');
+            const leftEntries = this.requireUiChild(actionArea, 'LeftEntries', 'ActionArea/LeftEntries');
+            const rightEntries = this.requireUiChild(actionArea, 'RightEntries', 'ActionArea/RightEntries');
             const entryLayer = this.requireUiChild(menu, 'EntryLayer', 'MainMenuFixedRoot/EntryLayer');
 
             const bgNode = this.requireUiChild(bgLayer, 'BG', 'BackgroundLayer/BG');
@@ -1412,26 +1425,21 @@ export function installHomeAdFlowModule(target: any): void {
             const heroCard = this.requireUiChild(heroLayer, 'HeroCard', 'HeroLayer/HeroCard');
             const heroCardFrame = this.requireUiChild(heroCard, 'HeroCardFrame', 'HeroCard/HeroCardFrame');
             this.requireSceneSpriteFrame(heroCardFrame, 'HeroCard/HeroCardFrame');
-            this.drawHomeLevelPixelPreview(heroCard, curLevel, 0, 0);
+            renderHomeChapter(this, heroCard, curLevel);
 
-            if (typeof this.syncTopHud !== 'function') {
-                throw new Error('[TopHud] runtime missing syncTopHud() for Home scene');
-            }
-            const topHudWidgets = this.syncTopHud(topBarGroup, 'home');
-            if (!topHudWidgets) {
-                this.drawTopRightBtns(topBarGroup);
-                const goldGroup = this.requireUiChild(topBarGroup, 'GoldGroup', 'TopBarGroup/GoldGroup');
-                const vigorGroup = this.requireUiChild(topBarGroup, 'VigorGroup', 'TopBarGroup/VigorGroup');
-                this.drawGoldBanner(goldGroup);
-                this.drawLivesBanner(vigorGroup);
-            }
+            // Home owns its compact header; the gameplay HUD prefab must not replace it.
+            this.drawTopRightBtns(topBarGroup);
+            const goldGroup = this.requireUiChild(topBarGroup, 'GoldGroup', 'TopInfoGroup/GoldGroup');
+            const vigorGroup = this.requireUiChild(topBarGroup, 'VigorGroup', 'TopInfoGroup/VigorGroup');
+            this.drawGoldBanner(goldGroup);
+            this.drawLivesBanner(vigorGroup);
             this.drawStartButton(primaryActionLayer, curLevel);
             this.drawThemeChallengeButton(primaryActionLayer);
-            this.drawLeaderboardButton(entryLayer);
-            this.drawCollectionButton(entryLayer);
-            this.drawSkinButton?.(entryLayer);
-            this.drawGameCircleButton?.(entryLayer);
-            const feedback = this.requireUiChild(entryLayer, 'FeedbackButton', 'EntryLayer/FeedbackButton');
+            this.drawLeaderboardButton(rightEntries);
+            this.drawCollectionButton(leftEntries);
+            this.drawSkinButton?.(leftEntries);
+            this.drawGameCircleButton?.(rightEntries);
+            const feedback = this.requireUiChild(topBarGroup, 'FeedbackButton', 'TopBarGroup/FeedbackButton');
             feedback.targetOff(this);
             feedback.getComponent(Button) || feedback.addComponent(Button);
             feedback.on(Button.EventType.CLICK, () => {
@@ -1623,6 +1631,30 @@ export function installHomeAdFlowModule(target: any): void {
         },
 
         drawTopRightBtns(parent: Node) {
+            const profile = this.requireUiChild(parent, 'ProfileButton', 'TopBarGroup/ProfileButton');
+            profile.targetOff(this);
+            profile.getComponent(Button) || profile.addComponent(Button);
+            profile.on(Button.EventType.CLICK, () => openProfilePanel(this), this);
+            this._profileHomeUnsubscribe?.();
+            this._profileHomeBadgeTween?.stop(); this._profileHomeBadgeTween = null;
+            const profileBadge = this.requireUiChild(profile, 'NewBadge', 'ProfileButton/NewBadge');
+            ProfileCustomizationMgr.inst.refreshProgressUnlocks();
+            const refreshProfile = (publish: boolean = false) => {
+                if (!profile.isValid) return;
+                profileBadge.active = ProfileCustomizationMgr.inst.hasNewItems;
+                if (profileBadge.active && !this._profileHomeBadgeTween) {
+                    this._profileHomeBadgeTween = tween(profileBadge).to(0.10, { angle: -18 }).to(0.18, { angle: 18 })
+                        .to(0.15, { angle: -12 }).to(0.12, { angle: 7.5 }).to(0.10, { angle: 0 })
+                        .delay(1.3).union().repeatForever().start();
+                } else if (!profileBadge.active) {
+                    this._profileHomeBadgeTween?.stop(); this._profileHomeBadgeTween = null; profileBadge.angle = 0;
+                }
+                if (publish) void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
+                void renderProfileAvatar(profile.getChildByName('Avatar')!, profile.getChildByName('Frame')!, UserMgr.inst.getDisplayProfile())
+                    .catch(error => console.error('[Profile] home avatar failed', error));
+            };
+            this._profileHomeUnsubscribe = ProfileCustomizationMgr.inst.subscribe(() => refreshProfile(true));
+            refreshProfile();
             const gear = this.requireUiChild(parent, 'SettingsButton', 'TopBarGroup/SettingsButton');
             const iconNode = this.requireUiChild(gear, 'HomeSettingsIcon', 'SettingsButton/HomeSettingsIcon');
             this.requireSceneSpriteFrame(iconNode, 'SettingsButton/HomeSettingsIcon');
@@ -1632,6 +1664,11 @@ export function installHomeAdFlowModule(target: any): void {
                 AudioMgr.inst.play('button');
                 this.openSettingsPanel();
             }, this);
+        },
+        disposeProfilePanel() {
+            this._profileHomeBadgeTween?.stop(); this._profileHomeBadgeTween = null;
+            this._profileHomeUnsubscribe?.(); this._profileHomeUnsubscribe = null;
+            disposeProfilePanel(this);
         },
     }, {
         _hasGameplayResultPanelPrefabsReady(kinds?: readonly ResultPanelKind[]) {

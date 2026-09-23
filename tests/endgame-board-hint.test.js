@@ -129,21 +129,30 @@ assert.deepStrictEqual(
 
 runtime.boardModel.currentColors[0][1] = 8;
 runtime.refreshEndgameHints('four-board-beans');
-assert.strictEqual(shown.length, 1, 'four board beans must not show hints');
+assert.strictEqual(shown.length, 2, 'four board beans must show hints');
+runtime.boardModel.locked[0][3] = false;
+runtime.refreshEndgameHints('five-board-beans');
+assert.strictEqual(shown.length, 3, 'five board beans must show hints');
+assert.strictEqual(shown[2].cells.length, 5);
+runtime.boardModel.locked[1][0] = false;
+runtime.refreshEndgameHints('six-board-beans');
+assert.strictEqual(shown.length, 3, 'six board beans must not show hints');
 assert.deepStrictEqual(cleared, [false]);
+runtime.boardModel.locked[0][3] = true;
+runtime.boardModel.locked[1][0] = true;
 
 runtime.boardModel.currentColors[0][0] = 0;
 runtime.boardModel.currentColors[0][1] = 0;
 runtime.boardModel.currentColors[0][2] = 0;
 runtime.boardModel.currentColors[1][3] = 0;
 runtime.refreshEndgameHints('all-beans-on-conveyor');
-assert.strictEqual(shown.length, 1, 'an empty playable board must not show hints');
+assert.strictEqual(shown.length, 3, 'an empty playable board must not show hints');
 assert.deepStrictEqual(cleared, [false, false]);
 
 runtime.boardModel.currentColors[1][3] = 7;
 runtime.refreshEndgameHints('one-board-bean');
-assert.strictEqual(shown.length, 2, 'one remaining board bean must show a hint');
-assert.deepStrictEqual(shown[1].cells, [{ row: 1, col: 3, colorId: 7 }]);
+assert.strictEqual(shown.length, 4, 'one remaining board bean must show a hint');
+assert.deepStrictEqual(shown[3].cells, [{ row: 1, col: 3, colorId: 7 }]);
 
 const pchStoreStart = pchSource.indexOf('    private handleBoardTap(');
 const pchStoreEnd = pchSource.indexOf('    private handleCarrierAtEntrance(', pchStoreStart);

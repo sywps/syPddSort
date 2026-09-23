@@ -1,6 +1,5 @@
 import { _decorator, Camera, Canvas, Color, Component, director, Director, Label, Node, RenderTexture, Sprite, SpriteFrame, UITransform } from 'cc';
 import type { PixelPosterPreviewOptions } from './PixelPosterPreviewRenderer';
-import { buildBoardOutline } from './GameplayBoardOutlineRenderer';
 import { getBoardBeanSize, getBoardCellSize } from './GameplayBoardVisualMetrics';
 import { BOARD_SLOT_BATCH_MAX_CELLS, BoardSlotBatchRenderer } from './BoardSlotBatchRenderer';
 import type { BoardSlotBatchCell } from './BoardSlotBatchRenderer';
@@ -116,7 +115,7 @@ async function generate(grid: number[][], side: number, skin: number, runtime: R
         const cell = getBoardCellSize(Math.max(...grid.map(row => row.length)), grid.length);
         const board = new Node('CompletedBoard');
         rig.addChild(board);
-        // Build at gameplay size, then scale everything together (including outline widths and bean rounding).
+        // Keep gameplay cell sizing and preview framing, without the gameplay outline layers.
         const scale = side * 0.94 / ((Math.max(columns, rows) + 0.5) * cell);
         board.setScale(scale, scale, 1);
         const makeLayer = (name: string) => {
@@ -125,8 +124,6 @@ async function generate(grid: number[][], side: number, skin: number, runtime: R
             return node;
         };
         const slots = makeLayer('BoardSlots');
-        const baseOutline = makeLayer('BoardOutlineLayer');
-        const topOutline = makeLayer('BoardOutlineTopLayer');
         const beans = makeLayer('CompletedBeans');
         const slotCells: BoardSlotBatchCell[] = [], beanCells: BoardSlotBatchCell[] = [];
         const makeCell = (r: number, c: number, size: number, spriteFrame: SpriteFrame): BoardSlotBatchCell => ({
@@ -147,7 +144,18 @@ async function generate(grid: number[][], side: number, skin: number, runtime: R
                 for (let offset = 0; offset < group.length; offset += BOARD_SLOT_BATCH_MAX_CELLS) {
                     const node = new Node('Cells'); parent.addChild(node);
                     node.addComponent(UITransform).setContentSize(columns * cell, rows * cell);
-                    node.addComponent(BoardSlotBatchRenderer).configure(group.slice(offset, offset + BOARD_SLOT_BATCH_MAX_CELLS));
+                    const batch = node.addComponent(BoardSlotBatchRenderer);
+                    batch.configure(group.slice(offset, offset + BOARD_SLOT_BATCH_MAX_CELLS));
+                    if (parent === slots) {
+                        // Preview only: fill each slot with its outer background color, without the recessed shadow.
+                        // Keep sampling inside the frame to avoid atlas-edge bleed; leave bean UVs and live frames intact.
+                        for (const cell of batch.getPreparedCells()) {
+                            const u = cell.uv[0] * 0.98 + cell.uv[6] * 0.02;
+                            const v = cell.uv[1] * 0.98 + cell.uv[7] * 0.02;
+                            cell.uv = [u, v, u, v, u, v, u, v];
+                        }
+                        batch.markForUpdateRenderData();
+                    }
                 }
             }
         };
@@ -158,8 +166,6 @@ async function generate(grid: number[][], side: number, skin: number, runtime: R
         }));
         renderCells(slots, slotCells);
         renderCells(beans, beanCells);
-        const cropped = grid.slice(minRow, maxRow + 1).map(row => row.slice(minCol, maxCol + 1));
-        buildBoardOutline(baseOutline, topOutline, cropped, cell, 0, columns, rows);
         const setCaptureLayer = (node: Node) => {
             node.layer = PREVIEW_LAYER;
             node.children.forEach(setCaptureLayer);
@@ -226,11 +232,13 @@ export class CompletedPatternPreview extends Component {
     private grid: number[][] = [];
     private options: PixelPosterPreviewOptions | null = null;
     private skin = -1;
+    private onReady?: (success: boolean) => void;
     private checkSkin = () => {
         if (this.runtime && this.runtime.getEquippedBeanSkinId() !== this.skin) void this.refresh();
     };
 
-    bind(grid: number[][], options: PixelPosterPreviewOptions, runtime: Runtime): void {
+    bind(grid: number[][], options: PixelPosterPreviewOptions, runtime: Runtime, onReady?: (success: boolean) => void): void {
+        this.onReady = onReady;
         this.grid = grid.map(row => row.slice());
         this.options = options;
         this.runtime = runtime;
@@ -263,7 +271,10 @@ export class CompletedPatternPreview extends Component {
             this.node.addChild(statusNode); statusNode.addComponent(UITransform);
         }
         const status = statusNode.getComponent(Label) || statusNode.addComponent(Label);
-        status.fontSize = 18; status.lineHeight = 24; status.string = '图案加载中…'; status.enabled = true;
+        status.fontSize = 24; status.lineHeight = 32;
+        status.color = new Color('#6655A7');
+        status.isBold = true;
+        status.string = '图案加载中…'; status.enabled = true;
         try {
             const side = Math.max(options.maxW, options.maxH) > 256 ? 512 : 256;
             const entry = await acquire(this.grid, side, this.skin, runtime,
@@ -279,15 +290,19 @@ export class CompletedPatternPreview extends Component {
             sprite.spriteFrame = entry.frame;
             const size = Math.max(1, Math.min(options.maxW, options.maxH) - 2 * (options.padding ?? 8));
             this.node.getComponent(UITransform)!.setContentSize(size, size);
+            const onReady = this.onReady; this.onReady = undefined;
+            onReady?.(true);
         } catch (error) {
             if (!this.isValid || token !== this.token) return;
             status.string = '图案加载失败';
             console.error('[completed-pattern-preview]', error);
+            const onReady = this.onReady; this.onReady = undefined;
+            onReady?.(false);
         }
     }
 }
 
-export function renderCompletedPatternPreview(parent: Node, grid: number[][], options: PixelPosterPreviewOptions, runtime: Runtime): Node | null {
+export function renderCompletedPatternPreview(parent: Node, grid: number[][], options: PixelPosterPreviewOptions, runtime: Runtime, onReady?: (success: boolean) => void): Node | null {
     if (!parent.isValid) return null;
     const name = options.name || 'PixelPosterPreview';
     let node = parent.getChildByName(name);
@@ -297,7 +312,7 @@ export function renderCompletedPatternPreview(parent: Node, grid: number[][], op
     node.active = true;
     node.setPosition(options.offsetX || 0, options.offsetY || 0);
     (node.getComponent(UITransform) || node.addComponent(UITransform)).setContentSize(options.maxW, options.maxH);
-    (node.getComponent(CompletedPatternPreview) || node.addComponent(CompletedPatternPreview)).bind(grid, options, runtime);
+    (node.getComponent(CompletedPatternPreview) || node.addComponent(CompletedPatternPreview)).bind(grid, options, runtime, onReady);
     return node;
 }
 

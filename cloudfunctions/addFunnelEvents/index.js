@@ -66,7 +66,7 @@ function sanitizeExtra(value, allowNested = false, depth = 0) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const result = {};
   // Preserve the existing budget plus selection and encouragement experiment fields.
-  for (const [key, raw] of Object.entries(value).slice(0, 40)) {
+  for (const [key, raw] of Object.entries(value).slice(0, 45)) {
     const safeKey = cleanString(key, 64);
     if (!safeKey) continue;
     const safeValue = sanitizeExtraValue(raw, allowNested, depth);
@@ -106,7 +106,7 @@ function normalizeEvent(raw, openid, defaultSessionId, receivedAt) {
     source: cleanString(raw.source, 64),
     success: normalizeBoolean(raw.success),
     errorCode,
-    extraDroppedKeyCount: Math.max(0, Object.keys(raw.extra || {}).length - 40),
+    extraDroppedKeyCount: Math.max(0, Object.keys(raw.extra || {}).length - 45),
     errorMessage: cleanString(raw.errorMessage, 256),
     duration: normalizeNonNegative(raw.duration),
     abId: cleanString(raw.abId, 64),

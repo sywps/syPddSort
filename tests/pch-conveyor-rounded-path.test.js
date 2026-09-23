@@ -92,7 +92,7 @@ const controllerSource = fs.readFileSync(
 assert.match(controllerSource, /const PCH_DIRECTION_SCALE = 0\.86;/, 'moving arrow scale contract');
 assert.match(controllerSource, /direction\.setScale\(PCH_DIRECTION_SCALE, PCH_DIRECTION_SCALE, 1\);/, 'moving arrow scale application');
 assert.match(controllerSource, /direction\.active = stack\.length === 0;/, 'occupied carriers must still hide the arrow');
-assert.match(controllerSource, /const BELT_STEP_SECONDS = 0\.25;/, 'belt speed timing must remain unchanged');
+assert.match(controllerSource, /const BELT_STEP_SECONDS = 0\.30;/, 'belt cadence must use the approved 0.30-second step');
 
 const geometrySource = fs.readFileSync(
   path.join(__dirname, '..', 'assets', 'Scripts', 'Core', 'PchConveyorGeometry.ts'),

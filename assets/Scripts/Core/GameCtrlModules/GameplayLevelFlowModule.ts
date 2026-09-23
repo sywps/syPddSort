@@ -97,7 +97,7 @@ export function installGameplayLevelFlowModule(target: any): void {
             }
         },
 
-        _loadLevelDataImpl(levelId: number, callback: (data: LevelData | null) => void, prefix: string = 'level_') {
+        _loadLevelDataImpl(levelId: number, callback: (data: LevelData | null) => void, prefix: string = 'level_', enteringGameplay: boolean = false) {
             if (this.shouldUseLocalBootstrapBundle(levelId, prefix)) {
                 this._loadLocalLevelDataImpl(levelId, callback, prefix);
                 return;
@@ -119,11 +119,11 @@ export function installGameplayLevelFlowModule(target: any): void {
                     errorMessage: err?.message || 'missing json asset',
                 }));
                 callback(null);
-            });
+            }, enteringGameplay);
             return;
         },
 
-        _loadLocalLevelDataImpl(levelId: number, callback: (data: LevelData | null) => void, prefix: string = 'level_') {
+        _loadLocalLevelDataImpl(levelId: number, callback: (data: LevelData | null) => void, prefix: string = 'level_', enteringGameplay: boolean = false) {
             if (this.shouldUseLocalBootstrapBundle(levelId, prefix)) {
                 const contentPath = this.getLevelDataPath(levelId, prefix);
                 this._withBootstrapBundle((bundle) => {
@@ -150,7 +150,7 @@ export function installGameplayLevelFlowModule(target: any): void {
                 });
                 return;
             }
-            this._loadLevelDataImpl(levelId, callback, prefix);
+            this._loadLevelDataImpl(levelId, callback, prefix, enteringGameplay);
         },
 
         getLevelColorIds(data: LevelData | null): number[] {

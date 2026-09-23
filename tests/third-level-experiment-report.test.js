@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict');
+const {buildThirdLevelExperimentReport:build,aggregateThirdLevelExperimentReports:aggregate}=require('../scripts/third-level-experiment-report');
+const at=Date.parse('2026-09-21T10:00:00+08:00');
+const fields={thirdLevelExperimentId:'third_level_abc_v1',thirdLevelExperimentStatus:'enrolled',thirdLevelExperimentBucket:'B',thirdLevelEnrolledAt:at,firstLevelExperimentBucket:'C'};
+const r=(event,extra={})=>({openid:'u',roundId:'r',timestamp:at+100,gameplayEntryMode:'main',logicalLevelId:3,eventName:event,...fields,...extra});
+const input={date:'2026-09-21',funnelRecords:[],behaviorRecords:[r('enter_level'),r('enter_level'),r('level_pass',{roundId:'orphan'}),r('level_pass',{timestamp:at-1}),r('level_pass',{logicalLevelId:4})],levelRecords:[]};
+let report=build(input);assert.equal(report.groups[1].entered3,1);assert.equal(report.groups[1].passed3,0);assert.equal(report.groups[1].unresolvedRounds,1);
+input.behaviorRecords.push(r('level_pass'),r('enter_level',{roundId:'r4',logicalLevelId:4}));
+report=build(input);assert.equal(report.groups[1].passed3,1);assert.equal(report.groups[1].entered4,1);assert.equal(report.groups[1].unresolvedRounds,0);
+assert.equal(report.byFirstLevelContent.find(g=>g.bucket==='B'&&g.firstLevelContent==='C').passed3,1);
+assert.equal(aggregate([report]).groups[1].passed3,1);
+input.behaviorRecords.push(r('enter_level',{thirdLevelExperimentBucket:'A'}));assert.equal(build(input).groups[1].enrolled,0);
+input.behaviorRecords=[r('enter_level',{thirdLevelExperimentStatus:'test'})];assert.equal(build(input).groups[1].enrolled,0);
+console.log('third-level report: matched rounds, dedup, conflict/test exclusion and strata passed');

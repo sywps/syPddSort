@@ -6,7 +6,9 @@ const ts = require('typescript');
 class Button { static EventType = { CLICK: 'click' }; interactable = true; }
 class EditBox { static EventType = { TEXT_CHANGED: 'text' }; string = ''; enabled = true; }
 class Label { string = ''; }
+class BlockInputEvents {}
 class Node {
+    static EventType = { TOUCH_END: 'touch-end' };
     constructor(name) { this.name=name; this.isValid=true; this.active=true; this.children=[]; this.components=new Map(); this.events={}; }
     addChild(n) { this.children.push(n); n.parent=this; }
     getChildByName(name) { return this.children.find(n=>n.name===name); }
@@ -22,7 +24,7 @@ async function main(){
     const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
     let call, calls=0, payloads=[], timers=[];
     const cloud={getPlatform:()=> 'wechat',getSystemInfo:()=>({device:'test',system:'test'}),callFunction:(_,data)=>{calls++;payloads.push(data);return call();}};
-    const api={};vm.runInNewContext(js,{exports:api,require:path=>path==='cc'?{Button,EditBox,Label,Node,Prefab:class{},BlockInputEvents:class{},instantiate:makePanel}:path.includes('PlatformCloudMgr')?{PlatformCloudMgr:{inst:cloud}}:path.includes('AudioMgr')?{AudioMgr:{inst:{play(){}}}}:{SETTINGS_PANEL_TEXTURE_NAMES:[]},setTimeout:(fn,ms)=>{const t={fn,ms};timers.push(t);return t;},clearTimeout:t=>{timers=timers.filter(x=>x!==t);},console:{error(){}}});
+    const api={};vm.runInNewContext(js,{exports:api,require:path=>path==='cc'?{Button,EditBox,Label,Node,Prefab:class{},BlockInputEvents,instantiate:makePanel}:path.includes('PlatformCloudMgr')?{PlatformCloudMgr:{inst:cloud}}:path.includes('AudioMgr')?{AudioMgr:{inst:{play(){}}}}:{SETTINGS_PANEL_TEXTURE_NAMES:[]},setTimeout:(fn,ms)=>{const t={fn,ms};timers.push(t);return t;},clearTimeout:t=>{timers=timers.filter(x=>x!==t);},console:{error(){}}});
     let retains=0,focus=0;const toasts=[];const popup=new Node('PopupRoot');
     const runtime={node:new Node('Home'),_retainPanelTextureOwner(){retains++;},_releasePanelTextureOwner(){retains--;},_withGameAssetsBundle(fn){fn({load:(_,Type,done)=>done(null,{})});},requireCanvasUiRoot:()=>popup,beginModalFocus:()=>{focus++;return 'focus';},endModalFocus:()=>{focus--;},_closePanelWithTextureOwner(n){n.isValid=false;retains--;},showToast:text=>toasts.push(text),getAnalyticsLevelId:()=>12};
     api.openFeedbackPanel(runtime);api.openFeedbackPanel(runtime);await flush();assert.equal(popup.children.length,1);
@@ -36,6 +38,20 @@ async function main(){
     await button.events.click();assert.equal(calls,2,'confirm must not send another feedback');assert.equal(focus,0);assert.equal(retains,0);
     api.openFeedbackPanel(runtime);await flush();const box2=popup.children[1].getChildByName('Box');const input2=box2.getChildByName('Input').getComponent(EditBox);assert.equal(input2.string,'');input2.string='超时内容';call=()=>new Promise(()=>{});const timeout=box2.getChildByName('Submit').events.click();await flush();timers.find(t=>t.ms===15000).fn();await timeout;assert.equal(input2.string,'超时内容');assert.equal(toasts.length,0);assert.equal(box2.getChildByName('SuccessMessage').active,false);assert.match(box2.getChildByName('Status').getComponent(Label).string,/重试/);
     cloud.getPlatform=()=> 'none';await box2.getChildByName('Submit').events.click();assert.match(box2.getChildByName('Status').getComponent(Label).string,/微信/);
+    const outside = node => node.events[Node.EventType.TOUCH_END]({target:node});
+    outside(popup.children[1]);assert.equal(focus,0);assert.equal(retains,0);
+    let closed=0;api.openFeedbackPanel(runtime,()=>closed++);await flush();
+    const overlay3=popup.children[2],box3=overlay3.getChildByName('Box'),input3=box3.getChildByName('Input').getComponent(EditBox);
+    assert.equal(input3.string,'超时内容','outside dismissal preserves draft');
+    assert.ok(box3.getComponent(BlockInputEvents),'panel body blocks touch propagation');
+    for(const target of [box3,input3.node,box3.getChildByName('Submit')]) overlay3.events[Node.EventType.TOUCH_END]({target});
+    assert.equal(overlay3.isValid,true,'inside touches do not dismiss');assert.equal(closed,0);
+    cloud.getPlatform=()=> 'wechat';call=()=>new Promise(resolve=>{complete=resolve;});
+    const pending3=box3.getChildByName('Submit').events.click();await flush();outside(overlay3);
+    assert.equal(overlay3.isValid,true,'cannot dismiss while submitting');assert.equal(closed,0);
+    complete({ok:true,feedbackId:'saved-again'});await pending3;
+    outside(overlay3);outside(overlay3);
+    assert.equal(overlay3.isValid,false,'success view supports outside dismissal');assert.equal(closed,1,'restore caller once');assert.equal(retains,0);assert.equal(focus,0);
     api.disposeFeedbackPanel(runtime);assert.equal(retains,0);assert.equal(focus,0);assert.equal(timers.length,0);
     console.log('feedback-panel.test.js passed');
 }

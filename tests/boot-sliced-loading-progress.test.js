@@ -61,18 +61,18 @@ const trackSprite = findComponent(bootScene, trackSpriteNode, 'cc.Sprite');
 const fillSprite = findComponent(bootScene, fillNode, 'cc.Sprite');
 
 assert.deepEqual(trackTransform._contentSize, {
-    __type__: 'cc.Size', width: 430, height: 24,
+    __type__: 'cc.Size', width: 430, height: 36,
 }, 'Boot loading root must own the physical sliced-bar size');
 assert.deepEqual(progressAreaTransform._contentSize, {
-    __type__: 'cc.Size', width: 430, height: 24,
+    __type__: 'cc.Size', width: 430, height: 36,
 }, 'ProgressBarArea must match the physical sliced-bar size');
 assert.equal(hasComponent(bootScene, progressArea, 'cc.ProgressBar'), false,
     'Boot loading must not retain a reachable native ProgressBar');
 assert.deepEqual(trackSpriteTransform._contentSize, {
-    __type__: 'cc.Size', width: 1720, height: 96,
+    __type__: 'cc.Size', width: 430 / (36 / 96), height: 96,
 }, 'Boot track source must retain 4x source dimensions');
-assert.equal(trackSpriteNode._lscale.x, 0.25, 'Boot track must render its source at quarter scale');
-assert.equal(trackSpriteNode._lscale.y, 0.25, 'Boot track must render its source at quarter scale');
+assert.equal(trackSpriteNode._lscale.x, 36 / 96, 'track caps scale uniformly to the full height');
+assert.equal(trackSpriteNode._lscale.y, 36 / 96);
 assert.equal(trackSprite._type, 1, 'Boot track must use Sliced Sprite mode');
 assert.equal(trackSprite._spriteFrame.__uuid__, trackUuid, 'Boot track must bind its Boot-local sliced sprite');
 assert.equal(fillNode._active, false, 'Boot fill must begin hidden at zero progress');
@@ -80,8 +80,8 @@ assert.deepEqual(fillTransform._contentSize, {
     __type__: 'cc.Size', width: 0, height: 72,
 }, 'Boot fill must begin as a high-resolution zero-width sprite');
 assert.equal(fillTransform._anchorPoint.x, 0.5, 'Boot fill must remain center anchored for physical positioning');
-assert.equal(fillNode._lscale.x, 0.25, 'Boot fill must render at quarter scale');
-assert.equal(fillNode._lscale.y, 0.25, 'Boot fill must render at quarter scale');
+assert.equal(fillNode._lscale.x, 30 / 72, 'fill caps scale uniformly to the inset height');
+assert.equal(fillNode._lscale.y, 30 / 72);
 assert.equal(fillSprite._type, 1, 'Boot fill must use Sliced Sprite mode');
 assert.equal(fillSprite._spriteFrame.__uuid__, fillUuid, 'Boot fill must bind its Boot-local sliced sprite');
 assert.equal(bootSceneText.includes(oldTrackUuid), false, 'Boot scene must release the old track UUID');
@@ -95,12 +95,12 @@ assert.deepEqual(trackMeta.subMetas.f9941.userData.borderLeft, 48, 'Boot track m
 assert.deepEqual(fillMeta.subMetas.f9941.userData.borderLeft, 36, 'Boot fill must preserve the 4x cap border');
 assert.equal(
     assetHash('assets/Textures/UI/loading_progress_track_sliced.png'),
-    assetHash('assets/BootstrapBundle/GameUI/RainbowConveyor/Atlases/PchCapacity/pch_capacity_track_sliced.png'),
+    assetHash('assets/PreviewBundle/ArtCandidates/ConveyorLegacy/pch_capacity_track_sliced.png'),
     'Boot track pixels must exactly match the corrected PCH visual',
 );
 assert.equal(
     assetHash('assets/Textures/UI/loading_progress_fill_sliced.png'),
-    assetHash('assets/BootstrapBundle/GameUI/RainbowConveyor/Atlases/PchCapacity/pch_capacity_fill_sliced.png'),
+    assetHash('assets/PreviewBundle/ArtCandidates/ConveyorLegacy/pch_capacity_fill_sliced.png'),
     'Boot fill pixels must exactly match the corrected PCH visual',
 );
 
@@ -124,7 +124,21 @@ assert.ok(startupController.includes('createSlicedLoadingProgressAdapter'), 'per
 for (const source of [bootController, themeModule, shareModule]) {
     assert.equal(/\bProgressBar\b/.test(source), false, 'old loading callers must not depend on native ProgressBar');
 }
-assert.ok(startupController.includes('width / this.progress.fillRenderScale'), 'waiting sweep must preserve high-resolution rendering scale');
+assert.ok(startupController.includes('this.progress.progress = percent / 100'), 'determinate progress must reuse the high-resolution sliced adapter');
+const percentageNode = findNode(bootScene, 'Percentage');
+const percentageLabel = findComponent(bootScene, percentageNode, 'cc.Label');
+assert.equal(percentageLabel._string, '0%');
+assert.equal(bootScene[percentageNode._parent.__id__], track, 'percentage hides with the track during recovery');
+assert.equal(percentageNode._lpos.x, 0, 'percentage stays centered independently of fill');
+assert.equal(percentageNode._lpos.y, 0);
+assert.equal(percentageLabel._fontSize, 20);
+assert.equal(percentageLabel._isBold, true);
+assert.equal(percentageLabel._horizontalAlign, 1);
+assert.equal(percentageLabel._verticalAlign, 1);
+assert.equal(percentageLabel._enableOutline, true);
+assert.equal(percentageLabel._outlineWidth, 1);
+assert.deepEqual(percentageLabel._color, { __type__: 'cc.Color', r: 255, g: 255, b: 255, a: 255 });
+assert.equal(bootScene[track._children.at(-1).__id__], percentageNode, 'percentage renders over the fill');
 
 for (const relativePath of [
     'assets/Scripts/Core/SlicedLoadingProgressAdapter.ts',

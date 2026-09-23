@@ -121,6 +121,9 @@ function applyAssetUpdates(current, event) {
 exports.main = async (event = {}) => {
   const wxContext = cloud.getWXContext();
   const openid = wxContext.OPENID || cleanString(event.openid, 96);
+  if (String(event.action || '').startsWith('profile') && !wxContext.OPENID) {
+    return { ok: false, errorMessage: 'profile actions require authenticated platform identity' };
+  }
 
   if (!openid) {
     return {
@@ -144,9 +147,16 @@ exports.main = async (event = {}) => {
       };
     }
 
+    if (String(event.action || '').startsWith('profile')) {
+      if (!wxContext.OPENID) throw new Error('profile actions require authenticated platform identity');
+      return await require('./profile-customization').execute(db, wxContext.OPENID, current._id, event);
+    }
     return await db.runTransaction(async transaction => {
       current = (await transaction.collection(USER_PROFILE_COLLECTION).doc(current._id).get()).data;
       if (!current || current.openid !== openid) throw new Error('user profile ownership mismatch');
+      if (Object.values(current.wechatGiftTotals || {}).some(value => value > 0)) {
+        throw new Error('gift assets must be synchronized via syncUserState');
+      }
       if (normalizeNonNegativeInt(current.pvpEconomyRevision) > 0
         && event.pvpEconomyRevision !== current.pvpEconomyRevision) throw new Error('asset revision mismatch; refresh user state');
       const { next, patch } = applyAssetUpdates(current, event);

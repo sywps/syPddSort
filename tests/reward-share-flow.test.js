@@ -51,6 +51,8 @@ function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}, resultPanelCont
                 };
             }
             if (id === '../AppRoot') return { AppRoot: {} };
+            if (id === '../Panels/ProfilePanelController') return { ProfilePanelController: class {} };
+            if (['../ProfileCustomizationMgr', '../ProfileAvatarView', '../Panels/FeedbackPanelController', '../HomeChapterView', '../HomeContentLayout'].includes(id)) return {};
             if (id === '../GameplayResultPanelController') return { ensureGameplayResultPanelController: () => resultPanelController };
             if (id === '../PixelPosterPreviewRenderer') return { releasePixelPosterPreviewTree() {} };
             if (id === '../RuntimeLog') return { runtimeLog() {} };
@@ -75,6 +77,10 @@ function loadSettlementInstaller() {
         require(id) {
             if (id === '../GameCtrlShared') return {};
             if (id === 'cc') return { Widget: class Widget {} };
+            if (id === '../BrowserLevelPreview') return { getBrowserLevelPreview: () => null };
+            if (id === '../ChapterRewardView') return { beginChapterRewards() {}, renderChapterRewards() {} };
+            if (id === '../WorkbenchPreviewService') return { isWorkbenchPreviewRequested: () => false };
+            if (id === '../CompletedPatternPreview') return { renderCompletedPatternPreview() {} };
             if (id === '../RuntimeLog') return { runtimeWarn() {} };
             if (id === '../PixelPosterPreviewRenderer') return { renderPixelPosterPreview() {} };
             if (id === '../LevelExperimentService') return { getFrontLevelExperimentAnalyticsContext: () => ({ abBucket: 'control' }) };
@@ -92,19 +98,19 @@ async function flushMicrotasks(rounds = 12) {
     for (let index = 0; index < rounds; index += 1) await Promise.resolve();
 }
 
-async function testSettlementRewardedAdGrantsTrueFiveTimesTotal() {
+async function testSettlementShareGrantsFixedBonus() {
     const adCalls = [];
     const shareCalls = [];
     const events = [];
     const runtime = {
         _isThemeLevel: false,
         _winAdRewardClaimed: false,
-        _pendingWinAdBonusReward: 80,
-        _pendingWinGoldReward: 20,
-        _adShowing: false,
+        _pendingWinAdBonusReward: 100,
+        _pendingWinGoldReward: 25,
+        _shareShowing: false,
         _settlementNextTransitioning: false,
         panelWin: null,
-        gold: 20,
+        gold: 25,
         addGold(amount) {
             this.gold += amount;
             events.push(`gold:${amount}`);
@@ -118,15 +124,15 @@ async function testSettlementRewardedAdGrantsTrueFiveTimesTotal() {
         showToast(text) {
             events.push(`toast:${text}`);
         },
-        runShareGrant() {
-            shareCalls.push('unexpected');
+        runRewardedGrant() {
+            adCalls.push('unexpected');
         },
-        runRewardedGrant(page, grant, options) {
-            adCalls.push({ page, options });
-            this._adShowing = true;
+        runShareGrant(page, grant, options) {
+            shareCalls.push({ page, options });
+            this._shareShowing = true;
             Promise.resolve().then(() => {
                 grant();
-                this._adShowing = false;
+                this._shareShowing = false;
             });
             return true;
         },
@@ -137,23 +143,23 @@ async function testSettlementRewardedAdGrantsTrueFiveTimesTotal() {
 
     runtime.claimWinAdBonusReward();
     runtime.claimWinAdBonusReward();
-    assert.strictEqual(runtime._adShowing, true, 'rewarded-ad claim must stay busy until its grant finishes');
-    assert.strictEqual(adCalls.length, 1, 'a double tap must dispatch only one settlement rewarded ad');
-    assert.strictEqual(adCalls[0].page, 'win_bonus_reward');
-    assert.strictEqual(adCalls[0].options.busyFlag, '_adShowing');
-    assert.strictEqual(shareCalls.length, 0, 'settlement bonus must never dispatch a share');
+    assert.strictEqual(runtime._shareShowing, true, 'share claim must stay busy until its grant finishes');
+    assert.strictEqual(shareCalls.length, 1, 'a double tap must dispatch only one settlement share');
+    assert.strictEqual(shareCalls[0].page, 'win_bonus_reward');
+    assert.strictEqual(shareCalls[0].options.busyFlag, '_shareShowing');
+    assert.strictEqual(adCalls.length, 0, 'settlement bonus must never dispatch an ad');
 
     await flushMicrotasks();
-    assert.strictEqual(runtime.gold, 100, '20 base gold plus the 80 ad bonus must total exactly 5x');
+    assert.strictEqual(runtime.gold, 125, '25 base gold plus the 100 share bonus must total 125');
     assert.strictEqual(runtime._winAdRewardClaimed, true);
-    assert.strictEqual(runtime._adShowing, false);
-    assert.deepStrictEqual(events, ['gold:80', 'label:100', 'sync']);
+    assert.strictEqual(runtime._shareShowing, false);
+    assert.deepStrictEqual(events, ['gold:100', 'label:125', 'sync']);
 
     runtime.claimWinAdBonusReward();
     await flushMicrotasks();
-    assert.strictEqual(runtime.gold, 100, 'a settled claim must remain idempotent');
-    assert.strictEqual(adCalls.length, 1);
-    assert.strictEqual(shareCalls.length, 0);
+    assert.strictEqual(runtime.gold, 125, 'a settled claim must remain idempotent');
+    assert.strictEqual(shareCalls.length, 1);
+    assert.strictEqual(adCalls.length, 0);
 }
 
 async function testSynchronousShareFailureDoesNotGrant() {
@@ -405,15 +411,15 @@ async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {
 (async () => {
     const settlementSource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts'), 'utf8');
     const economySource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/EconomyConfig.ts'), 'utf8');
-    assert.ok(!settlementSource.includes('runShareGrant(WIN_BONUS_REWARD_GATE_PAGE'), 'settlement reward must not retain a randomized share branch');
+    assert.ok(settlementSource.includes('runShareGrant(WIN_BONUS_REWARD_GATE_PAGE'), 'settlement reward must use the share grant flow');
     assert.ok(!settlementSource.includes('WIN_BONUS_SHARE_'), 'settlement reward must not retain share gate constants');
     assert.ok(!settlementSource.includes('playWinSettlementGoldFlyReward'), 'win settlement must not create a flying-gold reward effect');
     assert.ok(!settlementSource.includes('WinSettlementFlyingCoin'), 'win settlement must not create temporary flying coin nodes');
     assert.ok(settlementSource.includes('this.syncWinSettlementGoldBox?.();'), 'rewarded settlement gold must refresh the top gold count immediately');
-    assert.ok(economySource.includes('winTotalMultiplier: 5'), 'settlement economy must declare a true total multiplier');
+    assert.ok(economySource.includes('winGoldMin: 25') && economySource.includes('winShareGold: 100'), 'settlement economy must declare 25 base gold and 100 extra share gold');
     assert.ok(!economySource.includes('winBonusGold'), 'settlement economy must not retain a misleading fixed bonus');
 
-    await testSettlementRewardedAdGrantsTrueFiveTimesTotal();
+    await testSettlementShareGrantsFixedBonus();
     await testSynchronousShareFailureDoesNotGrant();
     await testShareGrantWaitsForQualifiedReturn();
     await testShareReviveAnalyticsWaitsForActualGrant();

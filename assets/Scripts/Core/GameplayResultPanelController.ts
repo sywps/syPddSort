@@ -69,6 +69,7 @@ const WIN_CONFETTI_SHAPES = [
 const REVIVE_SHARE_STATE_KEY = 'pdd.revive.shareState.v1';
 const REVIVE_SHARE_DAILY_LIMIT = 3;
 const REVIVE_SHARE_PROBABILITY = 0.3;
+const EARLY_PROGRESS_REVIVE_SHARE_PROBABILITY = 0.9;
 const REVIVE_SHARE_LEVEL_INTERVAL = 3;
 const REVIVE_SHARE_MIN_LOGICAL_LEVEL = 7;
 const REVIVE_HOLD_TO_PEEK_HINT_NAME = 'HoldToPeekHint';
@@ -678,8 +679,8 @@ export class GameplayResultPanelController {
         if (kind === 'win') {
             label(box, 'RewardGoldLbl', '', 125);
             button('PrimaryBtn', '继续', 20, () => runtime.handleWinSettlementPrimaryAction());
-            button('AdBonusBtn', '看广告加领奖励', -80, () => runtime.claimWinAdBonusReward(), 'AdBonusBtnLbl');
-            label(box.getChildByName('AdBonusBtn')!, 'AdBonusClaimedLbl', '已领取', 0).active = false;
+            button('ShareBonusBtn', '分享一下', -80, () => runtime.claimWinAdBonusReward(), 'AdBonusBtnLbl');
+            label(box.getChildByName('ShareBonusBtn')!, 'AdBonusClaimedLbl', '已领取', 0).active = false;
             button('CollectionBtn', '收藏', -180, () => runtime.openCollection());
         } else {
             const reviveKind = kind === 'lose' ? this.resolveFinalFailureReviveKind() : kind;
@@ -832,7 +833,7 @@ export class GameplayResultPanelController {
 
     private startWinBannerLightRotation(box: Node): void {
         const light = this.runtime.requirePanelChild(box, 'TopGroup').getChildByName(WIN_BANNER_LIGHT_NODE_NAME);
-        if (!light) return;
+        if (!light || !light.active) return;
         const state = light as Node & { __winBannerLightBaseAngle?: number };
         if (state.__winBannerLightBaseAngle === undefined) {
             state.__winBannerLightBaseAngle = light.angle;
@@ -1054,13 +1055,13 @@ export class GameplayResultPanelController {
         const bottomGroup = runtime.requirePanelChild(box, 'BottomGroup');
         const previewFrame = runtime.requirePanelChild(middleGroup, 'PreviewFrame');
         runtime.requirePanelChild(previewFrame, 'PatternPreview');
-        const adBonusBtn = runtime.requirePanelChild(bottomGroup, 'AdBonusBtn');
+        const adBonusBtn = runtime.requirePanelChild(bottomGroup, 'ShareBonusBtn');
         adBonusBtn.getComponent(UIOpacity) || adBonusBtn.addComponent(UIOpacity);
         this.bindPanelButton(adBonusBtn, () => {
             AudioMgr.inst.play('button');
             runtime.claimWinAdBonusReward();
         });
-        const collectionBtn = runtime.requirePanelChild(box, 'CollectionBtn');
+        const collectionBtn = runtime.requirePanelChild(runtime.requirePanelChild(overlay, 'SettlementTopHud'), 'CollectionBtn');
         this.bindPanelButton(collectionBtn, () => {
             AudioMgr.inst.play('button');
             runtime.openCollection();
@@ -1071,6 +1072,20 @@ export class GameplayResultPanelController {
             runtime.handleWinSettlementPrimaryAction();
         };
         this.bindPanelButton(primaryBtn, runPrimaryAction);
+        const homeBtn = runtime.requirePanelChild(runtime.requirePanelChild(overlay, 'SettlementTopHud'), 'WinHomeBtn');
+        let homeRoutePending = false;
+        this.bindPanelButton(homeBtn, () => {
+            if (homeRoutePending || runtime._gameplayTransitionPromise || runtime._settlementNextTransitioning || runtime._shareShowing) return;
+            homeRoutePending = true;
+            runtime.setWinPrimaryButtonInteractable(false);
+            AudioMgr.inst.play('button');
+            void Promise.resolve().then(() => runtime.requestHomeRoute('win_panel_home', 'auto')).catch((error) => {
+                homeRoutePending = false;
+                if (overlay.isValid) runtime.setWinPrimaryButtonInteractable(true);
+                console.error('[win-panel] home route failed:', error);
+                runtime.showToast?.('返回主页失败，请重试', 1.8);
+            });
+        });
         return overlay;
     }
 
@@ -1151,13 +1166,24 @@ export class GameplayResultPanelController {
         }
     }
 
+    private isEarlyProgressRevive(): boolean {
+        return this.runtime.boardModel?.getInitiallyUnsettledCompletionRatio() <= 0.5;
+    }
+
     private canUseReviveShare(): boolean {
         const runtime = this.runtime;
         if (runtime._isThemeLevel) return false;
         const entryMode = typeof runtime.getActiveGameplayEntryMode === 'function'
             ? runtime.getActiveGameplayEntryMode()
             : (runtime._activeGameplayEntryMode || 'main');
-        if (entryMode !== 'main' || this.getReviveShareLogicalLevelId() < REVIVE_SHARE_MIN_LOGICAL_LEVEL) {
+        if (entryMode !== 'main' || !this.hasWeChatShareReturnApi()) return false;
+        if (this.isEarlyProgressRevive()) {
+            if (this.reviveFailureShareSelected === null) {
+                this.reviveFailureShareSelected = Math.random() < EARLY_PROGRESS_REVIVE_SHARE_PROBABILITY;
+            }
+            return this.reviveFailureShareSelected;
+        }
+        if (this.getReviveShareLogicalLevelId() < REVIVE_SHARE_MIN_LOGICAL_LEVEL) {
             return false;
         }
         const state = this.readReviveShareState();
@@ -1170,6 +1196,8 @@ export class GameplayResultPanelController {
     }
 
     private reserveReviveShareGrant(): (() => void) | null {
+        // 前半程奖励不占用旧规则的每日次数，也不更新关卡冷却。
+        if (this.isEarlyProgressRevive()) return () => {};
         const state = this.readReviveShareState();
         if (!state || state.count >= REVIVE_SHARE_DAILY_LIMIT) return null;
         if (state.lastShareLevel > 0 && this.getReviveShareLogicalLevelId() < state.lastShareLevel + REVIVE_SHARE_LEVEL_INTERVAL) return null;

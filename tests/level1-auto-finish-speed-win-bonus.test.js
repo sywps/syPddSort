@@ -53,7 +53,9 @@ assert.strictEqual(levelOneRules.conveyorSpeedMultiplier, 1, 'a disabled level m
 
 const levelOne = JSON.parse(read('assets/LevelData/level_1.json'));
 assert.strictEqual(levelOne.autoConveyorFinishSpeed, false, 'only level 1 must explicitly disable automatic finish speed');
-assert.strictEqual(levelOne.winAdBonusEnabled, false, 'only level 1 must explicitly hide the win 5x-gold reward');
+assert.strictEqual(levelOne.winAdBonusEnabled, true, 'level 1 must enable the win share reward');
+assert.strictEqual(JSON.parse(read('assets/BootstrapBundle/LevelData/level_1.json')).winAdBonusEnabled, true,
+    'the bundled first level must also enable the win share reward');
 
 const levelConfig = read('assets/Scripts/Core/LevelConfig.ts');
 const gameplayController = read('assets/Scripts/Core/PchConveyorGameplayController.ts');

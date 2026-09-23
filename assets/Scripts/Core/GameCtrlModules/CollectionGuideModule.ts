@@ -200,23 +200,15 @@ export function installCollectionGuideModule(target: any): void {
                     this._collectionImageModal = overlay;
                     content.removeAllChildren();
                     if (pageIndicator) {
-                        pageIndicator.active = true;
-                        pageIndicator.setPosition(0, 408, 0);
-                        requireCollectionLabelNode(
-                            pageIndicator,
-                            'PageIndicatorLabel',
-                            `第${levelId}关`,
-                            0,
-                            0,
-                        );
+                        pageIndicator.active = false;
                     }
                     this.drawCollectionPatternOnCard(
                         content,
                         levelId,
                         0,
-                        70,
-                        520,
-                        590,
+                        0,
+                        540,
+                        540,
                         prefix,
                         {
                             drawTargetBackground: true,
@@ -283,6 +275,22 @@ export function installCollectionGuideModule(target: any): void {
             labelNode.active = false;
             label.string = '';
             if (hintNode) hintNode.active = false;
+            // V2 keeps both nameplate states in the prefab; recycled cards must reset both.
+            const namePlate = card.getChildByName('NamePlate');
+            if (namePlate) {
+                const unlockedPlate = namePlate.getChildByName('Unlocked');
+                const lockedPlate = namePlate.getChildByName('Locked');
+                const nameLabel = namePlate.getChildByName('Name')?.getComponent(Label);
+                const question = card.getChildByName('LockedQuestion');
+                if (!unlockedPlate || !lockedPlate || !nameLabel || !question) {
+                    throw new Error('[collection-card] incomplete V2 card states');
+                }
+                unlockedPlate.active = unlocked;
+                lockedPlate.active = !unlocked;
+                const displayLevelId = prefix === 'zt_level_' ? this.getThemeLevelDisplayNumber(levelId) : levelId;
+                nameLabel.string = unlocked ? `第 ${displayLevelId} 关` : '未获取';
+                question.active = !unlocked;
+            }
 
             if (!options?.deferPreview) {
                 this.drawCollectionPixelPreviewOnCard(

@@ -27,6 +27,7 @@ export class BoardModel {
     private remainingByColor: Map<number, number> = new Map();
     private colorIds: number[] = [];
     private lockStatsDirty = false;
+    private initiallyUnsettledCells: { row: number; col: number }[] = [];
 
     constructor(levelData: LevelData) {
         this.width = levelData.boardWidth;
@@ -41,11 +42,24 @@ export class BoardModel {
             for (let c = 0; c < this.width; c++) {
                 this.locked[r][c] = this.currentColors[r][c] !== 0
                     && this.currentColors[r][c] === this.correctColors[r][c];
+                if (this.correctColors[r][c] !== 0 && !this.locked[r][c]) {
+                    this.initiallyUnsettledCells.push({ row: r, col: c });
+                }
             }
         }
         this.queueRows = new Array(Math.max(1, this.width * this.height));
         this.queueCols = new Array(Math.max(1, this.width * this.height));
         this.rebuildLockStats();
+    }
+
+    /** 仅统计开局未归位的有效格；已完成的开局不适用前半程复活。 */
+    getInitiallyUnsettledCompletionRatio(): number {
+        if (this.initiallyUnsettledCells.length === 0) return 1;
+        let settled = 0;
+        for (const { row, col } of this.initiallyUnsettledCells) {
+            if (this.locked[row][col]) settled += 1;
+        }
+        return settled / this.initiallyUnsettledCells.length;
     }
 
     /** 是否为棋盘上的有效格（correctColor !== 0） */

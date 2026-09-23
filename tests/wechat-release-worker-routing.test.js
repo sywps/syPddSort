@@ -90,7 +90,13 @@ try {
     fs.mkdirSync(replaceTarget);
     fs.writeFileSync(path.join(replaceSource, 'fresh.txt'), 'fresh');
     fs.writeFileSync(path.join(replaceTarget, 'stale.txt'), 'stale');
-    runner.replaceDirectoryContents(replaceSource, replaceTarget);
+    const originalRm = fs.rmSync;
+    fs.rmSync = function(target, options) {
+        assert.notStrictEqual(path.resolve(target), path.resolve(replaceTarget), 'DevTools-held output root must not be deleted');
+        return originalRm.call(fs, target, options);
+    };
+    try { runner.replaceDirectoryContents(replaceSource, replaceTarget); }
+    finally { fs.rmSync = originalRm; }
     assert.strictEqual(fs.readFileSync(path.join(replaceTarget, 'fresh.txt'), 'utf8'), 'fresh');
     assert.ok(!fs.existsSync(path.join(replaceTarget, 'stale.txt')), 'Node output sync must remove stale artifacts');
 } finally {

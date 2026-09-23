@@ -37,7 +37,7 @@ assert.deepStrictEqual(catalog.skins.map((skin) => skin.id), expectedIds, 'catal
 assert.deepStrictEqual(catalog.skins.map((skin) => skin.key), expectedKeys, 'neutral product keys');
 assert.strictEqual(catalog.skins[0].resourceMode, 'bootstrap_existing', 'default atlas stays in Bootstrap');
 assert.ok(catalog.skins.slice(1).every((skin) => skin.resourceMode === 'game_assets_atlas'), 'new atlases use gameAssets');
-assert.ok(catalog.skins.slice(1).every((skin) => skin.unlockType === 'ad' && skin.unlockValue === 1), 'new skins need one ad');
+assert.ok(catalog.skins.slice(1).every((skin, i) => skin.unlockType === 'chapter' && skin.unlockValue === (i * 4 + 1) * 9), 'bean skins unlock at rotating chapter milestones');
 assert.ok(!/(type|screw)[_-]?[1-5]/i.test(read(catalogPath)), 'catalog must not expose source package names');
 
 const defaultAtlas = readJson('assets/BootstrapBundle/Beans/bean-atlas-data.json');
@@ -103,7 +103,7 @@ assert.ok(moduleSource.includes('prefab/config card count mismatch'), 'runtime f
 assert.ok(!moduleSource.includes('instantiate('), 'bean panel does not clone runtime nodes');
 assert.ok(!moduleSource.includes('new Node('), 'bean panel does not create runtime nodes');
 assert.ok(!moduleSource.includes('.addComponent('), 'bean panel does not add runtime components');
-assert.ok(moduleSource.includes("actionLabel.string = equipped ? '已使用' : '使用'"), 'owned card states');
+assert.ok(moduleSource.includes("owned ? (equipped ? '已使用' : '使用')"), 'owned card states');
 assert.ok(moduleSource.includes('button.interactable = !equipped'), 'equipped button stays disabled');
 assert.ok(!moduleSource.includes('_getBeanSkinSelectionDecor') && !moduleSource.includes('_redrawBeanSkinSelectionDecor'), 'runtime has no equipped decoration path');
 assert.ok(moduleSource.includes('actionLabel.node.active = owned') && moduleSource.includes('adIcon.active = !owned'), 'unowned card is ad icon without label');

@@ -31,7 +31,6 @@ import type {
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import type { AppGameplayEntryCoverMode, AppRouteCoverMode } from '../AppSession';
-import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 import { isWorkbenchPreviewRequested, WorkbenchPreviewService } from '../WorkbenchPreviewService';
 import { getMiniGameBuildPlatform } from '../MiniGamePlatform';
@@ -120,6 +119,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 return Promise.resolve(false);
             }
             this._gameplayTransitionKey = key;
+            this.disposeSettingsPanel?.();
             const pending = Promise.resolve().then(() => AppRoot.inst.runGameplayTransition(key, () => {
                 if (!this.isValid || this.getRuntimeSceneName('Game') !== 'Game') {
                     throw new Error('[AppTransition] gameplay runtime is no longer available');
@@ -248,7 +248,7 @@ export function installSceneHomeEntryModule(target: any): void {
                         uiDone = true;
                         finish();
                     });
-                });
+                }, false);
             });
         },
 
@@ -267,7 +267,6 @@ export function installSceneHomeEntryModule(target: any): void {
             const iconNode = this.requireUiChild(btn, 'LeaderboardIcon', 'LeaderboardBtn/LeaderboardIcon');
             this.requireSceneSpriteFrame(iconNode, 'LeaderboardBtn/LeaderboardIcon');
 
-            ensureHomeIconIdleWiggle(iconNode);
         },
 
         drawCollectionButton(parent: Node) {
@@ -282,7 +281,6 @@ export function installSceneHomeEntryModule(target: any): void {
             const iconNode = this.requireUiChild(btn, 'CollectionIcon', 'CollectionBtn/CollectionIcon');
             this.requireSceneSpriteFrame(iconNode, 'CollectionBtn/CollectionIcon');
 
-            ensureHomeIconIdleWiggle(iconNode);
         },
 
         drawGameCircleButton(parent: Node) {
@@ -294,7 +292,6 @@ export function installSceneHomeEntryModule(target: any): void {
 
             const iconNode = this.requireUiChild(btn, GAME_CIRCLE_ICON_NAME, 'GameCircleBtn/GameCircleIcon');
             this.requireSceneSpriteFrame(iconNode, 'GameCircleBtn/GameCircleIcon');
-            ensureHomeIconIdleWiggle(iconNode);
 
             btn.getComponent(Button) || btn.addComponent(Button);
             btn.on(Button.EventType.CLICK, () => {
@@ -595,7 +592,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 });
                 this.noteGameplayLoadingProgress?.('local-level-json-loaded');
                 this.openLocalLevelWithAssets(data, undefined, activeLevelId, this.shouldUseLocalBootstrapBundle(levelId, prefix));
-            }, prefix);
+            }, prefix, true);
         },
 
         openLocalLevelWithAssets(data: LevelData, onInitialized?: () => void, activeLevelId?: number, bootstrapOnlyCriticalUi: boolean = false) {
@@ -1125,7 +1122,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 requiredAssetRequestsDispatched = true;
                 tryInit();
                 // Bootstrap levels must not block first playable UI on optional gameAssets texture prewarming.
-            }, prefix);
+            }, prefix, true);
         },
 
         shouldPrewarmGameAssetsAfterBootstrap(): boolean {

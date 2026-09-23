@@ -266,12 +266,18 @@ levelTwo.trackOpeningGuideEvent = (...args) => levelTwoAnalytics.push(args);
 levelTwo.reportOpeningGuideTutorialFinish = () => { levelTwoTutorialFinishes += 1; };
 levelTwo.refreshSpeedButtonState = () => { levelTwoRefreshes += 1; };
 levelTwo.dismissOpeningGuide = () => { levelTwoDismisses += 1; };
+let softHands = 0;
+levelTwo.showLevelTwoSoftHand = () => {
+    assert.strictEqual(levelTwoDismisses, 1, 'release the strong guide before showing the soft hand');
+    softHands += 1;
+};
 const speedEvent = { propagationStopped: false };
 levelTwo.onOpeningGuideTripleSpeed(speedEvent);
 assert.deepStrictEqual(multipliers, [3], 'level 2 must deterministically enable 3x, independent of saved speed');
 assert.strictEqual(speedEvent.propagationStopped, true);
 assert.strictEqual(levelTwoRefreshes, 1);
 assert.strictEqual(levelTwoDismisses, 1);
+assert.strictEqual(softHands, 1);
 assert.strictEqual(levelTwoTutorialFinishes, 1, 'level 2 guide success must report tutorial completion once');
 assert.strictEqual(levelTwo.statusLabel.string, '3 倍速度已开启');
 assert.deepStrictEqual(levelTwoAnalytics, [

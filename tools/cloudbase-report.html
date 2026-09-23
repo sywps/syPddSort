@@ -1760,9 +1760,19 @@ function buildOpsInsights(summary, trendSummaries) {
     return { highlights, risks, actions };
 }
 
+function renderThirdLevelExperiment(report) {
+    if (!report) return '';
+    const title = '<div class="card-header"><div class="card-title">第三关 A / B / C 实验</div><div class="card-subtitle">A 当前版 · B 星星 · C 苹果；300秒、容量和引导一致，选豆及鼓励均为 A。</div></div>';
+    if (report.status !== 'ready') return `<section class="card span-12">${title}<div class="card-body">${escapeHtml(report.reason)}</div></section>`;
+    const pct = n => n == null ? '—' : `${(n * 100).toFixed(1)}%`;
+    const rows = (report.groups || []).map(g => `<tr><td>${escapeHtml(g.bucket)}</td><td>${g.enrolled}</td><td>${g.entered3}</td><td>${g.passed3}</td><td>${pct(g.pass3Rate)}</td><td>${g.entered4}</td><td>${g.guideDone}</td><td>${g.unresolvedRounds}</td></tr>`).join('');
+    const strata = (report.byFirstLevelContent || []).map(g => `<tr><td>${escapeHtml(g.firstLevelContent)}</td><td>${escapeHtml(g.bucket)}</td><td>${g.entered3}</td><td>${g.passed3}</td><td>${pct(g.pass3Rate)}</td></tr>`).join('');
+    return `<section class="card span-12">${title}<div class="card-body"><div class="table-wrap"><table><thead><tr><th>第三关组</th><th>入组人数</th><th>进入第三关人数</th><th>通过人数</th><th>通过/进入</th><th>进入第四关人数</th><th>扩容引导完成人数</th><th>缺终局局数</th></tr></thead><tbody>${rows}</tbody></table></div><details><summary>按首关组别查看</summary><table><thead><tr><th>首关组</th><th>第三关组</th><th>进入人数</th><th>通过人数</th><th>通过率</th></tr></thead><tbody>${strata}</tbody></table></details><p>${escapeHtml(report.note)}</p></div></section>`;
+}
+
 function renderBeanSelectionExperiment(report) {
     if (!report) return '';
-    const title = '<div class="card-header"><div class="card-title">选豆 A / B 实验</div><div class="card-subtitle">A：底色优先；B：原包同色扩散。新用户独立 50% / 50% 分组，主线第二关起生效。</div></div>';
+    const title = '<div class="card-header"><div class="card-title">选豆 A / B 实验</div><div class="card-subtitle">A：底色优先；B：原包同色扩散。新用户独立 50% / 50% 分组，主线第二关起生效。 <a href="/artifacts/experiment-report-20260918/index.html#bean">查看累计前20关（9月15日至18日11:12快照）</a></div></div>';
     if (report.status !== 'ready') return `<section class="card span-12">${title}<div class="card-body">${escapeHtml(report.reason)}</div></section>`;
     const pct = n => n == null ? '未就绪' : `${(n * 100).toFixed(1)}%`;
     const num = n => n == null ? '—' : Number(n).toFixed(1);
@@ -1774,7 +1784,7 @@ function renderBeanSelectionExperiment(report) {
 function renderFirstLevelExperiment(report) {
     if (!report) return '';
     const pct = value => value == null ? '未就绪' : `${(value * 100).toFixed(1)}%`;
-    const title = '<div class="card-header"><div class="card-title">第一关 A / B / C 实验</div><div class="card-subtitle">当日实际入组新用户；主指标为当日进入第二关的比例。不会自动判定胜负。</div></div>';
+    const title = '<div class="card-header"><div class="card-title">第一关 A / B / C 实验</div><div class="card-subtitle">当日实际入组新用户；主指标为当日进入第二关的比例。不会自动判定胜负。 <a href="/artifacts/experiment-report-20260918/index.html#first">查看累计前5关（9月15日至18日11:12快照）</a></div></div>';
     if (report.status !== 'ready') return `<section class="card span-12">${title}<div class="card-body">${escapeHtml(report.reason)}</div></section>`;
     const rows = report.groups.map(g => `<tr><td>${escapeHtml(g.bucket)}</td><td>${g.enrolled}</td><td>${g.loaded}</td><td>${g.exposed}</td><td>${pct(g.pass1Rate)}</td><td>${g.entered2} / ${pct(g.enter2Rate)}</td><td>${pct(g.pass3Rate)}</td><td>${pct(g.retention1Rate)}</td><td>${g.guide1Done}/${g.guide1Shown} · ${g.guide2Done}/${g.guide2Shown}</td><td>${g.firstPassMedianSeconds == null ? '—' : g.firstPassMedianSeconds.toFixed(1)}</td><td>${g.loadFailed} / ${g.errors}</td></tr>`).join('');
     const q = report.quality;
@@ -2740,6 +2750,7 @@ function renderContent(summary, trendSummaries) {
 
         ${renderFirstLevelExperiment(summary.firstLevelExperiment)}
         ${renderBeanSelectionExperiment(summary.beanSelectionExperiment)}
+        ${renderThirdLevelExperiment(summary.thirdLevelExperiment)}
         <section class="card span-12">
             <div class="card-header">
                 <div class="card-title">传送带玩法引导结果（PCH）</div>

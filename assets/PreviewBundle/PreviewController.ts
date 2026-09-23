@@ -249,9 +249,9 @@ export class PreviewController extends GameRuntimeHost {
         runtime._ensureGameplayResultPanelPrefabsReady?.(() => {
             this.clearPreviewPopups();
             this.prepareResultPreviewBoardModel(runtime);
-            const baseGoldReward = 80;
+            const baseGoldReward = ECONOMY_NUMERIC_TABLE.reward.winGoldMin;
             runtime._pendingWinGoldReward = baseGoldReward;
-            runtime._pendingWinAdBonusReward = baseGoldReward * (ECONOMY_NUMERIC_TABLE.adReward.winTotalMultiplier - 1);
+            runtime._pendingWinAdBonusReward = ECONOMY_NUMERIC_TABLE.reward.winShareGold;
             runtime._winAdRewardClaimed = false;
             if (kind === 'win') {
                 const showWinPanel = () => {

@@ -5,9 +5,7 @@ import {
     COLLECTION_TEXTURE_NAMES,
     Color,
     EventTouch,
-    Graphics,
     Label,
-    Layers,
     Node,
     Prefab,
     UITransform,
@@ -19,11 +17,7 @@ import { CoopServiceMgr } from '../CoopServiceMgr';
 type CollectionTab = 'main' | 'theme' | 'coop';
 
 function createCollectionTabs(box: Node, runtime: any): void {
-    const root = new Node('CollectionTabs');
-    root.layer = box.layer || Layers.Enum.UI_2D;
-    root.setPosition(0, 420, 0);
-    root.addComponent(UITransform).setContentSize(500, 64);
-    box.addChild(root);
+    const root = runtime.requirePanelChild(box, 'CollectionTabs');
 
     const tabs: Array<{ key: CollectionTab; text: string }> = [
         { key: 'main', text: '主线' },
@@ -33,30 +27,20 @@ function createCollectionTabs(box: Node, runtime: any): void {
     const redraw = () => {
         for (const tab of tabs) {
             const node = root.getChildByName(`CollectionTab_${tab.key}`);
-            if (!node) continue;
+            if (!node) throw new Error(`[collection-prefab] missing tab: ${tab.key}`);
             const active = runtime._collectionActiveTab === tab.key;
-            const graphics = node.getComponent(Graphics);
             const label = node.getChildByName('Label')?.getComponent(Label);
-            if (!graphics || !label) continue;
-            graphics.clear();
-            graphics.fillColor = active ? new Color('#7E68E8') : new Color('#E9E4FF');
-            graphics.roundRect(-76, -27, 152, 54, 27);
-            graphics.fill();
-            label.color = active ? new Color('#FFFFFF') : new Color('#6655A7');
+            if (!label) throw new Error(`[collection-prefab] missing tab label: ${tab.key}`);
+            runtime.requirePanelChild(node, 'Selected').active = active;
+            runtime.requirePanelChild(node, 'Idle').active = !active;
+            label.color = active ? Color.WHITE : new Color('#6655A7');
+            label.enableOutline = active;
         }
     };
 
-    const statusNode = new Node('CollectionTabStatus');
-    statusNode.layer = root.layer;
-    statusNode.setPosition(0, -350, 0);
-    statusNode.addComponent(UITransform).setContentSize(450, 180);
-    const statusLabel = statusNode.addComponent(Label);
-    statusLabel.fontSize = 24;
-    statusLabel.lineHeight = 36;
-    statusLabel.color = new Color('#6655A7');
-    statusLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-    statusLabel.verticalAlign = Label.VerticalAlign.CENTER;
-    root.addChild(statusNode);
+    const statusNode = runtime.requirePanelChild(root, 'CollectionTabStatus');
+    const statusLabel = statusNode.getComponent(Label);
+    if (!statusLabel) throw new Error('[collection-prefab] missing tab status label');
     statusNode.active = false;
 
     let requestId = 0;
@@ -64,6 +48,8 @@ function createCollectionTabs(box: Node, runtime: any): void {
         const request = ++requestId;
         runtime._collectionActiveTab = key;
         redraw();
+        const progress = runtime.requirePanelChild(box, 'CollectionProgress');
+        progress.active = key !== 'coop';
         statusNode.active = key === 'coop';
         runtime._collectionContentNode.active = key !== 'coop';
         if (key === 'coop') {
@@ -89,46 +75,24 @@ function createCollectionTabs(box: Node, runtime: any): void {
         if (!root.isValid || request !== requestId) return;
         statusNode.active = false;
         runtime._collectionContentNode.active = true;
-        runtime.renderCollectionScroll(runtime._collectionContentNode);
+        try {
+            runtime.renderCollectionScroll(runtime._collectionContentNode);
+            progress.active = true;
+        } catch (error) {
+            runtime._collectionContentNode.active = false;
+            progress.active = false;
+            statusNode.active = true;
+            statusLabel.string = `${error instanceof Error ? error.message : '图鉴读取失败'}\n点击分类重试`;
+        }
     };
-    tabs.forEach((tab, index) => {
-        const node = new Node(`CollectionTab_${tab.key}`);
-        node.layer = root.layer;
-        node.setPosition((index - 1) * 166, 0, 0);
-        node.addComponent(UITransform).setContentSize(152, 54);
-        node.addComponent(Graphics);
-        root.addChild(node);
-
-        const labelNode = new Node('Label');
-        labelNode.layer = root.layer;
-        labelNode.addComponent(UITransform).setContentSize(144, 48);
-        const label = labelNode.addComponent(Label);
-        label.string = tab.text;
-        label.fontSize = 25;
-        label.lineHeight = 32;
-        label.horizontalAlign = Label.HorizontalAlign.CENTER;
-        label.verticalAlign = Label.VerticalAlign.CENTER;
-        label.enableWrapText = false;
-        node.addChild(labelNode);
-
+    tabs.forEach((tab) => {
+        const node = runtime.requirePanelChild(root, `CollectionTab_${tab.key}`);
         node.on(Node.EventType.TOUCH_END, () => {
             AudioMgr.inst.play('button');
             void selectTab(tab.key);
         }, runtime);
     });
     redraw();
-}
-
-function syncPrefabPopupTitle(box: Node, title: string): void {
-    const badge = box.getChildByName('PopupTitleBadge');
-    const titleNode = badge?.getChildByName('PopupTitleLabel');
-    const label = titleNode?.getComponent(Label);
-    if (!badge || !titleNode || !label) {
-        throw new Error('[collection-prefab] missing prefab title nodes');
-    }
-    badge.active = true;
-    titleNode.active = true;
-    label.string = title;
 }
 
 export class CollectionPanelController {
@@ -187,7 +151,7 @@ export class CollectionPanelController {
             runtime._collectionScrollSuppressClick = false;
             runtime._releasePanelTextureOwner('collection', 'collection-open-stale');
         };
-        const prefabPath = 'UI/Prefabs/Panels/CollectionPanel';
+        const prefabPath = 'UI/Prefabs/Panels/CollectionPanelV2';
         const failOpen = (message: string, overlay?: Node | null) => {
             if (overlay?.isValid) {
                 runtime._clearSpriteFramesBeforeDestroy(overlay);
@@ -233,8 +197,6 @@ export class CollectionPanelController {
                     runtime._collectionOverlay = overlay;
 
                     const box = runtime.requirePanelChild(overlay, 'Box');
-                    syncPrefabPopupTitle(box, '图鉴');
-                    runtime.requirePanelChild(box, 'CollectionReplayButton').active = false;
                     if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
                     const isInsideNode = (node: Node, uiPos: Vec3) => {
                         const nodeUT = node.getComponent(UITransform);

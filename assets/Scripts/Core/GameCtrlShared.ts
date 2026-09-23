@@ -234,7 +234,7 @@ type SafeInsets = {
     left: number;
 };
 
-type RankListEntry = Pick<LeaderboardEntry, 'rank' | 'displayName' | 'avatarUrl' | 'progressLevel'>;
+type RankListEntry = Pick<LeaderboardEntry, 'rank' | 'displayName' | 'avatarUrl' | 'progressLevel' | 'avatarId' | 'frameId'>;
 type UserStateRestoreStatus =
     | 'local_progress_gt_1'
     | 'cloud_progress_gt_1'

@@ -144,6 +144,8 @@ if (debugMode) {
     });
 }
 
+require('./check-preview-asset-references').checkPreviewAssetReferences(path.resolve(__dirname, '..'));
+config.bundleConfigs.push({ root: 'db://assets/PreviewBundle', name: 'preview', isRemote: false, output: false });
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, JSON.stringify(config, null, 2) + '\n');
 console.log('已生成抖音构建配置(' + (debugMode ? 'debug' : 'release') + '): ' + outputPath);

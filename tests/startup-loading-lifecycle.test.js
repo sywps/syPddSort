@@ -32,6 +32,7 @@ function makeLoading() {
     const loading = new StartupLoadingController();
     loading.node = { active: true };
     loading.label = { string: '' };
+    loading.percentage = { string: '' };
     loading.progress = { fillNode: { active: true } };
     loading.restartButton = { active: false };
     loading.track = { active: true };
@@ -39,9 +40,20 @@ function makeLoading() {
 }
 const loading = makeLoading();
 loading.show('资源');
-loading.elapsed = 0.7;
+loading.noteMilestone('scene-ready');
+assert.equal(loading.percentage.string, '20%');
+loading.noteMilestone('scene-ready');
+loading.noteMilestone('critical-ui-ready');
+assert.equal(loading.progress.progress, 0.35, 'parallel completions add once');
 loading.setStage('存档');
-assert.equal(loading.elapsed, 0.7, 'phase changes must not restart the animation');
+assert.equal(loading.percentage.string, '35%', 'stage text cannot simulate progress');
+assert.equal(loading.update, undefined, 'elapsed time alone must not advance progress');
+for (const milestone of ['route-ready', 'first_level_json_loaded', 'local-level-json-loaded',
+    'external-level-json-loaded', 'bean-atlas-not-required', 'bean-atlas-ready', 'board-effects-ready', 'unrelated']) {
+    loading.noteMilestone(milestone);
+}
+assert.equal(loading.percentage.string, '95%', 'aliases dedupe and completion cannot reach 100 before draw');
+assert.equal(loading.progress.progress, 0.95);
 assert.equal(loading.label.string, '存档');
 let restarts = 0;
 loading.showSlowLoading(() => restarts++);
@@ -63,11 +75,15 @@ loading.finishAfterDraw(() => released++);
 assert.equal(loading.node.active, true, 'cover must survive until gameplay has drawn');
 assert.equal(released, 0);
 events.emit('draw');
+assert.equal(loading.percentage.string, '100%');
+assert.equal(released, 0, '100 percent must render before exit');
+events.emit('draw');
 assert.equal(released, 1, 'duplicate readiness calls must release once');
 assert.equal(loading.node.active, false);
 assert.equal(loading.restartButton.active, false, 'a slow load must still finish and remove its recovery action');
 assert.equal(loading.restartAction, null);
 loading.show('资源');
+assert.equal(loading.percentage.string, '0%', 'new startup resets progress');
 loading.finishAfterDraw(() => released++);
 loading.fail('下载失败');
 events.emit('draw');
@@ -75,6 +91,8 @@ assert.equal(released, 1, 'failure cancels an already queued success');
 assert.equal(loading.node.active, true);
 assert.equal(loading.progress.fillNode.active, false);
 loading.setStage('错误之后的迟到回调');
+loading.noteMilestone('scene-ready');
+assert.equal(loading.percentage.string, '99%', 'failed load freezes reported progress');
 assert(loading.label.string.includes('下载失败'), 'late progress cannot hide a failure');
 loading.finishAfterDraw(() => released++);
 events.emit('draw');
@@ -86,6 +104,7 @@ events.emit('draw');
 assert.equal(released, 1, 'route-away cancels pending ready callbacks');
 loading.show('最后一次');
 loading.finishAfterDraw(() => released++);
+events.emit('draw');
 loading.onDestroy();
 assert.equal(events.listenerCount('draw'), 0, 'destroy must remove draw listeners');
 
@@ -142,7 +161,7 @@ const { AppRoot } = load('assets/Scripts/Core/AppRoot.ts', {
     let ensured = 0;
     let hidden = 0;
     let stage = '';
-    const sharedUi = { isValid: true, node: { active: true }, hide() { hidden++; }, show(value) { stage = value; }, setStage(value) { stage = value; } };
+    const sharedUi = { isValid: true, node: { active: true }, noteMilestone() {}, hide() { hidden++; }, show(value) { stage = value; }, setStage(value) { stage = value; } };
     const runtimeRoot = { startupLoading: sharedUi, ensureStartupLoading: async () => { ensured++; return sharedUi; } };
     const { GameSceneRuntimeController } = load('assets/Scripts/Core/GameSceneRuntimeController.ts', {
         cc,
