@@ -139,7 +139,7 @@ assert.match(
     /runRewardedGrant\('pch_buffer_full_revive',[\s\S]*?continueAfterBufferFull\(\)/,
     'dedicated prefab migration must preserve the rewarded +12 continuation',
 );
-assert.ok(bufferReviveAction.includes("successToast: '已增加12个位置'"));
+assert.ok(bufferReviveAction.includes("successToast: '传送带豆豆已全部归位'"));
 
 const timeoutPrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanel.prefab');
 const timeoutMeta = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanel.prefab.meta');
@@ -163,7 +163,7 @@ const title = findLabel(bufferPrefab, '复活');
 assert.strictEqual(title.label._fontSize, 88);
 assert.strictEqual(title.label._lineHeight, 104);
 
-const message = findLabel(bufferPrefab, '复活并扩展传送带12格');
+const message = findLabel(bufferPrefab, '传送带已满\n挪出所有拼豆继续游戏吧');
 assert.strictEqual(message.node._active, true, 'buffer-full explanation must be visible from the prefab');
 assert.strictEqual(message.label._fontSize, 36);
 assert.strictEqual(message.label._lineHeight, 44);

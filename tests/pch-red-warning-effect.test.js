@@ -81,21 +81,21 @@ const assetPath = path.join(projectRoot, 'assets/BootstrapBundle/GameUI/Atlases/
 const meta = JSON.parse(fs.readFileSync(`${assetPath}.meta`, 'utf8'));
 assert.ok(manifest.includes("'pdpx_eff_Mask_01'"), 'mask must be in the Bootstrap effect preload manifest');
 assert.equal(fs.existsSync(assetPath), true, 'mask must be project-owned');
-assert.equal(meta.subMetas.f9941.userData.width, 512, 'mask width must match the extracted Sprite');
-assert.equal(meta.subMetas.f9941.userData.height, 712, 'mask height must match the extracted Sprite');
+assert.equal(meta.subMetas.f9941.userData.width, 512, 'mask width must match the selected B texture');
+assert.equal(meta.subMetas.f9941.userData.height, 512, 'mask height must match the selected B texture');
 assert.ok(bootstrapModule.includes('requireWarningMaskSpriteFrame'), 'mask must use the existing fail-fast loader contract');
 assert.ok(bootstrapPatch.includes("'GameUI/Atlases/BoardEffects/pdpx_eff_Mask_01'"), 'mask must remain in the Bootstrap image allowlist');
 assert.ok(
-    controller.includes('this.rules.shouldShowRedWarning(PCH_RED_WARNING_EMPTY_SLOT_THRESHOLD)')
-        && controller.includes('PCH_RED_WARNING_MAX_OPACITY = 102')
+    !controller.includes('this.syncCapacityWarning(')
+        && controller.includes('PCH_RED_WARNING_MAX_OPACITY = 255')
         && controller.includes("this.runtime.requireCanvasUiRoot?.('FxRoot')")
         && controller.includes('transform.setContentSize(effectTransform.contentSize)')
         && controller.includes('this.syncWarningOverlay(Math.max(0, this.rules.bufferCapacity - this.rules.bufferCount))'),
-    'number warning must retain its old rule while the overlay uses remaining capacity independently',
+    'overlay must own the digit warning while keeping the remaining-capacity trigger',
 );
 
 const parsed = ts.createSourceFile('controller.ts', controller, ts.ScriptTarget.Latest, true);
-const wanted = new Set(['syncWarningOverlay', 'startWarningOverlayPulse', 'resetCapacityWarning', 'resetWarningOverlay', 'resetCapacityNumberWarning', 'syncCapacityWarning']);
+const wanted = new Set(['syncWarningOverlay', 'startWarningOverlayPulse', 'resetCapacityWarning', 'resetWarningOverlay', 'resetCapacityNumberWarning']);
 const methods = parsed.statements.filter(ts.isClassDeclaration).flatMap(c => c.members)
     .filter(m => m.name && wanted.has(m.name.getText(parsed))).map(m => m.getText(parsed));
 assert.equal(methods.length, wanted.size);
@@ -111,27 +111,45 @@ const Tween = { stopAllByTarget(target) { jobs.forEach(j => { if (j.target === t
 function tween(target) {
     const job = { target, steps: [], cancelled: false };
     const chain = {
-        to(seconds, props) { job.steps.push({ seconds, props }); return chain; },
+        to(seconds, props, options) { job.steps.push({ seconds, props, options }); return chain; },
         delay(seconds) { job.steps.push({ seconds }); return chain; },
         call(cb) { job.callback = cb; return chain; },
         start() { jobs.push(job); return chain; },
     };
     return chain;
 }
-const Harness = new Function('Tween', 'tween', 'Vec3', 'Color', code + '\nreturn WarningHarness;')(Tween, tween, Vec3, class Color {});
+class Color {
+    constructor(r = 0, g = 0, b = 0, a = 255) { Object.assign(this, { r, g, b, a }); }
+    static WHITE = new Color(255, 255, 255);
+    static RED = new Color(255, 0, 0);
+    static lerp(out, from, to, ratio) {
+        for (const channel of ['r', 'g', 'b', 'a']) out[channel] = from[channel] + (to[channel] - from[channel]) * ratio;
+    }
+}
+const Harness = new Function('Tween', 'tween', 'Vec3', 'Color', code + '\nreturn WarningHarness;')(Tween, tween, Vec3, Color);
 const h = new Harness();
 const authoredText = { r: 255, g: 255, b: 255, a: 255 };
 const authoredOutline = { r: 151, g: 155, b: 169, a: 255 };
 h.capacityTextColor = authoredText;
 h.capacityOutlineColor = authoredOutline;
+h.capacityOutlineEnabled = false;
 h.countLabel = { isValid: true };
 h.resetCapacityNumberWarning();
 assert.strictEqual(h.countLabel.color, authoredText, 'warning reset preserves authored text colour');
 assert.strictEqual(h.countLabel.outlineColor, authoredOutline, 'warning reset preserves authored outline');
+assert.equal(h.countLabel.enableOutline, false);
+const assertRestored = () => {
+    assert.strictEqual(h.countLabel.color, authoredText);
+    assert.strictEqual(h.countLabel.outlineColor, authoredOutline);
+    assert.equal(h.countLabel.enableOutline, h.capacityOutlineEnabled);
+};
+let numberPlays = 0;
+let numberStops = 0;
+h.capacityWarningAnimation = { play() { numberPlays++; }, stop() { numberStops++; } };
 let hasReturnableMatch = false;
 h.rules = { hasReturnableCarrierMatch: () => hasReturnableMatch };
 Object.assign(h, { runtime: { isGameEnd: false }, warningPulseGeneration: 0,
-    warningOverlayRunning: false, capacityWarningActive: false,
+    warningOverlayRunning: false,
     warningOverlayOpacity: { isValid: true, opacity: 0 },
     warningOverlay: { isValid: true, active: false, setScale(x, y, z) { this.scale = new Vec3(x, y, z); } } });
 hasReturnableMatch = true;
@@ -144,11 +162,19 @@ h.syncWarningOverlay(10);
 assert.equal(jobs.length, 1);
 assert.equal(h.warningOverlayOpacity.opacity, 0);
 assert.equal(jobs[0].target, h.warningOverlayOpacity);
-assert.deepEqual(jobs[0].steps.map(s => s.seconds), [.5, .5]);
-assert.deepEqual(jobs[0].steps.map(s => s.props), [{ opacity: 102 }, { opacity: 0 }]);
+assert.deepEqual(jobs[0].steps.map(s => s.seconds), [.6, .6]);
+assert.deepEqual(jobs[0].steps.map(s => s.props), [{ opacity: 255 }, { opacity: 0 }]);
+assert.deepEqual(jobs[0].steps.map(s => s.options.easing), ['sineInOut', 'sineInOut']);
+assert.equal(h.countLabel.enableOutline, true);
+assert.deepEqual(h.countLabel.outlineColor, Color.WHITE);
+assert.deepEqual(h.countLabel.color, new Color(255, 180, 180));
+for (const [opacity, green] of [[127.5, 90], [255, 0], [127.5, 90], [0, 180]]) {
+    h.warningOverlayOpacity.opacity = opacity;
+    jobs[0].steps[opacity === 0 ? 1 : 0].options.onUpdate();
+    assert.deepEqual(h.countLabel.color, new Color(255, green, green), 'digits follow actual overlay opacity');
+}
 h.syncWarningOverlay(9);
-h.syncCapacityWarning(false);
-assert.equal(h.warningOverlay.active, true, 'normal digit state must not cancel the red overlay');
+assert.equal(h.warningOverlay.active, true);
 jobs[0].callback();
 assert.equal(h.warningOverlay.active, true);
 assert.equal(jobs.length, 2, 'low capacity must continue the opacity pulse');
@@ -157,6 +183,9 @@ assert.equal(jobs.length, 2, 'refresh must not create overlapping loops');
 h.syncWarningOverlay(22);
 assert.equal(h.warningOverlay.active, false);
 assert.equal(jobs[1].cancelled, true);
+assertRestored();
+jobs[1].steps[0].options.onUpdate();
+assertRestored();
 jobs[1].callback();
 assert.equal(jobs.length, 2, 'recovery must invalidate pending loop callbacks');
 h.syncWarningOverlay(8);
@@ -172,7 +201,6 @@ h.settlementPaused = true;
 h.syncWarningOverlay(12);
 h.syncWarningOverlay(10);
 assert.equal(jobs.length, 3);
-let numberPlays = 0;
 h.settlementPaused = false;
 h.syncWarningOverlay(10);
 const firstPulse = jobs.length - 1;
@@ -182,6 +210,7 @@ jobs[firstPulse + 2].callback();
 assert.equal(jobs.length, firstPulse + 3, 'exactly three pulses must run');
 assert.equal(h.warningOverlay.active, false, 'third pulse must hide the overlay');
 assert.equal(h.warningOverlayRunning, false);
+assertRestored();
 h.syncWarningOverlay(8);
 assert.equal(jobs.length, firstPulse + 3, 'remaining low must not restart after three pulses');
 h.syncWarningOverlay(11);
@@ -192,6 +221,7 @@ hasReturnableMatch = true;
 h.syncWarningOverlay(8);
 assert.equal(h.warningOverlay.active, false, 'a new matching bean must stop an active warning');
 assert.equal(interruptedPulse.cancelled, true);
+assertRestored();
 const interruptedJobCount = jobs.length;
 interruptedPulse.callback();
 assert.equal(jobs.length, interruptedJobCount, 'cancelled callbacks must not restart the warning');
@@ -199,9 +229,12 @@ hasReturnableMatch = false;
 h.syncWarningOverlay(8);
 assert.equal(jobs.length, interruptedJobCount + 1, 'loss of the match at low capacity must allow a new warning');
 h.resetCapacityWarning();
-h.capacityWarningAnimation = { play() { numberPlays++; }, stop() {} };
-h.syncCapacityWarning(true);
-h.syncCapacityWarning(true);
-assert.equal(numberPlays, 1, 'existing number animation must still start only once');
+assertRestored();
+assert.equal(numberPlays, 0, 'legacy digit animation must never compete with the overlay');
+assert.ok(numberStops > 0, 'legacy animation is stopped');
+h.capacityOutlineEnabled = true;
+h.syncWarningOverlay(8);
+h.resetCapacityWarning();
+assertRestored();
 
 console.log('pch-red-warning-effect: PASS');

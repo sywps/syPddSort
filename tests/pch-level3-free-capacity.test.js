@@ -70,8 +70,8 @@ cappedRevive.runtime.boardModel = { getInitiallyUnsettledCompletionRatio: () => 
 cappedRevive.runtime.isGameEnd = true;
 let resumed = 0;
 cappedRevive.runtime.continueAfterLose = () => { resumed += 1; };
-for (let i = 0; i < 10; i++) assert.equal(cappedRevive.continueAfterBufferFull(), true);
-assert.equal(resumed, 10);
+for (let i = 0; i < 10; i++) assert.equal(cappedRevive.grantReviveCapacity(), true);
+assert.equal(resumed, 0);
 assert.equal(cappedRevive.rules.bufferCapacity, 270, 'early revive rewards must not hit the ordinary expansion cap');
 assert.equal(cappedRevive.expandCapacity(), false, 'ordinary expansion remains capped');
 cappedRevive.runtime.boardModel.getInitiallyUnsettledCompletionRatio = () => 0.75;

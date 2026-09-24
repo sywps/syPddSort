@@ -1455,6 +1455,19 @@ export function installHomeAdFlowModule(target: any): void {
                 this.drawSidebarEntry(entryLayer);
             }
         },
+        refreshHomeMainlineProgress() {
+            const fixedRoot = this.mainMenuNode;
+            if (!fixedRoot?.isValid || this.getRuntimeSceneName('Game') !== 'Home') return;
+            const topBar = this.requireUiChild(fixedRoot, 'TopBarGroup', 'MainMenuFixedRoot/TopBarGroup');
+            const contentArea = this.requireUiChild(topBar, 'HomeContentArea', 'TopBarGroup/HomeContentArea');
+            const contentGroup = this.requireUiChild(contentArea, 'HomeContentGroup', 'HomeContentArea/HomeContentGroup');
+            const heroCard = this.requireUiChild(contentGroup, 'HeroCard', 'HomeContentGroup/HeroCard');
+            const actionArea = this.requireUiChild(contentGroup, 'ActionArea', 'HomeContentGroup/ActionArea');
+            const primaryAction = this.requireUiChild(actionArea, 'PrimaryActionLayer', 'ActionArea/PrimaryActionLayer');
+            const level = this.getDefaultEntryLevel();
+            renderHomeChapter(this, heroCard, level);
+            this.drawStartButton(primaryAction, level);
+        },
         showMainMenu() {
             const runtimeSceneName = this.getRuntimeSceneName('Game');
             if (runtimeSceneName !== 'Home') {

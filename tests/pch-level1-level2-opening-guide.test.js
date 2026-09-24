@@ -418,8 +418,8 @@ for (const levelId of [1, 2, 3]) {
     assert.strictEqual(shown, 1, `level ${levelId} must retain its guide action without the bubble loader`);
 }
 assert.ok(
-    source.includes("? '点击白色豆豆\\n将它们放上传送带'")
-        && source.includes(": '点击蓝色豆豆\\n空出白色位置，让白色豆豆自动归位';"),
+    source.includes("? '点击白色豆豆\\n放入传送带'")
+        && source.includes(": '蓝色格子空出来了\\n需要蓝色豆豆';"),
     'level 1 must use the approved two-step opening-guide copy',
 );
 assert.ok(

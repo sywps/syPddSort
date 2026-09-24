@@ -1351,9 +1351,9 @@ export class GameplayResultPanelController {
             shareType: page,
             title: () => '我在拼豆豆遇到难关，快来一起挑战！',
             query: () => `level=${levelId}`,
-            shareFailToast: kind === 'buffer-full' ? '分享未完成，未增加位置' : '分享未完成，未复活',
-            grantFailToast: kind === 'buffer-full' ? '传送带扩容失败，请重试' : '复活失败，请重试',
-            successToast: kind === 'buffer-full' ? '已增加12个位置' : '已获得120秒和12个位置',
+            shareFailToast: '分享未完成，未复活',
+            grantFailToast: kind === 'buffer-full' ? '豆豆归位失败，请重试' : '复活失败，请重试',
+            successToast: kind === 'buffer-full' ? '传送带豆豆已全部归位' : '已获得120秒和12个位置',
             onFinally: () => this.refreshReviveShareButtons(),
         });
     }
@@ -1436,7 +1436,6 @@ export class GameplayResultPanelController {
         const session = this.beginReviveFailureSession('buffer-full');
         if (!this.isReviveFailureSessionActive(session)) return;
         const controller = ensurePchConveyorGameplayController(runtime);
-        const capacityBeforeGrant = controller.getBufferCapacity();
         AudioMgr.inst.play('button');
         runtime.runRewardedGrant('pch_buffer_full_revive', () => {
             if (!this.isReviveFailureSessionActive(session)) return false;
@@ -1446,12 +1445,12 @@ export class GameplayResultPanelController {
             this.completeReviveFailureSession(session);
             return true;
         }, {
-            claimKey: `pch_buffer_full_revive:${runtime.getActiveLogicalLevelId?.() || 0}:${capacityBeforeGrant}`,
+            claimKey: `pch_buffer_full_revive:${runtime.getActiveLogicalLevelId?.() || 0}:${session.token}`,
             busyFlag: '_adShowing',
             markLevelRevive: true,
-            adFailToast: '广告未完成，未增加位置',
-            grantFailToast: '传送带扩容失败，请重试',
-            successToast: '已增加12个位置',
+            adFailToast: '广告未完成，未复活',
+            grantFailToast: '豆豆归位失败，请重试',
+            successToast: '传送带豆豆已全部归位',
         });
     }
 

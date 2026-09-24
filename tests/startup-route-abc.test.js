@@ -104,13 +104,48 @@ function plain(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
+function runBootRoute(decision) {
+    const calls = [];
+    const module = { exports: {} };
+    const output = ts.transpileModule(bootSceneCtrl, {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019 },
+    }).outputText;
+    const appRoot = {
+        session: { resetBootRouteGuard() {}, consumeBootRoute: () => true },
+        markBoot() {}, clearRouteCoverForBoot() {},
+        markGameRequested(levelId) { calls.push(['pendingGame', levelId]); },
+        router: {
+            toHome() { calls.push(['Home']); return Promise.resolve(); },
+            toGame() { calls.push(['Game']); return Promise.resolve(); },
+        },
+    };
+    vm.runInNewContext(output, {
+        module, exports: module.exports,
+        require(id) {
+            if (id === 'cc') return {
+                _decorator: { ccclass: () => value => value, property: () => () => {} },
+                Component: class {}, SpriteFrame: class {},
+                profiler: {}, ResolutionPolicy: { FIXED_WIDTH: 1 }, view: { setDesignResolutionSize() {} },
+            };
+            if (id === './AppRoot') return { AppRoot: { ensure: () => appRoot } };
+            if (id === './DebugPerfTrace') return { debugPerfTrace() {}, isDebugPerfTraceEnabled: () => false };
+            if (id === './StartupRouteService') return { resolveStartupRouteDecision: () => decision };
+            if (id === './StartupTrace') return { markStartupTrace() {} };
+            throw new Error(`unexpected require: ${id}`);
+        },
+        console,
+    }, { filename: 'BootSceneCtrl.ts' });
+    const boot = new module.exports.BootSceneCtrl();
+    boot.node = { uuid: 'boot-unit', isValid: true };
+    boot.showBootLoadingUi = () => {};
+    boot.scheduleOnce = callback => callback();
+    boot.start();
+    return calls;
+}
+
 assert.ok(
-    cocosSpec.includes('所有状态的第一个业务场景都是 `Game.scene`'),
-    'project v1 spec must keep every semantic startup state on Game.scene',
-);
-assert.ok(
-    cocosSpec.includes('`local_snapshot`（注入 `pdd.level = N` 且 `N >= 2`，直进 `Game.scene` 第 N 关'),
-    'project v1 spec must keep local_snapshot startup as local pdd.level=N direct Game level N',
+    cocosSpec.includes('`pdd.level >= 11`') && cocosSpec.includes('本次仍进入 `Game.scene`'),
+    'startup spec must describe local Home entry and first cloud restore staying in Game',
 );
 
 assert.ok(
@@ -123,8 +158,10 @@ assert.ok(
 );
 assert.ok(
     startupRoute.includes('if (localLevel >= 2)'),
-    'B-class local progress must be detected from effective local progress >= 2',
+    'local progress through level 10 must retain direct gameplay entry',
 );
+assert.ok(startupRoute.indexOf('if (localLevel >= 11)') < startupRoute.indexOf('if (localLevel >= 2)'),
+    'cleared level 10 must select Home before the direct gameplay branch');
 assert.ok(
     startupRoute.includes("reason: 'local_progress_gt_1'"),
     'B-class route decision must retain a local-progress reason for diagnostics',
@@ -134,10 +171,8 @@ assert.ok(
     bootSceneCtrl.includes("appRoot.markGameRequested(routeDecision.levelId, routeDecision.prefix, routeDecision.prefix === 'zt_level_' ? 'theme' : 'main', 'auto', routeDecision.reason)"),
     'Boot must convert B-class route decisions into pending gameplay requests before Game.scene starts',
 );
-assert.ok(
-    bootSceneCtrl.includes('void appRoot.router.toGame()'),
-    'Boot must route every startup class into Game.scene',
-);
+assert.ok(bootSceneCtrl.includes('routeHome ? appRoot.router.toHome() : appRoot.router.toGame()'),
+    'Boot must route saved level 11+ to Home while retaining Game for lower progress');
 assert.ok(
     bootSceneCtrl.includes('this.showBootLoadingUi();'),
     'Boot must show the deer technical loading shell instead of exposing the Cocos default splash',
@@ -298,6 +333,29 @@ assert.ok(
         prefix: 'level_',
         reason: 'local_progress_gt_1',
     }, 'B-class startup must mark local pdd.level=N as pending Game level N');
+}
+
+for (const localLevel of ['10', '11']) {
+    const route = plain(loadStartupRouteModule(localLevel).resolveStartupRouteDecision());
+    assert.strictEqual(route.reason, localLevel === '10' ? 'local_progress_gt_1' : 'local_progress_home');
+    assert.strictEqual(route.shouldMarkPendingGameplay, localLevel === '10');
+    assert.strictEqual(route.levelId, Number(localLevel));
+    assert.deepStrictEqual(runBootRoute(route), localLevel === '10'
+        ? [['pendingGame', 10], ['Game']] : [['Home']],
+    );
+}
+
+assert.deepStrictEqual(runBootRoute(plain(loadStartupRouteModule(null).resolveStartupRouteDecision())), [['Game']],
+    'missing local progress must enter gameplay for this launch');
+
+{
+    const route = plain(loadStartupRouteModule('11', { level: '3' }).resolveStartupRouteDecision());
+    assert.strictEqual(route.reason, 'explicit_launch', 'explicit gameplay launch must override local Home entry');
+}
+
+{
+    const route = plain(loadStartupRouteModule(null, { cooppost: 'abcdef0123456789abcdef01' }).resolveStartupRouteDecision());
+    assert.strictEqual(route.reason, 'coop-invite', 'coop invitation remains a Home route without local progress');
 }
 
 {

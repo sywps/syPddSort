@@ -23,7 +23,7 @@ function extractMethod(source, signature) {
 function compileExtractedMethod(source, signature, argumentNames = []) {
     const method = extractMethod(source, signature);
     const open = method.indexOf('{');
-    return new Function(...argumentNames, method.slice(open + 1, -1));
+    return new Function(...argumentNames, require('typescript').transpileModule(method.slice(open + 1, -1), { compilerOptions: { target: 7 } }).outputText);
 }
 
 function refId(ref) {
@@ -310,24 +310,18 @@ const runContinueAfterBufferFull = compileExtractedMethod(
     pchConveyor,
     'continueAfterBufferFull(): boolean',
 );
-let expandedBufferCount = 0;
-let bufferContinueArgs = null;
+let clears = 0;
 const bufferContinueRuntime = {
-    rules: {},
-    inputLocked: true,
-    runtime: {
-        isGameEnd: true,
-        continueAfterLose(...args) { bufferContinueArgs = args; },
-    },
-    expandCapacity() {
-        expandedBufferCount += 1;
-        return true;
+    rules: { clearBufferToBoard() { clears++; return { moved: 1 }; } },
+    runtime: { isGameEnd: true },
+    hasStoredBeans: () => true,
+    runConveyorSkill(kind, paused, execute) {
+        assert.equal(kind, 'revive');
+        return execute().moved > 0;
     },
 };
-assert.equal(runContinueAfterBufferFull.call(bufferContinueRuntime), true, 'valid buffer-full recovery must succeed');
-assert.equal(expandedBufferCount, 1, 'buffer-full recovery must expand capacity exactly once');
-assert.equal(bufferContinueRuntime.inputLocked, false, 'buffer-full recovery must unlock conveyor input');
-assert.deepStrictEqual(bufferContinueArgs, [0, true], 'buffer-full recovery must resume the same game immediately without time-only reward');
+assert.equal(runContinueAfterBufferFull.call(bufferContinueRuntime), true);
+assert.equal(clears, 1, 'full revive must clear beans through the shared animation transaction');
 
 const createLosePanel = extractMethod(resultPanel, 'createLoseSettlementPanel(): Node');
 assert.ok(

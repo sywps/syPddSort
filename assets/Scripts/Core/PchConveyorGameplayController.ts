@@ -32,6 +32,7 @@ import {
     type PchSkillResult,
 } from './PchConveyorRules';
 import { AppRoot } from './AppRoot';
+import { getFirstLevelContent } from './FirstLevelContent';
 import { collectActiveBlockInputEvents } from './DebugPerfTrace';
 import { CsdInteractionMonitor } from './CsdInteractionMonitor';
 import { selectOriginalBeans } from './OriginalBeanSelection';
@@ -79,10 +80,10 @@ const OPENING_GUIDE_PROMPT_WIDTH = 520;
 const OPENING_GUIDE_PROMPT_HEIGHT = 140;
 const OPENING_GUIDE_PROMPT_CONVEYOR_GAP = 96;
 const PCH_CAPACITY_FULL_WARNING_CLIP = 'PchCapacityFullWarning';
-const PCH_RED_WARNING_EMPTY_SLOT_THRESHOLD = 3;
 const PCH_RED_WARNING_REMAINING_THRESHOLD = 10;
-const PCH_RED_WARNING_PULSE_SECONDS = 0.5;
-const PCH_RED_WARNING_MAX_OPACITY = 102;
+const PCH_RED_WARNING_PULSE_SECONDS = 0.6;
+const PCH_RED_WARNING_MAX_OPACITY = 255;
+const PCH_RED_WARNING_TEXT_COLOR = new Color(255, 180, 180, 255);
 const PCH_CAPACITY_TEXT_COLOR = new Color(43, 43, 43, 255);
 const PCH_CAPACITY_OUTLINE_COLOR = new Color(255, 221, 35, 255);
 const PCH_CAPACITY_PROGRESS_INSET = 3;
@@ -218,11 +219,11 @@ export class PchConveyorGameplayController {
     private countLabel: Label | null = null;
     private capacityTextColor = PCH_CAPACITY_TEXT_COLOR.clone();
     private capacityOutlineColor = PCH_CAPACITY_OUTLINE_COLOR.clone();
+    private capacityOutlineEnabled = false;
     private capacityBadge: Node | null = null;
     private capacityProgress: ProgressBar | null = null;
     private capacityTrack: Node | null = null;
     private capacityWarningAnimation: Animation | null = null;
-    private capacityWarningActive = false;
     private warningOverlay: Node | null = null;
     private warningOverlayOpacity: UIOpacity | null = null;
     private warningPulseGeneration = 0;
@@ -586,6 +587,7 @@ export class PchConveyorGameplayController {
         this.countLabel = activeLayout.countLabel;
         this.capacityTextColor = this.countLabel.color.clone();
         this.capacityOutlineColor = this.countLabel.outlineColor.clone();
+        this.capacityOutlineEnabled = this.countLabel.enableOutline;
         this.capacityWarningAnimation = activeLayout.capacityWarningAnimation;
         const hideFirstLevelControls = this.runtime._activeGameplayEntryMode === 'main'
             && Math.floor(Number(this.runtime.levelData?.levelId) || 0) === 1;
@@ -918,7 +920,6 @@ export class PchConveyorGameplayController {
         this.externalInputBlocked = false;
         this.skillMovementPaused = false;
         this.skillTimerPauseToken = '';
-        this.capacityWarningActive = false;
         this.warningPulseGeneration = 0;
     }
 
@@ -1265,11 +1266,12 @@ export class PchConveyorGameplayController {
     }
 
     continueAfterBufferFull(): boolean {
-        if (!this.rules || !this.runtime.isGameEnd) return false;
-        if (!this.grantReviveCapacity()) return false;
-        this.inputLocked = false;
-        this.runtime.continueAfterLose(0, true);
-        return true;
+        if (!this.rules || !this.runtime.isGameEnd || !this.hasStoredBeans()) return false;
+        return this.runConveyorSkill('revive', false, () => {
+            const result = this.rules!.clearBufferToBoard();
+            if (result.moved && this.runtime.isCoopMode?.()) this.runtime.recordCoopRuleEvent(6);
+            return result;
+        });
     }
 
     grantReviveCapacity(): boolean {
@@ -1944,6 +1946,7 @@ export class PchConveyorGameplayController {
 
     private tryCommitFinishAfterPchColorCompleteEffects(): void {
         if (this.rules?.board?.isAllLocked() !== true
+            || this.runtime._skillActive === true
             || this.returnBatchInProgress
             || this.activeReturnAnimations > 0
             || this.pendingPchReturnColorSettles.size > 0
@@ -2353,7 +2356,6 @@ export class PchConveyorGameplayController {
             this.capacityProgress.progress = clampedCapacityRatio;
         }
         this.renderNormalCapacityTrack(this.capacityTrack, clampedCapacityRatio);
-        this.syncCapacityWarning(this.rules.shouldShowRedWarning(PCH_RED_WARNING_EMPTY_SLOT_THRESHOLD));
         this.syncWarningOverlay(Math.max(0, this.rules.bufferCapacity - this.rules.bufferCount));
         this.runtime.refreshCompletionProgressLabel?.();
         this.runtime.syncSkillButtonRuntimeStates?.();
@@ -2422,18 +2424,7 @@ export class PchConveyorGameplayController {
         fillSpriteNode.setScale(highResolutionScale, highResolutionScale, 1);
     }
 
-    private syncCapacityWarning(shouldWarn: boolean): void {
-        if (!shouldWarn) {
-            this.resetCapacityNumberWarning();
-            return;
-        }
-        if (this.capacityWarningActive) return;
-        this.capacityWarningActive = true;
-        this.capacityWarningAnimation?.play(PCH_CAPACITY_FULL_WARNING_CLIP);
-    }
-
     private resetCapacityWarning(): void {
-        this.resetCapacityNumberWarning();
         this.resetWarningOverlay();
     }
 
@@ -2441,6 +2432,7 @@ export class PchConveyorGameplayController {
         this.warningPulseGeneration += 1;
         this.warningOverlayRunning = false;
         this.warningOverlayShown = false;
+        this.resetCapacityNumberWarning();
         if (this.warningOverlayOpacity?.isValid) {
             Tween.stopAllByTarget(this.warningOverlayOpacity);
             this.warningOverlayOpacity.opacity = 0;
@@ -2457,8 +2449,8 @@ export class PchConveyorGameplayController {
         if (this.countLabel?.isValid) {
             this.countLabel.color = this.capacityTextColor;
             this.countLabel.outlineColor = this.capacityOutlineColor;
+            this.countLabel.enableOutline = this.capacityOutlineEnabled;
         }
-        this.capacityWarningActive = false;
     }
 
     private bindWarningOverlay(): void {
@@ -2488,7 +2480,7 @@ export class PchConveyorGameplayController {
         const sprite = overlay.getComponent(Sprite) || overlay.addComponent(Sprite);
         sprite.sizeMode = Sprite.SizeMode.CUSTOM;
         sprite.spriteFrame = this.runtime.requireWarningMaskSpriteFrame();
-        sprite.color = new Color(255, 82, 112, 255);
+        sprite.color = new Color(255, 255, 255, 255);
         const opacity = overlay.getComponent(UIOpacity) || overlay.addComponent(UIOpacity);
         opacity.opacity = 0;
         overlay.active = false;
@@ -2504,11 +2496,24 @@ export class PchConveyorGameplayController {
         }
         const generation = ++this.warningPulseGeneration;
         Tween.stopAllByTarget(opacity);
+        this.capacityWarningAnimation?.stop();
         this.warningOverlayRunning = true;
         this.warningOverlayShown = true;
         overlay.active = true;
         overlay.setScale(1, 1, 1);
         opacity.opacity = 0;
+        if (this.countLabel?.isValid) {
+            this.countLabel.enableOutline = true;
+            this.countLabel.outlineColor = Color.WHITE;
+            this.countLabel.color = PCH_RED_WARNING_TEXT_COLOR;
+        }
+        const textColor = new Color();
+        const updateTextColor = () => {
+            if (!this.warningOverlayRunning || generation !== this.warningPulseGeneration || !this.countLabel?.isValid) return;
+            const ratio = Math.max(0, Math.min(1, opacity.opacity / PCH_RED_WARNING_MAX_OPACITY));
+            Color.lerp(textColor, PCH_RED_WARNING_TEXT_COLOR, Color.RED, ratio);
+            this.countLabel.color = textColor;
+        };
         let completedPulses = 0;
         const pulse = () => {
             if (!this.warningOverlayRunning || generation !== this.warningPulseGeneration || !overlay.isValid || !opacity.isValid) return;
@@ -2516,11 +2521,16 @@ export class PchConveyorGameplayController {
                 this.warningOverlayRunning = false;
                 overlay.active = false;
                 opacity.opacity = 0;
+                this.resetCapacityNumberWarning();
                 return;
             }
             tween(opacity)
-                .to(PCH_RED_WARNING_PULSE_SECONDS, { opacity: PCH_RED_WARNING_MAX_OPACITY })
-                .to(PCH_RED_WARNING_PULSE_SECONDS, { opacity: 0 })
+                .to(PCH_RED_WARNING_PULSE_SECONDS, { opacity: PCH_RED_WARNING_MAX_OPACITY }, {
+                    easing: 'sineInOut', onUpdate: updateTextColor,
+                })
+                .to(PCH_RED_WARNING_PULSE_SECONDS, { opacity: 0 }, {
+                    easing: 'sineInOut', onUpdate: updateTextColor,
+                })
                 .call(() => {
                     completedPulses += 1;
                     pulse();
@@ -2539,26 +2549,33 @@ export class PchConveyorGameplayController {
     }
 
     private runConveyorSkill(
-        kind: 'magnet' | 'brush',
+        kind: 'magnet' | 'brush' | 'revive',
         _timerAlreadyPaused: boolean,
         execute: () => PchSkillResult,
     ): boolean {
-        if (!this.rules || !this.root?.isValid || this.runtime.isGameEnd || this.isSkillBusy()) return false;
-        this.beginSkillUsePause(kind);
-        this.runtime._skillActive = true;
-        const skillGeneration = this.runtime.armSkillUsageWatchdog?.(`pch-${kind}`)
-            || Math.max(0, Number(this.runtime._activeSkillUsageGeneration) || 0);
-        this.inputLocked = true;
+        const isRevive = kind === 'revive';
+        if (!this.rules || !this.root?.isValid) return false;
+        if (isRevive) {
+            if (!this.runtime.isGameEnd || this.activeFlyBeans.size > 0
+                || this.activeReturnAnimations > 0 || this.runtime._skillActive === true) return false;
+        } else if (this.runtime.isGameEnd || this.isSkillBusy()) return false;
+        // Commit the rule transaction before granting revival; failure leaves settlement intact.
         let result: PchSkillResult;
         try {
             result = this.rules.executeSkillAtomically(execute);
         } catch (error) {
-            this.inputLocked = false;
-            this.runtime.finishSkillUsage?.(skillGeneration);
+            if (!isRevive) this.releaseActiveSkillPause();
             console.error('[pch-skill] rule transaction rolled back:', error);
             return false;
         }
-        if (result.moved > 0 && this.analyticsStats) {
+        this.runtime._skillActive = true;
+        if (isRevive) this.runtime.continueAfterLose(0, true);
+        // continueAfterLose resets timer pause references, so acquire our pause afterwards.
+        this.beginSkillUsePause(isRevive ? 'brush' : kind);
+        const skillGeneration = this.runtime.armSkillUsageWatchdog?.(`pch-${kind}`)
+            || Math.max(0, Number(this.runtime._activeSkillUsageGeneration) || 0);
+        this.inputLocked = true;
+        if (!isRevive && result.moved > 0 && this.analyticsStats) {
             if (kind === 'magnet') {
                 this.analyticsStats.magnetUses += 1;
             } else {
@@ -3411,8 +3428,8 @@ export class PchConveyorGameplayController {
         const handTargetLocal = parentTransform.convertToNodeSpaceAR(new Vec3(pointedBounds.center.x, pointedBounds.center.y, 0));
         this.openingGuideLevelOneCells[this.openingGuideLevelOneStep] = { row: pointedCell.row, col: pointedCell.col };
         const defaultCopy = this.openingGuideLevelOneStep === 0
-            ? '点击白色豆豆\n将它们放上传送带'
-            : '点击蓝色豆豆\n空出白色位置，让白色豆豆自动归位';
+            ? '点击白色豆豆\n放入传送带'
+            : '蓝色格子空出来了\n需要蓝色豆豆';
         const guideConfig = this.runtime.levelData?.tutorialGuide;
         const copy = guideConfig?.openingColors
             ? guideConfig.guideCopies[this.openingGuideLevelOneStep]
@@ -3430,6 +3447,9 @@ export class PchConveyorGameplayController {
             handTargetLocal,
         );
         this.showOpeningGuideBeanRings(targetCells);
+        if (getFirstLevelContent() === 'A' && !guideConfig?.openingColors) {
+            AudioMgr.inst.playGuideVoice(this.openingGuideLevelOneStep === 0 ? 'guideA1' : 'guideA2');
+        }
     }
 
     private createOpeningGuideFocusMask(
@@ -4139,6 +4159,7 @@ export class PchConveyorGameplayController {
     }
 
     private clearOpeningGuideNodes(): void {
+        AudioMgr.inst.stopGuideVoice();
         this.clearLevelTwoSoftHand();
         this.clearCapacityHint();
         this.openingGuideRingLoadVersion += 1;

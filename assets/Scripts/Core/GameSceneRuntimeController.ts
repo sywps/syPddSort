@@ -144,6 +144,8 @@ export class GameSceneRuntimeController {
     }
 
     private initializeHomeSceneRuntime(appRoot: AppRoot): void {
+        const startupHomeFromLocalProgress = appRoot.session.visualState === 'boot'
+            && resolveStartupRouteDecision().reason === 'local_progress_home';
         debugPerfSnapshot('runtime.home.start', this.runtime);
         appRoot.router.logTransitionTrace(
             '[SceneSplitTrace] GameCtrl:startHomeSceneRuntime',
@@ -166,6 +168,9 @@ export class GameSceneRuntimeController {
             return;
         }
         this.runtime.showMainMenu();
+        if (startupHomeFromLocalProgress) {
+            void this.runtime.beginStartupCloudRestore(true);
+        }
         appRoot.completeAppTransitionAfterDraw('Home');
         this.observeStartupPlayable('Home');
         this.runtime.startRenderResourceDiagnostics?.('home-start');
@@ -177,7 +182,7 @@ export class GameSceneRuntimeController {
         });
         this.runtime.scheduleOnce(() => {
             debugPerfSnapshot('runtime.home.backgroundServices.start', this.runtime);
-            this.startHomeBackgroundServices();
+            this.startHomeBackgroundServices(startupHomeFromLocalProgress);
         }, 0);
     }
 
@@ -215,12 +220,13 @@ export class GameSceneRuntimeController {
                 appRoot.router.logTransitionTrace('[SceneSplitTrace] bootRoute:skipDuplicate');
                 return;
             }
-            markStartupTrace('startup_route_game_start', {
+            const routeHome = routeDecision.reason === 'coop-invite' || routeDecision.reason === 'local_progress_home';
+            markStartupTrace(routeHome ? 'startup_route_home_start' : 'startup_route_game_start', {
                 source: 'GameSceneRuntimeController.startBoot',
                 requestedLevelId: routeDecision.shouldMarkPendingGameplay ? routeDecision.levelId : 0,
                 reason: routeDecision.reason,
             });
-            const route = routeDecision.reason === 'coop-invite' ? appRoot.router.toHome() : appRoot.router.toGame();
+            const route = routeHome ? appRoot.router.toHome() : appRoot.router.toGame();
             route.catch((error) => {
                 console.error('[SceneSplit] boot route failed:', error);
                 appRoot.clearRouteCover('boot-route-error');
@@ -375,7 +381,7 @@ export class GameSceneRuntimeController {
         if (!label) {
             throw new Error(`[GameScene] pending startup title is missing Label component on ${titlePath}/Label`);
         }
-        label.string = `第${levelId}关`;
+        label.string = `关卡 ${levelId}`;
         this.runtime.levelLabel = label;
         const timerWrap = this.runtime.requireUiChild(topBar, 'TimerWrap', 'TopBarGroup/TimerWrap');
         timerWrap.active = false;
@@ -567,7 +573,7 @@ export class GameSceneRuntimeController {
         return !!(globalScope?.__PDD_SCREEN_ADAPT_DEBUG__ || windowScope?.__PDD_SCREEN_ADAPT_DEBUG__);
     }
 
-    private startHomeBackgroundServices(): void {
+    private startHomeBackgroundServices(startupHomeFromLocalProgress: boolean): void {
         const canAutoSaveGameState =
             typeof this.runtime.hasReliableLocalUserStateForStartup === 'function'
             && this.runtime.hasReliableLocalUserStateForStartup();
@@ -575,7 +581,7 @@ export class GameSceneRuntimeController {
         SySDKMgr.inst.login().then((ready) => {
             if (ready) SySDKMgr.inst.reportLoadFinish();
         });
-        UserMgr.inst.touchSession(canAutoSaveGameState);
+        UserMgr.inst.touchSession(canAutoSaveGameState && !startupHomeFromLocalProgress);
         void AnalyticsMgr.inst.bootstrap();
         if (canAutoSaveGameState && typeof this.runtime.queueCloudGameStateSync === 'function') {
             this.runtime.queueCloudGameStateSync();

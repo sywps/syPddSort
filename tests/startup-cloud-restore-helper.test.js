@@ -68,6 +68,28 @@ function loadHelper(appRoot, leaderboardCalls = [], userStateSyncMgr = null, use
 
 {
     const calls = [];
+    let savedLevel = 11;
+    const { applyLateCloudUserStateToRuntime } = loadHelper(null);
+    const runtime = {
+        isValid: true,
+        getSavedLevel: () => savedLevel,
+        getRuntimeSceneName: () => 'Home',
+        applyCloudUserState(state) {
+            savedLevel = state.gameState.savedLevel;
+            calls.push(['apply', savedLevel]);
+            return 'cloud_progress_gt_1';
+        },
+        refreshHomeMainlineProgress() { calls.push(['refreshHome', savedLevel]); },
+        requestGameplayRoute() { calls.push(['routeGame']); },
+    };
+    const status = applyLateCloudUserStateToRuntime(runtime, { gameState: { savedLevel: 14 } }, true);
+    assert.strictEqual(status, 'cloud_progress_gt_1');
+    assert.deepStrictEqual(calls, [['apply', 14], ['refreshHome', 14]],
+        'Home cloud restore must refresh visible progress without entering gameplay');
+}
+
+{
+    const calls = [];
     let savedLevel = 1;
     const appRoot = {
         session: {

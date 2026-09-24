@@ -1812,8 +1812,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 82.6845703125,
-      "height": 43.8
+      "width": 260,
+      "height": 42
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1842,32 +1842,35 @@
       "b": 255,
       "a": 255
     },
-    "_string": "第1关",
+    "_string": "关卡 1",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 30,
     "_fontSize": 30,
-    "_fontFamily": "Arial",
+    "_fontFamily": "FZCuYuan-M03",
     "_lineHeight": 30,
     "_overflow": 0,
     "_enableWrapText": false,
-    "_font": null,
-    "_isSystemFontUsed": true,
+    "_font": {
+      "__uuid__": "6a2ae4a5-c235-4a64-a892-b4c93cc0bb72",
+      "__expectedType__": "cc.TTFFont"
+    },
+    "_isSystemFontUsed": false,
     "_spacingX": 0,
     "_isItalic": false,
-    "_isBold": true,
+    "_isBold": false,
     "_isUnderline": false,
     "_underlineHeight": 2,
     "_cacheMode": 0,
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 2,
-      "g": 15,
-      "b": 160,
-      "a": 255
+      "r": 0,
+      "g": 0,
+      "b": 0,
+      "a": 190
     },
-    "_outlineWidth": 3,
+    "_outlineWidth": 2,
     "_enableShadow": false,
     "_shadowColor": {
       "__type__": "cc.Color",
@@ -2048,8 +2051,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 180,
-      "height": 38
+      "width": 260,
+      "height": 42
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2078,32 +2081,35 @@
       "b": 204,
       "a": 255
     },
-    "_string": "第1关",
+    "_string": "关卡 1",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 24,
-    "_fontSize": 24,
-    "_fontFamily": "Arial",
+    "_actualFontSize": 30,
+    "_fontSize": 30,
+    "_fontFamily": "FZCuYuan-M03",
     "_lineHeight": 30,
     "_overflow": 2,
     "_enableWrapText": false,
-    "_font": null,
-    "_isSystemFontUsed": true,
+    "_font": {
+      "__uuid__": "6a2ae4a5-c235-4a64-a892-b4c93cc0bb72",
+      "__expectedType__": "cc.TTFFont"
+    },
+    "_isSystemFontUsed": false,
     "_spacingX": 0,
     "_isItalic": false,
-    "_isBold": true,
+    "_isBold": false,
     "_isUnderline": false,
     "_underlineHeight": 2,
     "_cacheMode": 0,
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 242,
-      "b": 210,
-      "a": 255
+      "r": 0,
+      "g": 0,
+      "b": 0,
+      "a": 190
     },
-    "_outlineWidth": 3,
+    "_outlineWidth": 2,
     "_enableShadow": false,
     "_shadowColor": {
       "__type__": "cc.Color",
@@ -3378,10 +3384,10 @@
     "_string": "0/60",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 22,
-    "_fontSize": 22,
+    "_actualFontSize": 28,
+    "_fontSize": 28,
     "_fontFamily": "Arial",
-    "_lineHeight": 26,
+    "_lineHeight": 32,
     "_overflow": 1,
     "_enableWrapText": false,
     "_font": null,
@@ -3400,7 +3406,7 @@
       "b": 169,
       "a": 255
     },
-    "_outlineWidth": 2,
+    "_outlineWidth": 3,
     "_enableShadow": false,
     "_shadowColor": {
       "__type__": "cc.Color",
@@ -9456,8 +9462,8 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -0.635,
-      "y": 1.786,
+      "x": 0.15,
+      "y": 0.576,
       "z": 0
     },
     "_lrot": {
@@ -9496,7 +9502,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 88,
-      "height": 67
+      "height": 70
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",

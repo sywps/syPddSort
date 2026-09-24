@@ -40,11 +40,13 @@ export class BootSceneCtrl extends Component {
         this.scheduleOnce(() => {
             if (!this.node?.isValid) return;
             if (!appRoot.session.consumeBootRoute()) return;
-            markStartupTrace('startup_route_game_start', {
+            const routeHome = routeDecision.reason === 'coop-invite' || routeDecision.reason === 'local_progress_home';
+            markStartupTrace(routeHome ? 'startup_route_home_start' : 'startup_route_game_start', {
                 requestedLevelId: routeDecision.shouldMarkPendingGameplay ? routeDecision.levelId : 0,
                 reason: routeDecision.reason,
             });
-            void appRoot.router.toGame().catch((error) => {
+            const route = routeHome ? appRoot.router.toHome() : appRoot.router.toGame();
+            void route.catch((error) => {
                 console.error('[SceneSplit] boot route failed:', error);
                 appRoot.startupLoading?.fail('游戏资源加载失败');
             });

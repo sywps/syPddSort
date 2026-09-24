@@ -295,7 +295,7 @@ export function installSettlementHudModule(target: any): void {
         refreshCompletionProgressLabel() {
             if (this.levelLabel) {
                 const activeLevel = this.getActiveLogicalLevelId();
-                this.levelLabel.string = this.isCoopMode?.() ? '合作模式' : `第${activeLevel}关`;
+                this.levelLabel.string = this.isCoopMode?.() ? '合作模式' : `关卡 ${activeLevel}`;
             }
             if (!this.completionLabel || !this.boardModel) return;
             const stats = this.getBoardCompletionStats();

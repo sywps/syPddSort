@@ -68,6 +68,8 @@ export class AudioMgr {
     private placeOneShotSources: Set<AudioSource> = new Set();
     private sfxSourceCursor = 0;
     private bgmSrc: AudioSource | null = null;
+    private guideVoiceSource: AudioSource | null = null;
+    private guideVoiceGeneration = 0;
     private gameAssetsBundle: Bundle | null = null;
     private bootstrapBundle: Bundle | null = null;
     private sfxEnabled = true;
@@ -164,6 +166,7 @@ export class AudioMgr {
     }
 
     private disposeAudioSources(audioHost: Node): void {
+        this.stopGuideVoice();
         this._releaseAllPlaceOneShotSources(true);
         audioHost.off(AudioSource.EventType.ENDED, this._handleSfxSourceEnded, this);
         this.pendingAutoplaySfx.clear();
@@ -821,7 +824,54 @@ export class AudioMgr {
         this._ensureSfxLoaded(name);
     }
 
+    playGuideVoice(name: 'guideA1' | 'guideA2'): void {
+        this.stopGuideVoice();
+        if (!this.sfxEnabled || this.suspended || this.externalInterruptionRefs > 0) return;
+        const generation = this.guideVoiceGeneration;
+        this.preload(name, (error) => {
+            if (generation !== this.guideVoiceGeneration) return;
+            if (error) {
+                console.error('[Audio] Guide voice load failed:', name, error);
+                return;
+            }
+            if (!this.sfxEnabled || this.suspended || this.externalInterruptionRefs > 0) return;
+            const clip = this.sfxClips.get(name);
+            if (!clip || !this.audioRoot?.isValid) {
+                console.error('[Audio] Guide voice is not ready:', name);
+                return;
+            }
+            const node = new Node('GuideVoice');
+            this.audioRoot.addChild(node);
+            const source = node.addComponent(AudioSource);
+            this.guideVoiceSource = source;
+            source.playOnAwake = false;
+            source.loop = false;
+            source.clip = clip;
+            source.volume = AUDIO_SFX_VOLUME[name];
+            node.on(AudioSource.EventType.ENDED, () => {
+                if (this.guideVoiceSource === source) this.stopGuideVoice();
+            });
+            try {
+                source.play();
+            } catch (error) {
+                this.stopGuideVoice();
+                console.error('[Audio] Guide voice playback failed:', name, error);
+            }
+        });
+    }
+
+    stopGuideVoice(): void {
+        this.guideVoiceGeneration += 1;
+        const source = this.guideVoiceSource;
+        this.guideVoiceSource = null;
+        if (!source?.isValid) return;
+        source.stop();
+        source.clip = null;
+        source.node.destroy();
+    }
+
     stopSfx(): void {
+        this.stopGuideVoice();
         this.pendingAutoplaySfx.clear();
         this._releaseAllPlaceOneShotSources(true);
         for (const source of this.sfxSources) {

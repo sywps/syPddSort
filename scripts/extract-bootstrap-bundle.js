@@ -18,6 +18,8 @@ const BOOTSTRAP_PATH_MAP = (() => {
         'Audio/pindd/bean_fly',
         'Audio/ui',
         'Audio/tick',
+        'Audio/guide_a_1',
+        'Audio/guide_a_2',
         'Audio/lose',
         'Audio/winColor',
         'Audio/winSettlement',

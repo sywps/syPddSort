@@ -6,6 +6,8 @@ export const AUDIO_GAME_BGM_VOLUME = 0.35;
 export const AUDIO_BGM_VOLUME = AUDIO_GAME_BGM_VOLUME;
 
 export const AUDIO_SFX_RESOURCE_PATH = {
+    guideA1: 'Audio/guide_a_1',
+    guideA2: 'Audio/guide_a_2',
     select: 'Audio/pindd/bean_pickup',
     settle: 'Audio/pindd/bean_return_settle',
     fly: 'Audio/pindd/bean_fly',
@@ -27,6 +29,8 @@ export const AUDIO_SFX_RESOURCE_PATH = {
 export type SfxName = keyof typeof AUDIO_SFX_RESOURCE_PATH;
 
 export const AUDIO_SFX_VOLUME: Record<SfxName, number> = {
+    guideA1: 1,
+    guideA2: 1,
     select: 0.55,
     settle: 0.72,
     fly: 0.40,
@@ -53,6 +57,8 @@ export const AUDIO_SFX_VOLUME_VARIANCE: Partial<Record<SfxName, number>> = {
 };
 
 export const AUDIO_BOOTSTRAP_SFX_NAMES: SfxName[] = [
+    'guideA1',
+    'guideA2',
     'select',
     'settle',
     'fly',

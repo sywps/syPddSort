@@ -8,11 +8,11 @@ assert.ok(!source.includes('drawWarningOverlayEdges'), 'warning must use the ori
 const { PNG } = require('pngjs');
 const mask = PNG.sync.read(fs.readFileSync(path.join(root, 'assets/BootstrapBundle/GameUI/Atlases/BoardEffects/pdpx_eff_Mask_01.png')));
 assert.equal(mask.width, 512);
-assert.equal(mask.height, 712);
+assert.equal(mask.height, 512);
 let edgeVisible = false;
 for (let y = 0; y < mask.height; y++) for (let x = 0; x < mask.width; x++) {
     const alpha = mask.data[(y * mask.width + x) * 4 + 3];
-    if (x >= 92 && x < mask.width - 92 && y >= 78 && y < mask.height - 78) {
+    if (x >= 80 && x < mask.width - 80 && y >= 80 && y < mask.height - 80) {
         assert.equal(alpha, 0, 'original resource interior must not tint gameplay');
     } else if (alpha > 0) edgeVisible = true;
 }

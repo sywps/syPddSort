@@ -775,7 +775,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 268,
+      "y": 390,
       "z": 0
     },
     "_lrot": {
@@ -816,7 +816,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 600,
-      "height": 86
+      "height": 80
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -851,13 +851,13 @@
       "b": 42,
       "a": 255
     },
-    "_string": "啊哦！传送带满啦！",
+    "_string": "传送带已满",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 58,
-    "_fontSize": 58,
+    "_actualFontSize": 52,
+    "_fontSize": 52,
     "_fontFamily": "Arial",
-    "_lineHeight": 72,
+    "_lineHeight": 64,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -930,6 +930,9 @@
     "_components": [
       {
         "__id__": 48
+      },
+      {
+        "__id__": 113
       }
     ],
     "_prefab": {
@@ -937,8 +940,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 29.215,
-      "y": 442,
+      "x": 0,
+      "y": 315,
       "z": 0
     },
     "_lrot": {
@@ -987,7 +990,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -85,
+      "x": -48,
       "y": 0,
       "z": 0
     },
@@ -1028,8 +1031,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 216,
-      "height": 96.72
+      "width": 100,
+      "height": 48
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1064,13 +1067,13 @@
       "b": 255,
       "a": 255
     },
-    "_string": "关卡已完成",
+    "_string": "已完成",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 42,
-    "_fontSize": 42,
+    "_actualFontSize": 28,
+    "_fontSize": 28,
     "_fontFamily": "Arial",
-    "_lineHeight": 72,
+    "_lineHeight": 40,
     "_overflow": 0,
     "_enableWrapText": false,
     "_font": null,
@@ -1146,7 +1149,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 35,
+      "x": 62,
       "y": 0,
       "z": 0
     },
@@ -1187,8 +1190,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 92.71875,
-      "height": 96.72
+      "width": 105,
+      "height": 48
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1226,10 +1229,10 @@
     "_string": "0%",
     "_horizontalAlign": 0,
     "_verticalAlign": 1,
-    "_actualFontSize": 60,
-    "_fontSize": 60,
+    "_actualFontSize": 32,
+    "_fontSize": 32,
     "_fontFamily": "Arial",
-    "_lineHeight": 72,
+    "_lineHeight": 40,
     "_overflow": 0,
     "_enableWrapText": false,
     "_font": null,
@@ -1296,8 +1299,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 500,
-      "height": 90
+      "width": 250,
+      "height": 48
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1346,8 +1349,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 11.29,
-      "y": 0.586,
+      "x": 0,
+      "y": 90,
       "z": 0
     },
     "_lrot": {
@@ -1359,8 +1362,8 @@
     },
     "_lscale": {
       "__type__": "cc.Vec3",
-      "x": 1,
-      "y": 1,
+      "x": 0.88,
+      "y": 0.88,
       "z": 1
     },
     "_mobility": 0,
@@ -1483,7 +1486,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -260.327,
+      "y": -165,
       "z": 0
     },
     "_lrot": {
@@ -1523,8 +1526,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 650,
-      "height": 70
+      "width": 600,
+      "height": 116
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1559,13 +1562,13 @@
       "b": 232,
       "a": 255
     },
-    "_string": "复活并扩展传送带12格",
+    "_string": "挪出所有拼豆\n继续游戏吧",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 36,
-    "_fontSize": 36,
+    "_actualFontSize": 40,
+    "_fontSize": 40,
     "_fontFamily": "Arial",
-    "_lineHeight": 44,
+    "_lineHeight": 52,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -1649,7 +1652,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -398,
+      "y": -338,
       "z": 0
     },
     "_lrot": {
@@ -1698,7 +1701,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -112.854,
+      "x": -99,
       "y": 6,
       "z": 0
     },
@@ -1739,8 +1742,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 80,
-      "height": 55
+      "width": 53.33333333333333,
+      "height": 40
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1834,8 +1837,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 45,
-      "y": 7,
+      "x": 33.666666666666664,
+      "y": 6,
       "z": 0
     },
     "_lrot": {
@@ -1875,8 +1878,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 228,
-      "height": 104.8
+      "width": 184,
+      "height": 64
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1914,10 +1917,10 @@
     "_string": "免费复活",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 56,
-    "_fontSize": 56,
+    "_actualFontSize": 46,
+    "_fontSize": 46,
     "_fontFamily": "Arial",
-    "_lineHeight": 80,
+    "_lineHeight": 64,
     "_overflow": 0,
     "_enableWrapText": false,
     "_font": null,
@@ -1984,8 +1987,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 400,
-      "height": 170
+      "width": 380,
+      "height": 150
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2087,7 +2090,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -398,
+      "y": -338,
       "z": 0
     },
     "_lrot": {
@@ -2136,7 +2139,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -124.383,
+      "x": -99,
       "y": 6,
       "z": 0
     },
@@ -2177,8 +2180,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 70,
-      "height": 70
+      "width": 40,
+      "height": 40
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2272,8 +2275,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 45,
-      "y": 7,
+      "x": 27,
+      "y": 6,
       "z": 0
     },
     "_lrot": {
@@ -2313,8 +2316,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 264,
-      "height": 104.8
+      "width": 184,
+      "height": 64
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2349,13 +2352,13 @@
       "b": 255,
       "a": 255
     },
-    "_string": "分享送扩展",
+    "_string": "分享复活",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 52,
-    "_fontSize": 52,
+    "_actualFontSize": 46,
+    "_fontSize": 46,
     "_fontFamily": "Arial",
-    "_lineHeight": 80,
+    "_lineHeight": 64,
     "_overflow": 0,
     "_enableWrapText": false,
     "_font": null,
@@ -2422,8 +2425,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 400,
-      "height": 170
+      "width": 380,
+      "height": 150
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2518,7 +2521,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -555,
+      "y": -470,
       "z": 0
     },
     "_lrot": {
@@ -2558,8 +2561,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 228,
-      "height": 49.36
+      "width": 400,
+      "height": 44
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2597,10 +2600,10 @@
     "_string": "按住屏幕查看关卡",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 28,
-    "_fontSize": 28,
+    "_actualFontSize": 24,
+    "_fontSize": 24,
     "_fontFamily": "Arial",
-    "_lineHeight": 36,
+    "_lineHeight": 34,
     "_overflow": 0,
     "_enableWrapText": false,
     "_font": null,
@@ -2769,5 +2772,42 @@
     "fileId": "revive-v2-buffer-node-33",
     "instance": null,
     "targetOverrides": null
+  },
+  {
+    "__type__": "cc.Layout",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 35
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 114
+    },
+    "_layoutType": 1,
+    "_resizeMode": 1,
+    "_cellSize": {
+      "__type__": "cc.Size",
+      "width": 40,
+      "height": 40
+    },
+    "_startAxis": 0,
+    "_paddingLeft": 0,
+    "_paddingRight": 0,
+    "_paddingTop": 0,
+    "_paddingBottom": 0,
+    "_spacingX": 10,
+    "_spacingY": 0,
+    "_verticalDirection": 1,
+    "_horizontalDirection": 0,
+    "_constraint": 0,
+    "_constraintNum": 2,
+    "_affectedByScale": false,
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "revive-completion-horizontal-layout"
   }
 ]

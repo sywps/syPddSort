@@ -313,6 +313,14 @@ async function main() {
         expandCapacity() {
             return runExpandCapacity.call(this, 12, { inst: { play() {} } });
         },
+        hasStoredBeans: () => rules.bufferCount > 0,
+        runConveyorSkill(kind, paused, execute) {
+            assert.strictEqual(kind, 'revive');
+            rules.executeSkillAtomically(execute);
+            this.inputLocked = false;
+            runtime.continueAfterLose(0, true);
+            return true;
+        },
         continueAfterBufferFull() { return runContinueAfterBufferFull.call(this); },
         checkBufferDeadlock() { return runCheckBufferDeadlock.call(this); },
         update(deltaTime) { return runUpdate.call(this, deltaTime, 0.30, 0.2); },
@@ -367,14 +375,14 @@ async function main() {
     attempts[1].onComplete({ attemptId: 2, status: 'verified_complete' });
 
     assert.strictEqual(rules.bufferCount, 72);
-    assert.strictEqual(rules.bufferCapacity, 84, 'verified second ad must expand even if asynchronous UI released the old input lock');
+    assert.strictEqual(rules.bufferCapacity, 84, 'verified second ad clears beans without expanding capacity');
     assert.strictEqual(pchController.inputLocked, false, 'verified second ad must unlock conveyor input');
     assert.strictEqual(runtime.isGameEnd, false, 'verified second ad must resume the same game');
     assert.strictEqual(runtime._activeLoseReason, null, 'successful recovery must clear the consumed loss reason');
     assert.strictEqual(finalOverlay.active, false, 'successful recovery must close the final failure page');
     assert.ok(
-        events.includes('continue:72/84:locked=false'),
-        'capacity expansion and input unlock must happen before continueAfterLose',
+        events.includes('continue:0/72:locked=false'),
+        'bean return and input unlock must happen before continueAfterLose',
     );
 
     await flushMicrotasks();
@@ -386,10 +394,10 @@ async function main() {
         lossesBeforeResumedFrame,
         'the first resumed conveyor frame must not reopen the buffer-full revive page',
     );
-    assert.strictEqual(rules.isBufferDeadlocked(), false, '72 stored beans must not deadlock an expanded 84-slot conveyor');
+    assert.strictEqual(rules.isBufferDeadlocked(), false, 'cleared conveyor must not deadlock');
 
-    for (let index = 0; index < 12; index += 1) rules.carriers[index].push(1);
-    assert.strictEqual(rules.isBufferDeadlocked(), true, 'fixture must refill to a real 84/84 deadlock');
+    for (const stack of rules.carriers) stack.push(1, 1, 1);
+    assert.strictEqual(rules.isBufferDeadlocked(), true, 'fixture must refill to a real 72/72 deadlock');
     pchController.beltTravel = 0;
     pchController.pendingBufferDeadlockStartTravel = null;
     pchController.inputLocked = false;

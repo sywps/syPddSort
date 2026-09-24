@@ -297,25 +297,25 @@ preview 资产可以存在于源码、编辑器工作流和 plain web preview �
 
 本章是构建脚本、包体结构、bundle 归属、CDN 资源数据、云端用户状态和启动路由的唯一规范入口。第 5 章只定义 `scene` / `prefab` / TS 的真源边界，不再维护一份简化版构建脚本职责，避免同一规则在两个章节漂移。
 
-### 11.1 启动状态权威与统一进游戏路由
-启动命名必须描述“当前已掌握的状态证据”，不得再用字母把用户永久分类。所有状态的第一个业务场景都是 `Game.scene`；Home 不能作为启动兜底。状态可以在一次启动中从 `unresolved` 转为 `new`、`local_snapshot` 或 `cloud_restore`，埋点必须记录转换而不是只记录最终标签。
+### 11.1 启动状态权威与首屏路由
+启动命名必须描述“当前已掌握的状态证据”，不得再用字母把用户永久分类。普通启动以启动前的有效本地 `pdd.level` 决定首屏：`pdd.level >= 11` 进入 `Home.scene`，其余进入 `Game.scene`。显式关卡和邀请入口优先。状态可以在一次启动中从 `unresolved` 转为 `new`、`local_snapshot` 或 `cloud_restore`，埋点必须记录转换而不是只记录最终标签。
 
 | 语义状态 | 充分证据 | 首屏路由 | 权威与写入边界 |
 |---|---|---|---|
 | `new` | 本地没有 `pdd.level >= 2`，且本次云端读取成功并确认没有 `savedLevel >= 2` | 进入 `gameEntry/bootstrap` 的 `Game.scene`，打开第 1 关 / 引导关 | 只有云端空状态已经确认后才可标记 `new`；“云端尚未返回”不等于新用户。 |
-| `local_snapshot` | 本地存在有效 `pdd.level = N` 且 `N >= 2`；云端仍在读取 / 暂不可用，或已确认没有更高 `savedLevel` | 立即进入 `Game.scene` 第 N 关 | 本地快照可以决定本次首屏；云端读取完成前禁止用较低自动快照覆盖云端，读取完成后按字段矩阵合并确认。 |
+| `local_snapshot` | 本地存在有效 `pdd.level = N` 且 `N >= 2`；云端仍在读取 / 暂不可用，或已确认没有更高 `savedLevel` | N 为 2～10 时立即进入 `Game.scene` 第 N 关；N ≥ 11 时进入 `Home.scene` | 本地快照可以决定本次首屏；云端读取完成前禁止用较低自动快照覆盖云端，读取完成后按字段矩阵合并确认。 |
 | `cloud_restore` | 云端返回 `savedLevel = N` 且 `N >= 2`，并且本地缺失、只有 `1` 或低于 N | 若已显示第 1 关临时态，则在 `Game.scene` 内收口临时态并恢复 / 重载到第 N 关 | 云端高进度接管；临时第 1 关和 starter 状态不得回写覆盖云端。 |
 | `unresolved` | 本地没有可确认的高进度，且云端仍在读取、失败或身份不足 | V2 允许先显示 `Game.scene` 第 1 关 provisional 壳，但状态仍为未决 | 禁止声明为 `new`，禁止把默认低状态写入云端，必须保留重试、诊断和后续接管能力。 |
 
 关键规则：
 
-1. 启动时如果只能同步读到本地进度，则初始目标关卡按 `initialLevel = validLocalLevel >= 2 ? validLocalLevel : 1` 计算，并立即进入 `Game.scene`；这只是路由决定，不等于云端权威已经确认。
+1. 启动时只用同步读到的本地进度选首屏。本地 `pdd.level >= 11` 进 Home；其余按 `initialLevel = validLocalLevel >= 2 ? validLocalLevel : 1` 进 Game。这只是路由决定，不等于云端权威已经确认。
 2. 本地 `pdd.level === 1` 是有效的本地记录，但不足以区分 `new` 与 `unresolved`；只有有效本地高进度才能进入 `local_snapshot`。
 3. `max(local, cloud)` 只适用于 `savedLevel` 等明确单调字段，不能推广到金币、体力、道具、装备选择或其它非单调状态。
 4. `unresolved` 下可以更新本地 provisional 记录，但不能触发默认云端写入；云端读取成功确认空状态后才转为 `new`。
-5. 云端返回 `savedLevel > currentLevel` 时必须转为 `cloud_restore`：更新本地有效进度，停止或收口当前临时态，再加载真实第 N 关。恢复动作不能跳到 Home，也不能要求用户重新进游戏。
+5. 云端返回 `savedLevel > currentLevel` 时必须转为 `cloud_restore` 并更新本地有效进度。若本次启动前本地无高进度，本次仍进入 `Game.scene` 并恢复 / 重载第 N 关；下一次启动按已落盘的本地进度选择首屏。若本次已从本地进度进入 Home，则在 Home 更新关卡展示，不自动跳进游戏。
 6. `local_snapshot` 或 `cloud_restore` 的第 N 关数据不在本地包或缓存中时，`Game.scene` 可以展示 loading / retry / 明确错误，并按 manifest / hash 加载目标 pack；不能静默降级到第 1 关或 Home。
-7. Home 只能在首屏之后由用户行为、运营入口或明确功能路由打开；四种语义状态均不得把 Home 当作启动目标。
+7. Home 可由本地第 11 关及以上进度作为普通启动目标；资源继续从 `homeAssets` 分包按需加载，不并入 Boot 首包。
 
 ### 11.2 数据分类与本地 / 远程协作规则
 本项目不能把“远程”当成单一概念。云函数用户状态、CDN 资源内容、运营配置和本地启动快照的读写频率、合并规则和失败处理都不同。
@@ -417,7 +417,7 @@ content：带 hash 的不可变内容文件，只在目标资源缺失或 hash �
 | 微信上传主包 / Root | 无固定 Cocos bundle 名 | 微信小游戏启动壳、平台配置、Cocos 入口、最小 settings、必须随启动可用的平台适配代码。 |
 | `cocosCore` | `main` | 启动第一口气，只放 `Boot.scene`、启动路由脚本、首帧本地资源、最小 loading cover。 |
 | `gameEntry` | `bootstrap` | 全用户统一游戏入口层，放 `Game.scene`、第 1 关本地快照、通用游戏壳、HUD、槽位、豆子图集、引导关同步必需资源，以及能让 `local_snapshot` / `cloud_restore` 状态进入目标关卡加载流程的最小代码和稳定 UI。 |
-| `home` | `homeAssets` | 非启动 Home / 菜单功能资源。只有在首个 `Game.scene` 已经可见后，因用户行为、运营入口或明确功能路由需要 Home 时才加载；不再承担老用户首屏入口职责。 |
+| `home` | `homeAssets` | Home / 菜单功能资源。普通启动本地进度为第 11 关及以上时按需加载，也可由游戏内入口打开；资源保留在微信分包。 |
 | `gameplay` | `gameAssets` | 后续玩法和非首屏功能资源，例如后续弹窗、排行榜、图鉴、商店、签到、主题、音频、特效、大背景和后续玩法 prefab。 |
 | `remoteLevelData` | 同一 CDN 根地址下的 `levels/`；普通 localhost browser preview 或显式 `local-test` 可对应本地镜像 | 高频动态关卡 JSON、`levels/level_live.json`、`levels/level_packs/*.json`、难度曲线和关卡投放。 |
 | `remoteSkinData` | 同一 CDN 根地址下的 `skin/`；仅显式 `local-test` 可对应本地 skin 镜像 | 皮肤资源清单 `skin/skin_live.json`、皮肤图标、背景大图、棋盘 / 槽位 / 豆子换肤资源；版本和 hash 独立于 `remoteLevelData`。 |
@@ -788,4 +788,4 @@ AI-first 工作流不能把自测默认外包给 Human。每次用户可见改�
 
 最终原则：
 
-> Cocos AI 管静态壳和稳定视觉，Code AI 管运行时状态和调度，Human 管判断和收口；用户状态按字段权威矩阵合并，稳定资源走本地包或微信分包，关卡资源走 `levels/level_live.json` / pack hash 按需加载，皮肤资源走 `skin/skin_live.json` / asset hash 按需加载；启动只使用 `new / local_snapshot / cloud_restore / unresolved` 语义状态并统一先进入 Game，默认 CDN 验证止于 dry-run，启动包图以构建产物 `deps` 和路由实测为准。
+> Cocos AI 管静态壳和稳定视觉，Code AI 管运行时状态和调度，Human 管判断和收口；用户状态按字段权威矩阵合并，稳定资源走本地包或微信分包，关卡资源走 `levels/level_live.json` / pack hash 按需加载，皮肤资源走 `skin/skin_live.json` / asset hash 按需加载；启动使用 `new / local_snapshot / cloud_restore / unresolved` 语义状态，本地第 11 关及以上可先进入 Home，默认 CDN 验证止于 dry-run，启动包图以构建产物 `deps` 和路由实测为准。

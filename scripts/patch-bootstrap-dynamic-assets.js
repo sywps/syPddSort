@@ -58,6 +58,8 @@ const criticalGameAssetsPathMap = new Map([
     ['Audio/pindd/bean_fly', 'Audio/pindd/bean_fly'],
     ['Audio/ui', 'Audio/ui'],
     ['Audio/tick', 'Audio/tick'],
+    ['Audio/guide_a_1', 'Audio/guide_a_1'],
+    ['Audio/guide_a_2', 'Audio/guide_a_2'],
     ['Audio/lose', 'Audio/lose'],
     ['Audio/winColor', 'Audio/winColor'],
     ['Audio/winSettlement', 'Audio/winSettlement'],
