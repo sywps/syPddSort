@@ -1,4 +1,5 @@
 import { getBrowserLevelPreview } from './BrowserLevelPreview';
+import { ensureGameplayVoiceController } from './GameplayVoiceController';
 import {
     AnalyticsMgr,
     AudioMgr,
@@ -30,6 +31,7 @@ export class GameplaySessionController {
         let gameplayEntryMode: 'main' | 'theme' | 'external' = 'main';
         let tutorialMode: TutorialMode = 'none';
         try {
+            AudioMgr.inst.stopVoice();
             runtime.disposeSettingsPanel?.();
             ensureHardLevelIntroController(runtime).stop();
             ensurePchConveyorGameplayController(runtime).stop();
@@ -47,6 +49,8 @@ export class GameplaySessionController {
             AudioMgr.inst.init(runtime.node);
             AudioMgr.inst.preload('button');
             AudioMgr.inst.preload('settle');
+            AudioMgr.inst.preload('conveyorEnter');
+            AudioMgr.inst.preload('conveyorReturn');
             for (const name of GAMEPLAY_JUDGMENT_PRELOAD_SFX_NAMES) {
                 AudioMgr.inst.preload(name);
             }
@@ -65,6 +69,7 @@ export class GameplaySessionController {
             runtime._activePhysicalLevelId = resolvedLevelId;
             runtime._activeLogicalLevelId = resolvedLevelId;
             runtime._activeGameplayEntryMode = gameplayEntryMode;
+            ensureGameplayVoiceController(runtime).beginLevel();
             activeLogicalLevelId = gameplayEntryMode === 'main'
                 ? runtime.getActiveLogicalLevelId()
                 : resolvedLevelId;
@@ -135,6 +140,7 @@ export class GameplaySessionController {
             runtime._pendingWinAdBonusReward = 0;
             runtime._winAdRewardClaimed = false;
             runtime._settlementNextTransitioning = false;
+            runtime._settlementAnalyticsId = '';
             runtime._settlementRevealState = 'idle';
             runtime._settlementRevealToken = (Number(runtime._settlementRevealToken) || 0) + 1;
             runtime._completedColors = new Set();
@@ -392,6 +398,7 @@ export class GameplaySessionController {
             cleanupErrors: cleanupErrors.join('|'),
         };
         let fatalSurfaceAttempted = false;
+        AnalyticsMgr.inst.settlement.failTransition(errorCode, errorMessage);
         markStartupTrace('startup_failed', { levelId, errorCode });
         flushStartupTrace(event => AnalyticsMgr.inst.trackFunnelEvent(event), { levelId });
         if (typeof runtime.stopLevelDataLoadWithFatalError === 'function') {
@@ -452,7 +459,7 @@ export class GameplaySessionController {
         entryMode: string,
         tutorialMode: TutorialMode,
     ): void {
-        if (entryMode !== 'main' || logicalLevelId < 1 || logicalLevelId > 10) return;
+        if (logicalLevelId < 1) return;
         const blockers = collectActiveBlockInputEvents();
         const modalFocusActive = (Number(runtime._modalFocusRefs) || 0) > 0;
         const expectedModalBlockers = modalFocusActive
@@ -467,6 +474,7 @@ export class GameplaySessionController {
         const modalFocusMismatch = modalFocusActive && expectedModalBlockers.length === 0;
         AnalyticsMgr.inst.trackFunnelEvent({
             eventName: 'level_interaction_ready',
+            gameplayEntryMode: runtime.isCoopMode?.() ? 'coop' : runtime.isRankedPvpMode?.() ? 'pvp' : entryMode,
             page: runtime.getAnalyticsPage(),
             levelId: logicalLevelId,
             logicalLevelId,

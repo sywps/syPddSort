@@ -11,6 +11,7 @@ import {
     Widget,
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
+import { AnalyticsMgr } from '../AnalyticsMgr';
 import { mountPixelPuzzleLobby, lobbyNode, lobbyLabel, bindLobbyButton } from '../Panels/PixelPuzzleLobbyView';
 import { Mask, ScrollView, Sprite, view } from 'cc';
 import { COLOR_HEX } from '../LevelConfig';
@@ -1265,6 +1266,8 @@ export function installPvpModeModule(target: any): void {
         },
 
         mountPvpBattleHud(): void {
+            this._pvpBattleHudContext = null;
+            this._pvpBattleHud = null;
             if (!this.isRankedPvpMode()) return;
             const context = getPvpContext();
             if (!context) throw new Error('[PvpMode] ranked route missing battle context');
@@ -1290,7 +1293,8 @@ export function installPvpModeModule(target: any): void {
             speedNode.active = true;
             const speedWidget = speedNode.getComponent(Widget);
             if (!speedWidget) throw new Error('[PvpMode] PVP speed control requires the scene Widget anchor');
-            alignPvpUtilityCenter(speedNode, speedWidget, PVP_BATTLE_ARTWORK_OPTICAL_TOP_OFFSET);
+            // Keep the speed control below Settings, matching the regular game HUD.
+            alignPvpUtilityCenter(speedNode, speedWidget, 102);
             const settingsNode = topBar.getChildByName('Settings');
             const settingsWidget = settingsNode?.getComponent(Widget);
             if (!settingsNode || !settingsWidget) throw new Error('[PvpMode] PVP settings control requires the scene Widget anchor');
@@ -1378,6 +1382,9 @@ export function installPvpModeModule(target: any): void {
             settingsNode.setSiblingIndex(topBar.children.length - 1);
             context.startedAtMs = Date.now() - Math.max(0, Number((context as any).resumeElapsedMs) || 0);
             PvpServiceMgr.inst.persistBattle(context);
+            // Publish readiness only after every HUD widget and battle field exists.
+            this._pvpBattleHud = hud;
+            this._pvpBattleHudContext = context;
         },
 
         recordPvpAction(row: number, col: number, colorId: number, moved: number): void {
@@ -1409,6 +1416,8 @@ export function installPvpModeModule(target: any): void {
             if (!this.isRankedPvpMode() || this._pvpBattleSettled) return;
             const context = getPvpContext();
             if (!context) return;
+            // Home and loading runtimes see the same route before their battle HUD exists.
+            if (this._pvpBattleHudContext !== context || !this._pvpBattleHud?.isValid) return;
             const elapsedMs = Math.max(0, Date.now() - context.startedAtMs);
             const ownProgress = computeBoardProgress(this);
             if (ownProgress !== this._pvpLastRecordedProgress) {
@@ -1508,6 +1517,7 @@ export function installPvpModeModule(target: any): void {
             this._pchConveyorGameplayController?.pauseForSettlement?.();
             const context = getPvpContext();
             if (!context) throw new Error('[PvpMode] missing context during settlement');
+            this._settlementAnalyticsId = AnalyticsMgr.inst.beginSettlement('pvp_result', null, 'pvp');
             appendPvpBoardDelta(this, ownTimeMs);
             const localOutcome = resolvePvpOutcome(terminalType, ownTimeMs, context.opponentTerminalType, context.opponentTargetMs);
             if (context.demo) PvpServiceMgr.inst.recordPreviewResult(context, localOutcome);
@@ -1612,11 +1622,18 @@ export function installPvpModeModule(target: any): void {
                 });
             }
             addButton(overlay, 'ReturnLobby', '返回大厅', 0, shareableFriendChallenge ? -275 : -205, 350, 86, COLORS.violet, () => {
+                const attempt = AnalyticsMgr.inst.settlement.action(this._settlementAnalyticsId, 'home', null);
                 PvpServiceMgr.inst.clearPersistedBattle();
                 AppRoot.tryGet()?.session.clearPvpBattleContext();
                 AppRoot.inst.session.pixelPuzzleLobbyActive = true;
-                void this.requestHomeRoute('pvp-result', 'auto');
+                void this.requestHomeRoute('pvp-result', 'auto').then(() => {
+                    AnalyticsMgr.inst.settlement.finish(attempt, 'returned_home', 'pvp_result');
+                }, (error: unknown) => {
+                    AnalyticsMgr.inst.settlement.finish(attempt, 'failed', 'pvp_return_failed', String(error));
+                    console.error('[pvp] return from settlement failed', error);
+                });
             });
+            AnalyticsMgr.inst.settlement.shown(this._settlementAnalyticsId, 'pvp_result');
         },
 
         async openPvpLeaderboard(parent: Node, status: Label): Promise<void> {

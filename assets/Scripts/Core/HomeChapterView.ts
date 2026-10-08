@@ -43,9 +43,29 @@ export function renderHomeChapter(runtime: any, heroCard: Node, currentLevel: nu
     if (previewState.active) lastShownPreviewProgress = savedLevel;
     else lastShownProgress = savedLevel;
     const reveals: Array<() => void> = [];
-    let waiting = model.cells.filter(cell => cell.completed && cell.level >= previous).length;
-    const settled = () => {
-        if (--waiting === 0) reveals.forEach(reveal => reveal());
+    runtime._cancelHomeChapterLoad?.();
+    let waiting = model.completed;
+    let finished = false;
+    let failure: Error | null = null;
+    let resolveReady!: (error: Error | null) => void;
+    runtime._homeChapterReady = new Promise<Error | null>(resolve => { resolveReady = resolve; });
+    const finish = (error: Error | null = failure) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timeout);
+        resolveReady(error);
+        if (!error && !runtime._homeChapterEntryPending) reveals.forEach(reveal => reveal());
+    };
+    const timeout = setTimeout(() => {
+        if (!heroCard.isValid) { finish(new Error('首页已离开')); return; }
+        console.error('[home-chapter] Preview preparation timed out');
+        finish(new Error('首页图案加载超时'));
+    }, 20000);
+    runtime._cancelHomeChapterLoad = () => finish(new Error('首页图案加载已取消'));
+    runtime._revealHomeChapter = () => { if (!failure) reveals.splice(0).forEach(reveal => reveal()); };
+    const settled = (error?: Error) => {
+        failure ||= error || null;
+        if (--waiting === 0) finish();
     };
     let revealIndex = 0;
     label(child(heroCard, 'ChapterTitle')).string = `第 ${model.chapter} 章`;
@@ -91,27 +111,29 @@ export function renderHomeChapter(runtime: any, heroCard: Node, currentLevel: nu
             number.node.active = true;
         }
         number.string = `${cell.level}`;
-        status.node.active = cell.completed;
-        status.string = cell.completed ? '加载中' : '';
+        status.node.active = false;
+        status.string = '';
         if (!cell.completed) return;
         runtime.loadLevelData(getPhysicalMainLevelId(cell.level), (data: { correctColorArr?: number[][] } | null) => {
-            if (!slot.isValid || !preview.isValid || (slot as any).__homeChapterToken !== token) return;
+            if (finished || !wanted()) return;
             const gridData = data?.correctColorArr;
             if (!Array.isArray(gridData) || !gridData.some(row => row.some(value => value > 0))) {
                 status.string = '加载失败';
+                status.node.active = true;
                 console.error(`[home-chapter] Level ${cell.level} preview unavailable`);
-                if (animate) { showCompleted(); opacity.opacity = 255; settled(); }
+                showCompleted(); opacity.opacity = 255;
+                settled(new Error(`第${cell.level}关图案加载失败`));
                 return;
             }
             status.node.active = false;
             const size = preview.getComponent(UITransform)!;
             renderCompletedPatternPreview(preview, gridData, {
                 name: 'CompletedPreview', maxW: size.width, maxH: size.height,
-                padding: 4, cropToContent: true,
-            }, runtime, animate ? success => {
-                if (!wanted()) return;
-                if (!success) { showCompleted(); opacity.opacity = 255; settled(); return; }
-                reveals.push(() => {
+                padding: 4, cropToContent: true, hideLoadingStatus: true,
+            }, runtime, success => {
+                if (finished || !wanted()) return;
+                if (!success) { showCompleted(); opacity.opacity = 255; settled(new Error(`第${cell.level}关图案生成失败`)); return; }
+                if (animate) reveals.push(() => {
                     if (!wanted()) return;
                     tween(numberOpacity).delay(delay).to(0.12, { opacity: 0 }).start();
                     tween(slot).delay(delay + 0.12)
@@ -126,7 +148,8 @@ export function renderHomeChapter(runtime: any, heroCard: Node, currentLevel: nu
                         }).start();
                 });
                 settled();
-            } : undefined);
+            });
         }, 'level_');
     });
+    if (waiting === 0) finish();
 }

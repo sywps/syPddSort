@@ -656,8 +656,8 @@ function requireMaintenanceToken(event) {
   if (!expected || received !== expected) throw new Error('maintenance authorization failed');
 }
 
-async function runMaintenance(event) {
-  requireMaintenanceToken(event);
+async function runMaintenance(event, trustedTimer = false) {
+  if (!trustedTimer) requireMaintenanceToken(event);
   const now = Date.now();
   const result = await db.collection(COLLECTIONS.matches)
     .where({ status: command.in(['WAITING_OPPONENT', 'PLAYING', 'PLAYING_CREATOR', 'PLAYING_CHALLENGER', 'WAITING_RESULT']), expiresAt: command.lte(now) })
@@ -704,6 +704,13 @@ async function seedDevelopmentData(event) {
 }
 
 exports.main = async (event = {}) => {
+  // SOURCE is supplied by WeChat, never trust timer-looking fields in event.
+  // Keep timer failures rejected so cloud logs/monitoring report the failure.
+  if (cloud.getWXContext().SOURCE === 'wx_trigger') {
+    const maintenance = await runMaintenance({}, true);
+    console.log('[pvpMaintenance]', JSON.stringify(maintenance));
+    return { ok: true, maintenance };
+  }
   try {
     if (event.action === 'getMatchmakingStats') {
       requireMaintenanceToken(event);

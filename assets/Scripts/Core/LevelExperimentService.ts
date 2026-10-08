@@ -23,7 +23,7 @@ export const FRONT_LEVEL_EXPERIMENT_ID = 'ly_0224';
 export const FRONT_LEVEL_EXPERIMENT_MIN_LEVEL = 2;
 export const FRONT_LEVEL_EXPERIMENT_TREATMENT_ENABLED = false;
 export const FRONT_LEVEL_TREATMENT_CDN_BASE_URL =
-    'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat_b/0722_levels/front10_v1/treatment/';
+    'https://game-pdd-v4.oss-cn-beijing.aliyuncs.com/syGame/pdd_v4/remote_wechat_b/0722_levels/front10_v1/treatment/';
 
 const DEFAULT_LEVEL_PREFIX = 'level_';
 const ANALYTICS_OPENID_STORAGE_KEY = 'pdd.analytics.openid.v1';

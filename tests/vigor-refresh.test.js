@@ -26,10 +26,13 @@ function createRuntime(vigor = ceiling, untilRestoreMs = 0) {
     vm.runInNewContext(output, {
         module, exports: module.exports, Date: TestDate, console,
         require(id) {
+            if (id === '../BrowserLevelPreview') return { getBrowserLevelPreview: () => ({ active: false }) };
+            if (id === '../PreviewRewardSave') return { PreviewRewardSave: {} };
             if (id === '../RuntimeLog') return { runtimeLog() {}, runtimeWarn() {} };
             if (id === '../UserStateSyncMgr') return { PVP_ECONOMY_REVISION_KEY: 'pdd.pvpEconomyRevision' };
             assert.equal(id, '../GameCtrlShared');
             return {
+                LS_GOLD: 'pdd.gold',
                 sys: { localStorage: {
                     getItem(key) { reads.push(key); return values.get(key) ?? null; },
                     setItem(key, value) { writes.push(key); values.set(key, value); },
@@ -47,6 +50,9 @@ function createRuntime(vigor = ceiling, untilRestoreMs = 0) {
     runtime._vigorTickDt = 0;
     runtime.cloudSyncRequests = 0;
     runtime.queueCloudGameStateSync = () => { runtime.cloudSyncRequests++; };
+    runtime.recoverWechatGiftJournal = () => {};
+    runtime.toasts = [];
+    runtime.showToast = text => runtime.toasts.push(text);
     return {
         runtime, values, reads, writes, now: () => now,
         advance(ms) { now += ms; },
@@ -73,7 +79,7 @@ for (const fps of [30, 60]) {
     f.runtime._vigorCountLbl = { string: '' };
     f.runtime._vigorTimeLbl = { string: '' };
     f.runtime.refreshVigorUI();
-    assert.equal(f.runtime._vigorCountLbl.string, `${ceiling - 2}/${ceiling}`);
+    assert.equal(f.runtime._vigorCountLbl.string, `${ceiling - 2}`);
     assert.equal(f.runtime._vigorTimeLbl.string, '05:00', 'count down to the next point rather than full vigor');
     assert.equal(f.reads.length, 3, 'visible timer reuses the recovered count');
     f.advance(1000);
@@ -81,16 +87,16 @@ for (const fps of [30, 60]) {
     assert.equal(f.runtime._vigorTimeLbl.string, '04:59');
     f.advance(restoreMs - 2000);
     f.runtime.refreshVigorUI();
-    assert.equal(f.runtime._vigorCountLbl.string, `${ceiling - 2}/${ceiling}`);
+    assert.equal(f.runtime._vigorCountLbl.string, `${ceiling - 2}`);
     assert.equal(f.runtime._vigorTimeLbl.string, '00:01');
     f.advance(1000);
     f.runtime.refreshVigorUI();
-    assert.equal(f.runtime._vigorCountLbl.string, `${ceiling - 1}/${ceiling}`, 'one interval restores exactly one point');
+    assert.equal(f.runtime._vigorCountLbl.string, `${ceiling - 1}`, 'one interval restores exactly one point');
     assert.equal(f.runtime._vigorTimeLbl.string, '05:00', 'restart the countdown after restoring one point');
     f.advance(restoreMs * 3);
     f.runtime.refreshVigorUI();
-    assert.equal(f.runtime._vigorCountLbl.string, `${ceiling}/${ceiling}`);
-    assert.equal(f.runtime._vigorTimeLbl.string, '05:00', 'keep existing full-vigor UI copy');
+    assert.equal(f.runtime._vigorCountLbl.string, `${ceiling}`);
+    assert.equal(f.runtime._vigorTimeLbl.string, '体力已满', 'full vigor must not show a recovery countdown');
     assert.equal(f.values.get('pdd.vigorTime'), '0');
 }
 
@@ -152,14 +158,31 @@ for (const fps of [30, 60]) {
 {
     const f = createRuntime(4, restoreMs);
     f.runtime._recoverVigorStatusLbl = { node: { isValid: true }, string: '' };
+    f.runtime._recoverVigorCountLbl = { node: { isValid: true }, string: '' };
     f.runtime.refreshVigorUI();
-    assert.equal(f.runtime._recoverVigorStatusLbl.string, `当前体力 4/${ceiling}`);
+    assert.equal(f.runtime._recoverVigorStatusLbl.string, '05:00 后恢复1体力');
+    assert.equal(f.runtime._recoverVigorCountLbl.string, '4');
     assert.equal(f.reads.filter(key => key === 'pdd.vigor').length, 1,
         'recover modal receives the same count rather than re-reading it');
     f.values.set('pdd.vigor', '6');
     f.runtime.refreshRecoverVigorModalUI();
-    assert.equal(f.runtime._recoverVigorStatusLbl.string, `当前体力 6/${ceiling}`,
+    assert.equal(f.runtime._recoverVigorCountLbl.string, '6',
         'standalone modal refresh still reads current storage');
+    f.values.set('pdd.vigor', String(ceiling));
+    f.runtime.refreshRecoverVigorModalUI();
+    assert.equal(f.runtime._recoverVigorStatusLbl.string, '体力已满');
+    assert.equal(f.runtime._recoverVigorCountLbl.string, String(ceiling));
+    f.runtime.clearRecoverVigorModalRuntimeState();
+    assert.equal(f.runtime._recoverVigorCountLbl, null, 'closing must release the added heart count label');
+}
+
+for (const reward of [3, 5]) {
+    const f = createRuntime(2, restoreMs);
+    assert.equal(f.runtime.grantVigorByAmount(reward), reward);
+    assert.equal(f.values.get('pdd.vigor'), String(2 + reward));
+    f.values.set('pdd.vigor', String(ceiling - 1));
+    assert.equal(f.runtime.grantVigorByAmount(reward), 1, 'share/video rewards stop at the existing cap');
+    assert.equal(f.runtime.grantVigorByAmount(reward), 0, 'full vigor cannot receive another reward');
 }
 
 {
@@ -169,7 +192,7 @@ for (const fps of [30, 60]) {
     f.values.set('pdd.vigor', '7');
     f.values.set('pdd.vigorTime', String(f.now() + restoreMs));
     f.runtime.refreshVigorUI();
-    assert.equal(f.runtime._vigorCountLbl.string, `7/${ceiling}`,
+    assert.equal(f.runtime._vigorCountLbl.string, '7',
         'an event refresh immediately observes a cloud-restored value, without stale long-lived caching');
 }
 
@@ -192,7 +215,7 @@ for (const fps of [30, 60]) {
     f.runtime._vigorCountLbl = { string: '' };
     f.advance(restoreMs * 2);
     module.exports.Lifecycle.prototype.handleGameShowLifecycle.call(f.runtime);
-    assert.equal(f.runtime._vigorCountLbl.string, `4/${ceiling}`, 'foreground return recovers immediately without waiting for a tick');
+    assert.equal(f.runtime._vigorCountLbl.string, '4', 'foreground return recovers immediately without waiting for a tick');
     assert.equal(f.runtime._gameForeground, true);
 }
 
@@ -202,6 +225,68 @@ for (const fps of [30, 60]) {
     assert.equal(f.reads.length, 2, 'a long frame refreshes the current state once rather than replaying every elapsed tick');
     f.runtime.vigorTick(0.7);
     assert.equal(f.reads.length, 4, 'fractional elapsed time is preserved for the next refresh');
+}
+
+{
+    const f = createRuntime();
+    assert.equal(f.runtime.getRecoverVigorShareRemaining(), 3);
+    for (let remaining = 2; remaining >= 0; remaining--) {
+        f.runtime.recordRecoverVigorShareGrant();
+        assert.equal(f.runtime.getRecoverVigorShareRemaining(), remaining);
+    }
+    f.runtime.recordRecoverVigorShareGrant();
+    assert.equal(f.runtime.canRecoverVigorByShare(), false, 'daily limit remains three successful claims');
+    f.advance(24 * 60 * 60 * 1000);
+    assert.equal(f.runtime.getRecoverVigorShareRemaining(), 3, 'share quota resets on the next day');
+}
+
+function purchaseFixture(vigor, gold, shares = 3) {
+    const f = createRuntime(vigor, vigor < ceiling ? restoreMs : 0);
+    f.values.set('pdd.gold', String(gold));
+    for (let i = 0; i < shares; i++) f.runtime.recordRecoverVigorShareGrant();
+    f.clearCounts();
+    return f;
+}
+
+{
+    const f = purchaseFixture(2, 900);
+    assert.equal(f.runtime.buyRecoverVigorWithGold(), 3);
+    assert.equal(f.runtime.getGold(), 600);
+    assert.equal(f.runtime.getVigor(), 5);
+    assert.equal(f.runtime.getRecoverVigorShareRemaining(), 0, 'buying cannot replenish daily shares');
+    f.advance(24 * 60 * 60 * 1000);
+    const balance = f.runtime.getGold();
+    assert.equal(f.runtime.canRecoverVigorByShare(), true);
+    assert.equal(f.runtime.buyRecoverVigorWithGold(), 0, 'next day must restore share mode');
+    assert.equal(f.runtime.getGold(), balance);
+}
+{
+    const f = purchaseFixture(9, 300);
+    assert.equal(f.runtime.buyRecoverVigorWithGold(), 1, 'purchase honors the existing vigor cap');
+    assert.equal(f.runtime.getVigor(), 10);
+    assert.equal(f.runtime.getGold(), 0, 'fixed displayed price is charged once');
+    assert.equal(f.runtime.getVigorTime(), 0);
+}
+for (const [vigor, gold, shares, toast] of [[2, 299, 3, '金币不足'], [10, 600, 3, '体力已经满了'], [2, 600, 2, undefined]]) {
+    const f = purchaseFixture(vigor, gold, shares);
+    assert.equal(f.runtime.buyRecoverVigorWithGold(), 0);
+    assert.equal(f.runtime.getGold(), gold);
+    assert.equal(f.runtime.getVigor(), vigor);
+    assert.equal(f.runtime.toasts.at(-1), toast);
+    assert.equal(f.writes.length, 0, 'rejected purchase must not spend gold or alter vigor');
+}
+for (const failure of ['no-grant', 'partial-error']) {
+    const f = purchaseFixture(2, 600);
+    const deadline = f.runtime.getVigorTime();
+    f.runtime.grantVigorByAmount = () => {
+        if (failure === 'partial-error') { f.runtime.setVigor(5); throw new Error('injected grant failure'); }
+        return 0;
+    };
+    assert.throws(() => f.runtime.buyRecoverVigorWithGold(), /grant/);
+    assert.equal(f.runtime.getGold(), 600, 'failed grant refunds the deduction');
+    assert.equal(f.runtime.getVigor(), 2, 'failed grant restores vigor even after a partial write');
+    assert.equal(f.runtime.getVigorTime(), deadline);
+    assert.equal(f.runtime.toasts.at(-1), '体力购买失败，请重试');
 }
 
 console.log('vigor-refresh.test.js passed');

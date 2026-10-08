@@ -20,18 +20,18 @@ assert.strictEqual(slotA.slot, 'A');
 assert.strictEqual(slotA.remoteDir, 'remote_wechat');
 assert.strictEqual(
     slotA.levelDataCdnUrl,
-    'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/',
+    'https://game-pdd-v4.oss-cn-beijing.aliyuncs.com/syGame/pdd_v4/remote_wechat/levels/',
 );
-assert.strictEqual(slotA.levelDataOssPath, 'syGame/pdd_v2/remote_wechat/levels/');
+assert.strictEqual(slotA.levelDataOssPath, 'syGame/pdd_v4/remote_wechat/levels/');
 
 const slotB = resolveWechatCdnSlot('B');
 assert.strictEqual(slotB.slot, 'B');
 assert.strictEqual(slotB.remoteDir, 'remote_wechat_b');
 assert.strictEqual(
     slotB.skinDataCdnUrl,
-    'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat_b/skin/',
+    'https://game-pdd-v4.oss-cn-beijing.aliyuncs.com/syGame/pdd_v4/remote_wechat_b/skin/',
 );
-assert.strictEqual(slotB.skinDataOssPath, 'syGame/pdd_v2/remote_wechat_b/skin/');
+assert.strictEqual(slotB.skinDataOssPath, 'syGame/pdd_v4/remote_wechat_b/skin/');
 
 assert.throws(() => extractRequiredWechatCdnSlot([]), /必须显式传入 --cdn-slot/);
 assert.throws(() => extractRequiredWechatCdnSlot(['--cdn-slot=C']), /必须是 A 或 B/);

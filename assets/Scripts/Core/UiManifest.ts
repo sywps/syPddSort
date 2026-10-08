@@ -20,11 +20,13 @@ export const POPUP_UI_TEXTURE_NAMES = [
 ];
 
 export const POPUP_SETTINGS_TEXTURE_NAMES = [
-    'popup_settings_sound_icon',
-    'popup_settings_music_icon',
-    'popup_settings_vibrate_icon',
-    'popup_settings_toggle_on',
-    'popup_settings_toggle_off',
+    'settings_v2_sound',
+    'settings_v2_music',
+    'settings_v2_voice',
+    'settings_v2_vibrate',
+    'settings_v2_toggle_on',
+    'settings_v2_toggle_off',
+    'settings_v2_row',
 ];
 
 export const GOLD_SHOP_TEXTURE_NAMES = [
@@ -156,6 +158,13 @@ export const LOCAL_ATLAS_MEMBER_ROUTES: Readonly<Record<string, string>> = Objec
     'gameAssets:popup_settings_vibrate_icon': 'Textures/UI/Atlases/Settings/popup_settings_vibrate_icon',
     'gameAssets:popup_settings_toggle_on': 'Textures/UI/Atlases/Settings/popup_settings_toggle_on',
     'gameAssets:popup_settings_toggle_off': 'Textures/UI/Atlases/Settings/popup_settings_toggle_off',
+    'gameAssets:settings_v2_sound': 'Textures/UI/Atlases/Settings/settings_v2_sound',
+    'gameAssets:settings_v2_music': 'Textures/UI/Atlases/Settings/settings_v2_music',
+    'gameAssets:settings_v2_voice': 'Textures/UI/Atlases/Settings/settings_v2_voice',
+    'gameAssets:settings_v2_vibrate': 'Textures/UI/Atlases/Settings/settings_v2_vibrate',
+    'gameAssets:settings_v2_toggle_on': 'Textures/UI/Atlases/Settings/settings_v2_toggle_on',
+    'gameAssets:settings_v2_toggle_off': 'Textures/UI/Atlases/Settings/settings_v2_toggle_off',
+    'gameAssets:settings_v2_row': 'Textures/UI/Atlases/Settings/settings_v2_row',
     'gameAssets:leaderboard_row_standard': 'Textures/UI/Atlases/LeaderboardV2/leaderboard_row_standard',
     'gameAssets:leaderboard_tab_active': 'Textures/UI/Atlases/LeaderboardV2/leaderboard_tab_active',
     'gameAssets:leaderboard_avatar_default': 'Textures/UI/Atlases/LeaderboardV2/leaderboard_avatar_default',

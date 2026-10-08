@@ -172,7 +172,6 @@ export class CoopServiceMgr {
         if (!wx?.shareAppMessage) throw new Error('当前环境不支持微信分享');
         wx.shareAppMessage({
             ...applyLocalWeChatShareMaterial({ query: `coopPost=${post.id}` }),
-            title: '我的部分拼好了，剩下的交给你！',
         });
     }
 

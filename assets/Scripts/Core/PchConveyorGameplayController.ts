@@ -1,3 +1,4 @@
+import { director } from 'cc';
 import {
     Animation,
     AudioMgr,
@@ -6,7 +7,6 @@ import {
     Graphics,
     Label,
     Layers,
-    Mask,
     Node,
     NodePool,
     ProgressBar,
@@ -57,8 +57,8 @@ import {
 const BELT_STEP_SECONDS = 0.30;
 const PCH_TRANSFER_SECONDS = 0.16;
 const PCH_ENTRY_STAGGER_SECONDS = 0.012;
-const PCH_RETURN_TRANSFER_SECONDS = 0.2;
-const PCH_RETURN_STAGGER_SECONDS = 0.11;
+const PCH_RETURN_TRANSFER_SECONDS = 0.5;
+const PCH_RETURN_STAGGER_SECONDS = 0.07;
 const PCH_RETURN_COMPLETE_DELAY_SECONDS = 0.01;
 const PCH_RETURN_SETTLE_FX_DURATION_SECONDS = 0.7;
 const PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS = Math.max(
@@ -66,6 +66,7 @@ const PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS = Math.max(
     PCH_RETURN_SETTLE_FX_DURATION_SECONDS - PCH_RETURN_COMPLETE_DELAY_SECONDS,
 );
 const PCH_SKILL_STAGGER_SECONDS = 0.028;
+const PCH_CLEAR_RETURN_STAGGER_SECONDS = 0.07;
 const PCH_SKILL_TRANSFER_SECONDS = 0.2;
 const PCH_SETTLED_PIXEL_BLOCK_EXPERIMENT = true;
 const PCH_EXPAND_CAPACITY = 12;
@@ -82,7 +83,7 @@ const OPENING_GUIDE_PROMPT_CONVEYOR_GAP = 96;
 const PCH_CAPACITY_FULL_WARNING_CLIP = 'PchCapacityFullWarning';
 const PCH_RED_WARNING_REMAINING_THRESHOLD = 10;
 const PCH_RED_WARNING_PULSE_SECONDS = 0.6;
-const PCH_RED_WARNING_MAX_OPACITY = 255;
+const PCH_RED_WARNING_MAX_OPACITY = 153;
 const PCH_RED_WARNING_TEXT_COLOR = new Color(255, 180, 180, 255);
 const PCH_CAPACITY_TEXT_COLOR = new Color(43, 43, 43, 255);
 const PCH_CAPACITY_OUTLINE_COLOR = new Color(255, 221, 35, 255);
@@ -282,6 +283,9 @@ export class PchConveyorGameplayController {
     private activePchColorCompleteEffects = 0;
     private returnBatchInProgress = false;
     private readonly presentationCompletions = new Map<() => void, number>();
+    private readonly ordinaryReturnQueue: Array<{ dueTime: number; launch: () => void }> = [];
+    private ordinaryReturnClock = 0;
+    private ordinaryReturnLastLaunchFrame = -1;
     private pchColorCompleteSequenceGeneration = 0;
     private readonly lastEntranceAudioVisitByCarrier = new Map<number, number>();
     private beltPath: RainbowConveyorPathGeometry | null = null;
@@ -321,9 +325,11 @@ export class PchConveyorGameplayController {
         this.csdElapsed += deltaTime;
         if (this.csdElapsed < 0.5) return;
         this.csdElapsed = 0;
-        if (!AnalyticsMgr.inst.isCollectionEnabled() || !this.isLevelThreeMeasurementActive()) return;
+        if (!AnalyticsMgr.inst.isCollectionEnabled()) return;
+        const measureCsd = this.isLevelThreeMeasurementActive();
+        if (!measureCsd && this.csdReady) return;
         const foreground = this.runtime._gameForeground !== false;
-        if (!this.csdReady && foreground) this.csdStartupMs += 500;
+        if (measureCsd && !this.csdReady && foreground) this.csdStartupMs += 500;
         const terminal = this.runtime.isGameEnd || this.finishCommitted || this.settlementPaused;
         const expected = terminal ? 'settlement' : this.settingsPaused ? 'settings'
             : this.runtime._adShowing || this.runtime._rewardedGrantTransaction ? 'ad'
@@ -335,13 +341,14 @@ export class PchConveyorGameplayController {
         const logicalReady = this.isStartupInteractionReady() && !this.externalInputBlocked;
         if (!this.csdReady && foreground && !expected && logicalReady && blockers.length === 0) {
             this.csdReady = true;
-            this.trackPchFunnelEvent('csd_startup_observation', { source: 'ready', success: true,
+            if (measureCsd) this.trackPchFunnelEvent('csd_startup_observation', { source: 'ready', success: true,
                 extra: { foregroundSampledMs: this.csdStartupMs, phase: this.openingPatternState, interactionMode: this.isOpeningGuideActive() ? 'guided' : 'free' } });
             this.runtime._csdInteractionReady = true;
             const ready = this.runtime._csdOnInteractionReady;
             this.runtime._csdOnInteractionReady = null;
             ready?.();
         }
+        if (!measureCsd) return;
         this.csdMonitor ||= new CsdInteractionMonitor(extra => this.trackPchFunnelEvent('csd_input_block_summary', {
             source: 'passive_observer', success: extra.outcome === 'recovered', extra }));
         if (!logicalReady && !startupPending && !expected) blockers.push('gameplay_input_lock');
@@ -381,6 +388,10 @@ export class PchConveyorGameplayController {
     private firstStoreEventSent = false;
     private levelTwoSoftHand: Node | null = null;
     private levelTwoSoftHandTarget: { row: number; col: number } | null = null;
+    private levelTwoSoftHandReminderArmed = false;
+    private levelTwoSoftHandReminderUsed = false;
+    private levelTwoSoftHandIdleSeconds = 0;
+    private levelTwoSoftHandActionCount = 0;
     private firstReturnEventSent = false;
 
     constructor(private readonly runtime: any) {}
@@ -625,7 +636,17 @@ export class PchConveyorGameplayController {
             throw new Error('[pch-core] Game.scene is missing TopBarGroup/Settings');
         }
         settingsButton.active = !hideFirstLevelControls;
+        const helpButton = topBar.getChildByName('GameplayHelpButton');
+        if (!helpButton) throw new Error('[pch-core] Game.scene is missing TopBarGroup/GameplayHelpButton');
+        helpButton.active = !hideFirstLevelControls && !this.runtime.isPvpMode?.() && !this.runtime.isCoopMode?.();
         this.bindSpeedButton(topBar, !hideFirstLevelControls);
+        if (this.runtime._activeGameplayEntryMode === 'main'
+            && this.runtime.getActiveLogicalLevelId?.() === 1
+            && !this.runtime.isRankedPvpMode?.()
+            && getFirstLevelContent() === 'A'
+            && !this.runtime.levelData?.tutorialGuide?.openingColors) {
+            AudioMgr.inst.prepareGuideVoices();
+        }
         if (this.runtime._coopReplayResumeState || this.runtime._pvpReplayResumeState) {
             this.openingPatternState = 'ready';
             this.externalInputBlocked = true;
@@ -870,6 +891,11 @@ export class PchConveyorGameplayController {
             this.speedButton.active = false;
         }
         this.clearOpeningGuideNodes();
+        AudioMgr.inst.releasePreparedGuideVoices();
+        this.levelTwoSoftHandReminderArmed = false;
+        this.levelTwoSoftHandReminderUsed = false;
+        this.levelTwoSoftHandIdleSeconds = 0;
+        this.levelTwoSoftHandActionCount = 0;
         this.root = null;
         this.belt = null;
         this.normalLayout = null;
@@ -944,7 +970,7 @@ export class PchConveyorGameplayController {
                     bufferCapacity: this.rules?.bufferCapacity || 0 } });
         }
         this.updateCapacityHint();
-        this.updateLevelTwoSoftHand();
+        this.updateLevelTwoSoftHand(deltaTime);
         if (this.runtime.isCoopMode?.() && this.runtime._gameForeground === false) return;
         if (this.settingsPaused) return;
         if (this.coopOpening) {
@@ -968,6 +994,7 @@ export class PchConveyorGameplayController {
             }
         }
         this.updateSphereFlyEffects(deltaTime);
+        this.updateOrdinaryReturnQueue(deltaTime);
         this.updateExitArrowAnimation(deltaTime);
         if (!this.rules || this.runtime.isGameEnd || this.externalInputBlocked) return;
         if (this.skillMovementPaused || this.runtime._adShowing || this.runtime._rewardedGrantTransaction) return;
@@ -976,6 +1003,7 @@ export class PchConveyorGameplayController {
         this.beltTravel += (Math.max(0, deltaTime) * speedMultiplier) / BELT_STEP_SECONDS;
         this.runtime.recordPvpRuleEvent?.(1, this.beltTravel);
         const entrancePickupProgress = 1 - PCH_ENTRY_PICKUP_LEAD_STEP_RATIO / this.rules.carrierCount;
+        const exitCarrierIndices = [];
         for (let carrierIndex = 0; carrierIndex < this.rules.carrierCount; carrierIndex += 1) {
             if (this.didCarrierCrossProgress(
                 carrierIndex,
@@ -986,9 +1014,10 @@ export class PchConveyorGameplayController {
                 this.handleCarrierAtEntrance(carrierIndex);
             }
             if (this.didCarrierCrossProgress(carrierIndex, previousTravel, this.beltTravel, this.exitPathProgress)) {
-                this.handleCarrierAtExit(carrierIndex);
+                exitCarrierIndices.push(carrierIndex);
             }
         }
+        if (exitCarrierIndices.length > 0) this.handleCarriersAtExit(exitCarrierIndices);
         this.maybeShowCapacityPressureGuide();
         if (this.checkBufferDeadlock()) return;
         this.updateBeltPositions();
@@ -999,6 +1028,32 @@ export class PchConveyorGameplayController {
         const transform = this.belt.getComponent(UITransform);
         if (!transform) return null;
         return this.belt.position.y + transform.contentSize.height * Math.abs(this.belt.scale.y || 1) / 2;
+    }
+
+    getInitialFitAvoidTopY(): number {
+        const fixedUi = this.runtime.getGameplayFixedRoot().getComponent(UITransform);
+        if (!this.belt?.isValid || !fixedUi) throw new Error('[board-fit] Conveyor layout is not ready');
+        // Child bounds cover the track, carriers and entry without the layout container's empty margin.
+        let top = Number.NEGATIVE_INFINITY;
+        for (const child of this.belt.children) {
+            if (!child.activeInHierarchy) continue;
+            const bounds = this.runtime.getGameplayNodeBoundsInFixedRoot(child);
+            if (bounds) top = Math.max(top, bounds.top);
+        }
+        for (const group of this.exitArrowGroups) {
+            const node = group.position;
+            const parentUi = node.parent?.getComponent(UITransform);
+            const bounds = this.runtime.getGameplayNodeBoundsInFixedRoot(node);
+            if (!parentUi || !bounds) throw new Error('[board-fit] Exit arrow bounds are missing');
+            // Include the full animation envelope without moving the live arrow.
+            const current = fixedUi.convertToNodeSpaceAR(parentUi.convertToWorldSpaceAR(node.position));
+            const end = fixedUi.convertToNodeSpaceAR(parentUi.convertToWorldSpaceAR(
+                new Vec3(node.position.x, PCH_EXIT_ARROW_END_Y, node.position.z),
+            ));
+            top = Math.max(top, bounds.top + end.y - current.y);
+        }
+        if (!Number.isFinite(top)) throw new Error('[board-fit] Conveyor content bounds are empty');
+        return top;
     }
 
     getBufferCapacity(): number {
@@ -1442,7 +1497,9 @@ export class PchConveyorGameplayController {
     }
 
     private handleLevelOneOpeningGuideRootTap(event: any): boolean {
-        if (!this.rules || this.openingGuideLevelOneStep < 0) return false;
+        // The step is assigned before the guide artwork finishes loading.
+        if (!this.rules || this.openingGuideLevelOneStep < 0
+            || !this.openingGuide?.activeInHierarchy || !this.openingGuideTarget?.activeInHierarchy) return false;
         const guideCell = this.openingGuideLevelOneCells[this.openingGuideLevelOneStep];
         const targetColor = guideCell ? this.rules.board.currentColors[guideCell.row]?.[guideCell.col] || 0 : 0;
         const rawPos = event?.getUILocation?.();
@@ -1503,6 +1560,11 @@ export class PchConveyorGameplayController {
             return 'capacity_blocked';
         }
         this.clearLevelTwoSoftHand();
+        this.levelTwoSoftHandIdleSeconds = 0;
+        if (this.levelTwoSoftHandReminderArmed) {
+            this.levelTwoSoftHandActionCount += 1;
+            if (this.levelTwoSoftHandActionCount > 3) this.levelTwoSoftHandReminderArmed = false;
+        }
         if (this.analyticsStats) this.analyticsStats.validActionCount += 1;
         if (this.isLevelThreeMeasurementActive() && !this.levelThreeFirstActionSent) {
             this.levelThreeFirstActionSent = true;
@@ -1570,7 +1632,7 @@ export class PchConveyorGameplayController {
         const shouldPlayVisitFeedback = this.lastEntranceAudioVisitByCarrier.get(carrierIndex) !== visitOrdinal;
         if (shouldPlayVisitFeedback) {
             this.lastEntranceAudioVisitByCarrier.set(carrierIndex, visitOrdinal);
-            AudioMgr.inst.play('settle');
+            AudioMgr.inst.play('conveyorEnter');
             AudioMgr.inst.vibratePlace();
         }
         this.renderConveyorCarrier(carrierIndex);
@@ -1609,9 +1671,8 @@ export class PchConveyorGameplayController {
         }
     }
 
-    private handleCarrierAtExit(carrierIndex: number): boolean {
-        if (!this.rules) return false;
-        if (this.rules.topColor(carrierIndex) <= 0) return false;
+    private prepareCarrierReturn(carrierIndex: number) {
+        if (!this.rules || this.rules.topColor(carrierIndex) <= 0) return null;
         const carrierNode = this.carrierNodes[carrierIndex];
         const sourceLayers = this.rules.carriers[carrierIndex].map((_colorId, layerIndex) => {
             try {
@@ -1630,7 +1691,30 @@ export class PchConveyorGameplayController {
             }
         });
         const result = this.rules.autoPlaceAvailableLayers(carrierIndex);
-        if (result.moved <= 0) return false;
+        return result.moved > 0 ? { carrierIndex, sourceLayers, result } : null;
+    }
+
+    private handleCarriersAtExit(carrierIndices: number[]): void {
+        // Reserve every target for this frame before rendering or starting any flight.
+        const plans = carrierIndices.map(index => this.prepareCarrierReturn(index));
+        if (!plans.some(plan => plan !== null)) return;
+        this.returnBatchInProgress = true;
+        try {
+            for (const plan of plans) {
+                if (plan) this.handleCarrierAtExit(plan.carrierIndex, plan);
+            }
+        } finally {
+            this.returnBatchInProgress = false;
+        }
+        this.tryCommitFinishAfterPchColorCompleteEffects();
+    }
+
+    private handleCarrierAtExit(
+        carrierIndex: number,
+        prepared = this.prepareCarrierReturn(carrierIndex),
+    ): boolean {
+        if (!this.rules || !prepared) return false;
+        const { sourceLayers, result } = prepared;
         if (!this.firstReturnEventSent) {
             this.firstReturnEventSent = true;
             this.trackPchFunnelEvent('pch_first_return_success', {
@@ -1645,6 +1729,7 @@ export class PchConveyorGameplayController {
             console.error('[pch-return] conveyor visual sync failed:', error);
         }
         const returnColorBatches = new Map<number, PchReturnColorEffectBatch>();
+        const previousBatchInProgress = this.returnBatchInProgress;
         this.returnBatchInProgress = true;
         try {
             result.boardCells.forEach((target, index) => {
@@ -1666,7 +1751,7 @@ export class PchConveyorGameplayController {
                 }
             });
         } finally {
-            this.returnBatchInProgress = false;
+            this.returnBatchInProgress = previousBatchInProgress;
         }
         try { this.playExitPulse(); }
         catch (error) { console.error('[pch-return] exit pulse unavailable:', error); }
@@ -1779,7 +1864,7 @@ export class PchConveyorGameplayController {
             .call(() => {
                 this.destroyFlyBean(bean);
                 if (playBatchAudio) {
-                    AudioMgr.inst.play('settle');
+                    AudioMgr.inst.play('conveyorEnter');
                     AudioMgr.inst.vibratePlace();
                 }
                 this.runtime.recordPvpRuleEvent?.(3);
@@ -1789,6 +1874,29 @@ export class PchConveyorGameplayController {
                 this.tryTransferAtCurrentEntrance();
             })
             .start();
+    }
+
+    private updateOrdinaryReturnQueue(deltaTime: number): void {
+        if (this.settingsPaused || this.settlementPaused || this.skillMovementPaused
+            || this.runtime.isGameEnd || this.runtime._gameForeground === false
+            || this.runtime._adShowing || this.runtime._rewardedGrantTransaction) return;
+        this.ordinaryReturnClock += Math.max(0, deltaTime);
+        const next = this.ordinaryReturnQueue[0];
+        if (!next || next.dueTime - this.ordinaryReturnClock > 1e-9) return;
+        const frame = director.getTotalFrames();
+        if (this.ordinaryReturnLastLaunchFrame === frame) return;
+        // Keep other deadlines intact; collisions and overdue launches wait for another frame.
+        this.ordinaryReturnLastLaunchFrame = frame;
+        this.ordinaryReturnQueue.shift()!.launch();
+    }
+
+    private enqueueOrdinaryReturn(staggerIndex: number, launch: () => void): void {
+        const entry = { dueTime: this.ordinaryReturnClock + staggerIndex * PCH_RETURN_STAGGER_SECONDS, launch };
+        // Stable deadline order lets a new carrier's first bean precede an older carrier's tail.
+        const index = this.ordinaryReturnQueue.findIndex(pending => pending.dueTime > entry.dueTime);
+        if (index < 0) this.ordinaryReturnQueue.push(entry);
+        else this.ordinaryReturnQueue.splice(index, 0, entry);
+        this.updateOrdinaryReturnQueue(0);
     }
 
     private animateBeanReturn(
@@ -1821,56 +1929,59 @@ export class PchConveyorGameplayController {
                 this.finishReturnAnimation(target, colorBatch);
             }
         };
-        const flightDelay = staggerIndex * PCH_RETURN_STAGGER_SECONDS;
-        this.presentationCompletions.set(completeReturn, flightDelay + PCH_RETURN_TRANSFER_SECONDS + 1);
         try {
             if (!this.root) throw new Error('[pch-core] conveyor return visual root is unavailable');
             const rootTransform = this.root.getComponent(UITransform)!;
             bean = this.createFlyBean(`PchReturnBean-${target.row}-${target.col}`, colorId, sourceBeanSize, sourceWorld);
             const startLocal = bean.position.clone();
             this.activeReturnBeans.add(bean);
-            this.attachSphereFlyEffect(bean, sourceBeanSize, flightDelay);
-            tween(bean)
-                .delay(flightDelay)
-                .call(() => {
-                    if (completed || generation !== this.pchColorCompleteSequenceGeneration) return;
-                    AudioMgr.inst.play('settle');
-                    AudioMgr.inst.vibratePlace();
-                })
-                .to(PCH_RETURN_TRANSFER_SECONDS, {}, {
-                    // Keep the tween on the bean so existing pause/cleanup still applies.
-                    onUpdate: (_node: Node, ratio: number) => {
-                        if (completed || generation !== this.pchColorCompleteSequenceGeneration || !bean?.isValid) return;
-                        const targetWorld = this.getBoardCellWorldPosition(target.row, target.col);
-                        const targetLocal = rootTransform.convertToNodeSpaceAR(targetWorld);
-                        const targetBeanSize = Math.max(1, this.runtime.getBoardFlyBeanSizeInLayer?.(this.root) || sourceBeanSize);
-                        // onUpdate receives linear time; preserve the original quadOut motion.
-                        const progress = 1 - (1 - ratio) * (1 - ratio);
-                        bean.setPosition(
-                            startLocal.x + (targetLocal.x - startLocal.x) * progress,
-                            startLocal.y + (targetLocal.y - startLocal.y) * progress,
-                            startLocal.z + (targetLocal.z - startLocal.z) * progress,
-                        );
-                        const scale = 1 + (targetBeanSize / sourceBeanSize - 1) * progress;
-                        bean.setScale(scale, scale, 1);
-                    },
-                })
-                .call(() => {
-                    if (completed || generation !== this.pchColorCompleteSequenceGeneration) return;
-                    try {
-                        bean.active = false;
-                        this.runtime.renderBoardCell(target.row, target.col);
-                        this.runtime.playBeanSettleMatchFxOnCell?.(target.row, target.col);
-                        this.pendingReturnCompletions.set(bean, completeReturn);
-                        if (!this.settlementPaused && !this.settingsPaused) {
-                            this.runtime.scheduleOnce(completeReturn, PCH_RETURN_COMPLETE_DELAY_SECONDS);
-                        }
-                    } catch (error) {
-                        console.error('[pch-return] completing settled bean without effect:', error);
-                        completeReturn();
-                    }
-                })
-                .start();
+            this.enqueueOrdinaryReturn(staggerIndex, () => {
+                if (completed || generation !== this.pchColorCompleteSequenceGeneration) return;
+                try {
+                    this.presentationCompletions.set(completeReturn, PCH_RETURN_TRANSFER_SECONDS + 1);
+                    this.attachSphereFlyEffect(bean!, sourceBeanSize, 0);
+                    AudioMgr.inst.play('conveyorReturn');
+                    tween(bean!)
+                        .to(PCH_RETURN_TRANSFER_SECONDS, {}, {
+                            // Keep the tween on the bean so existing pause/cleanup still applies.
+                            onUpdate: (_node: Node, ratio: number) => {
+                                if (completed || generation !== this.pchColorCompleteSequenceGeneration || !bean?.isValid) return;
+                                const targetWorld = this.getBoardCellWorldPosition(target.row, target.col);
+                                const targetLocal = rootTransform.convertToNodeSpaceAR(targetWorld);
+                                const targetBeanSize = Math.max(1, this.runtime.getBoardFlyBeanSizeInLayer?.(this.root) || sourceBeanSize);
+                                // onUpdate receives linear time; preserve the original quadOut motion.
+                                const progress = 1 - (1 - ratio) * (1 - ratio);
+                                bean.setPosition(
+                                    startLocal.x + (targetLocal.x - startLocal.x) * progress,
+                                    startLocal.y + (targetLocal.y - startLocal.y) * progress,
+                                    startLocal.z + (targetLocal.z - startLocal.z) * progress,
+                                );
+                                const scale = 1 + (targetBeanSize / sourceBeanSize - 1) * progress;
+                                bean.setScale(scale, scale, 1);
+                            },
+                        })
+                        .call(() => {
+                            if (completed || generation !== this.pchColorCompleteSequenceGeneration) return;
+                            try {
+                                bean.active = false;
+                                this.runtime.renderBoardCell(target.row, target.col);
+                                this.runtime.playBeanSettleMatchFxOnCell?.(target.row, target.col);
+                                AudioMgr.inst.vibratePlace();
+                                this.pendingReturnCompletions.set(bean, completeReturn);
+                                if (!this.settlementPaused && !this.settingsPaused) {
+                                    this.runtime.scheduleOnce(completeReturn, PCH_RETURN_COMPLETE_DELAY_SECONDS);
+                                }
+                            } catch (error) {
+                                console.error('[pch-return] completing settled bean without effect:', error);
+                                completeReturn();
+                            }
+                        })
+                        .start();
+                } catch (error) {
+                    console.error('[pch-return] queued return launch failed:', error);
+                    completeReturn();
+                }
+            });
         } catch (error) {
             console.error('[pch-return] completing committed return without animation:', error);
             completeReturn();
@@ -1957,6 +2068,9 @@ export class PchConveyorGameplayController {
     }
 
     private clearPchColorCompleteSequence(): void {
+        this.ordinaryReturnQueue.length = 0;
+        this.ordinaryReturnClock = 0;
+        this.ordinaryReturnLastLaunchFrame = -1;
         this.presentationCompletions.clear();
         this.pchColorCompleteSequenceGeneration += 1;
         for (const callback of this.pendingPchReturnColorSettles) {
@@ -2378,43 +2492,28 @@ export class PchConveyorGameplayController {
 
         const safeRatio = Math.min(1, Math.max(0, Number(ratio) || 0));
         const isV2 = capacityTrack.parent?.parent?.name === 'NormalLayoutV2';
-        const inset = isV2 ? 0 : PCH_CAPACITY_PROGRESS_INSET;
-        // Overlap the left inner rim slightly without moving the progress endpoint.
-        const leftOverlap = isV2 ? 2 : 0;
+        if (isV2) {
+            // The scene owns the fixed colour field and foreground track rim.
+            // Reveal pixels horizontally; never resize the art or round the moving endpoint.
+            fillSprite.fillRange = safeRatio;
+            fillSpriteNode.active = safeRatio > 0;
+            return;
+        }
+        const inset = PCH_CAPACITY_PROGRESS_INSET;
+        const leftOverlap = 0;
         const fillLeft = -width / 2 + inset - leftOverlap;
         const fillWidth = safeRatio > 0
             ? Math.max(0, width - inset * 2) * safeRatio + leftOverlap
             : 0;
         const fillHeight = Math.max(0, height - inset * 2);
-        const highResolutionScale = isV2
-            ? fillHeight / fillSprite.spriteFrame!.originalSize.height
-            : PCH_CAPACITY_SLICED_RENDER_SCALE;
-
-        if (isV2) {
-            const mask = capacityTrack.getComponent(Mask) || capacityTrack.addComponent(Mask);
-            mask.type = Mask.Type.GRAPHICS_STENCIL;
-            const graphics = capacityTrack.getComponent(Graphics);
-            if (!graphics) throw new Error('[pch-core] V2 capacity mask must provide Graphics');
-            graphics.clear();
-            if (fillWidth > 0 && fillHeight > 0) {
-                graphics.roundRect(
-                    fillLeft,
-                    -fillHeight / 2,
-                    fillWidth,
-                    fillHeight,
-                    Math.min(fillWidth, fillHeight) / 2,
-                );
-                graphics.fill();
-            }
-        }
+        const highResolutionScale = PCH_CAPACITY_SLICED_RENDER_SCALE;
 
         if (fillWidth <= 0 || fillHeight <= 0) {
             fillSpriteNode.active = false;
             return;
         }
         fillSpriteNode.active = true;
-        // Keep V2's colour field fixed; only the rounded stencil reveals progress.
-        const imageWidth = isV2 ? width - inset * 2 + leftOverlap : fillWidth;
+        const imageWidth = fillWidth;
         fillTransform.setContentSize(imageWidth / highResolutionScale, fillHeight / highResolutionScale);
         fillSpriteNode.setPosition(
             fillLeft + imageWidth / 2,
@@ -2546,6 +2645,10 @@ export class PchConveyorGameplayController {
             return;
         }
         if (!this.warningOverlayShown) this.startWarningOverlayPulse();
+        this.runtime._gameplayVoiceController?.warn(() =>
+            this.isActive() && !!this.rules && !this.settlementPaused && !this.finishCommitted
+            && this.rules.bufferCapacity - this.rules.bufferCount <= PCH_RED_WARNING_REMAINING_THRESHOLD
+            && !this.rules.hasReturnableCarrierMatch());
     }
 
     private runConveyorSkill(
@@ -2653,7 +2756,7 @@ export class PchConveyorGameplayController {
                 const targetLocal = this.root!.getComponent(UITransform)!.convertToNodeSpaceAR(targetWorld);
                 const targetSize = Math.max(1, this.runtime.getBoardFlyBeanSizeInLayer?.(this.root) || source.size);
                 tween(bean)
-                    .delay(index * PCH_SKILL_STAGGER_SECONDS)
+                    .delay(index * (kind === 'magnet' ? PCH_SKILL_STAGGER_SECONDS : PCH_CLEAR_RETURN_STAGGER_SECONDS))
                     .to(PCH_SKILL_TRANSFER_SECONDS, {
                         position: targetLocal,
                         scale: new Vec3(targetSize / source.size, targetSize / source.size, 1),
@@ -2665,7 +2768,7 @@ export class PchConveyorGameplayController {
                             skillBeans.delete(bean);
                             this.runtime._flyingTargets?.delete?.(`${move.target.row},${move.target.col}`);
                             this.runtime.renderBoardCell?.(move.target.row, move.target.col);
-                            AudioMgr.inst.play('settle');
+                            AudioMgr.inst.play('conveyorReturn');
                             this.playSkillTargetPulse(move.target, () => {});
                             remaining -= 1;
                             if (remaining <= 0) finish();
@@ -3054,8 +3157,10 @@ export class PchConveyorGameplayController {
         capacityTrack = this.requireConveyorNode(capacityBadge, 'PchCapacityTrack', `${basePath}/PchCapacityBadge/PchCapacityTrack`);
         const fillSpriteNode = this.requireConveyorSprite(capacityTrack, 'FillSprite', `${basePath}/PchCapacityBadge/PchCapacityTrack/FillSprite`);
         if (!capacityTrack.getComponent(UITransform) || !fillSpriteNode.getComponent(UITransform)
-            || fillSpriteNode.getComponent(Sprite)?.type !== Sprite.Type.SLICED) {
-            throw new Error('[pch-core] Capacity track must provide a sliced FillSprite and UITransform');
+            || fillSpriteNode.getComponent(Sprite)?.type !== Sprite.Type.FILLED
+            || fillSpriteNode.getComponent(Sprite)?.fillType !== Sprite.FillType.HORIZONTAL
+            || fillSpriteNode.getComponent(Sprite)?.fillStart !== 0) {
+            throw new Error('[pch-core] Capacity track must provide a horizontal filled FillSprite and UITransform');
         }
         this.renderNormalCapacityTrack(capacityTrack, 0);
         const countLabel = this.requireConveyorLabel(
@@ -3447,6 +3552,11 @@ export class PchConveyorGameplayController {
             handTargetLocal,
         );
         this.showOpeningGuideBeanRings(targetCells);
+        if (this.openingGuideLevelOneStep === 1) {
+            const emptyTargets = this.rules!.cells.filter(item =>
+                !item.locked && item.current === 0 && item.target === targetColor);
+            this.showOpeningGuideBeanRings(emptyTargets);
+        }
         if (getFirstLevelContent() === 'A' && !guideConfig?.openingColors) {
             AudioMgr.inst.playGuideVoice(this.openingGuideLevelOneStep === 0 ? 'guideA1' : 'guideA2');
         }
@@ -3678,11 +3788,6 @@ export class PchConveyorGameplayController {
         if (!openingGuide?.isValid || !parentTransform) {
             throw new Error('[pch-core] level 3 guide mask parent is unavailable');
         }
-        const conveyorTrack = this.capacityTrack || this.capacityProgress?.node || null;
-        const conveyorTransform = conveyorTrack?.getComponent(UITransform) || null;
-        if (!conveyorTrack?.isValid || !conveyorTransform) {
-            throw new Error('[pch-core] level 3 guide capacity progress focus is unavailable');
-        }
 
         const mask = this.makeNode(
             'PchOpeningGuideCapacityDimMask',
@@ -3702,49 +3807,29 @@ export class PchConveyorGameplayController {
             || maskMaxY - maskMinY < 1) {
             throw new Error('[pch-core] level 3 guide dim mask bounds are unavailable');
         }
-        const conveyorBounds = conveyorTransform.getBoundingBoxToWorld();
-        const conveyorBottomLeft = parentTransform.convertToNodeSpaceAR(
-            new Vec3(conveyorBounds.xMin, conveyorBounds.yMin, 0),
-        );
-        const conveyorTopRight = parentTransform.convertToNodeSpaceAR(
-            new Vec3(conveyorBounds.xMax, conveyorBounds.yMax, 0),
-        );
-        if (!Number.isFinite(
-            targetLocal.x + targetLocal.y + targetWidth + targetHeight
-            + conveyorBottomLeft.x + conveyorBottomLeft.y + conveyorTopRight.x + conveyorTopRight.y,
-        )) {
+        if (!Number.isFinite(targetLocal.x + targetLocal.y + targetWidth + targetHeight)
+            || targetWidth <= 0 || targetHeight <= 0) {
             throw new Error('[pch-core] level 3 guide focus bounds are unavailable');
         }
         const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
+        const buttonPadding = 4;
         const focusLeft = clamp(
-            Math.min(
-                targetLocal.x - targetWidth / 2 - OPENING_GUIDE_TARGET_FOCUS_PADDING,
-                conveyorBottomLeft.x - OPENING_GUIDE_CONVEYOR_FOCUS_PADDING,
-            ),
+            targetLocal.x - targetWidth / 2 - buttonPadding,
             maskMinX,
             maskMaxX,
         );
         const focusRight = clamp(
-            Math.max(
-                targetLocal.x + targetWidth / 2 + OPENING_GUIDE_TARGET_FOCUS_PADDING,
-                conveyorTopRight.x + OPENING_GUIDE_CONVEYOR_FOCUS_PADDING,
-            ) - 4,
+            targetLocal.x + targetWidth / 2 + buttonPadding,
             maskMinX,
             maskMaxX,
         );
         const focusBottom = clamp(
-            Math.min(
-                targetLocal.y - targetHeight / 2 - OPENING_GUIDE_TARGET_FOCUS_PADDING,
-                conveyorBottomLeft.y - OPENING_GUIDE_CONVEYOR_FOCUS_PADDING,
-            ) + 8,
+            targetLocal.y - targetHeight / 2 - buttonPadding,
             maskMinY,
             maskMaxY,
         );
         const focusTop = clamp(
-            Math.max(
-                targetLocal.y + targetHeight / 2 + OPENING_GUIDE_TARGET_FOCUS_PADDING,
-                conveyorTopRight.y + OPENING_GUIDE_CONVEYOR_FOCUS_PADDING,
-            ) - 8,
+            targetLocal.y + targetHeight / 2 + buttonPadding,
             maskMinY,
             maskMaxY,
         );
@@ -4014,6 +4099,7 @@ export class PchConveyorGameplayController {
         this.refreshSpeedButtonState();
         if (this.statusLabel) this.statusLabel.string = '3 倍速度已开启';
         this.dismissOpeningGuide();
+        this.levelTwoSoftHandReminderArmed = true;
         this.showLevelTwoSoftHand();
         AudioMgr.inst.play('button');
     }
@@ -4051,22 +4137,39 @@ export class PchConveyorGameplayController {
         this.updateLevelTwoSoftHand();
     }
 
-    private updateLevelTwoSoftHand(): void {
+    private updateLevelTwoSoftHand(deltaTime = 0): void {
         const anchor = this.levelTwoSoftHand;
-        if (!anchor?.isValid) return;
-        if (!this.rules || this.runtime.isGameEnd) {
+        const mayRemind = this.levelTwoSoftHandReminderArmed && !this.levelTwoSoftHandReminderUsed
+            && this.levelTwoSoftHandActionCount > 0 && this.levelTwoSoftHandActionCount <= 3;
+        if (!anchor?.isValid && !mayRemind) return;
+        if (!this.rules || this.runtime.isGameEnd || this.finishCommitted
+            || this.runtime._activeGameplayEntryMode !== 'main'
+            || this.runtime.getActiveLogicalLevelId?.() !== 2
+            || this.runtime.isRankedPvpMode?.() || this.runtime.isCoopMode?.()) {
+            this.levelTwoSoftHandReminderArmed = false;
             this.clearLevelTwoSoftHand();
             return;
         }
-        anchor.active = !(this.settingsPaused || this.settlementPaused || this.skillMovementPaused
+        const paused = this.settingsPaused || this.settlementPaused || this.skillMovementPaused
             || this.externalInputBlocked || this.inputLocked || this.runtime._gameForeground === false
             || this.runtime._adShowing || this.runtime._rewardedGrantTransaction
-            || Number(this.runtime._modalFocusRefs) > 0);
-        if (!anchor.active) return;
-        const available = (cell: { row: number; col: number }) =>
-            this.rules!.board.currentColors[cell.row]?.[cell.col] > 0
-            && !this.rules!.board.locked[cell.row]?.[cell.col]
-            && this.runtime.cellNodes?.[cell.row]?.[cell.col]?.activeInHierarchy;
+            || this.runtime._skillActive || this.openingGuide?.isValid
+            || this.runtime.gestureMode === 'pinching' || this.runtime.gestureMode === 'panning'
+            || this.runtime.suppressTap || Number(this.runtime._modalFocusRefs) > 0;
+        if (paused || this.rules.bufferCount >= this.rules.bufferCapacity) {
+            if (anchor?.isValid) anchor.active = false;
+            return;
+        }
+        const originalSelection = this.getBeanSelectionBucket() === 'B';
+        const available = (cell: { row: number; col: number }) => {
+            if (!(this.rules!.board.currentColors[cell.row]?.[cell.col] > 0)
+                || this.rules!.board.locked[cell.row]?.[cell.col]
+                || !this.runtime.cellNodes?.[cell.row]?.[cell.col]?.activeInHierarchy) return false;
+            const block = originalSelection
+                ? selectOriginalBeans(this.rules!.board, cell.row, cell.col, this.rules!.moveLimit)
+                : this.rules!.selectBoard(cell.row, cell.col);
+            return !!block?.cells.length;
+        };
         let target = this.levelTwoSoftHandTarget;
         if (!target || !available(target)) {
             const candidates = this.rules.cells.filter(available);
@@ -4075,9 +4178,18 @@ export class PchConveyorGameplayController {
             this.levelTwoSoftHandTarget = target;
         }
         if (!target) {
-            anchor.active = false;
+            if (anchor?.isValid) anchor.active = false;
             return;
         }
+        if (!anchor?.isValid) {
+            // Suspended/long frames are not observed actionable time.
+            if (deltaTime > 0 && deltaTime <= 0.25) this.levelTwoSoftHandIdleSeconds += deltaTime;
+            if (this.levelTwoSoftHandIdleSeconds < 5) return;
+            this.levelTwoSoftHandReminderUsed = true;
+            this.showLevelTwoSoftHand();
+            return;
+        }
+        anchor.active = true;
         const local = anchor.parent!.getComponent(UITransform)!
             .convertToNodeSpaceAR(this.getBoardCellWorldPosition(target.row, target.col));
         anchor.setPosition(local);
@@ -4152,6 +4264,7 @@ export class PchConveyorGameplayController {
 
     private dismissOpeningGuide(): void {
         this.clearOpeningGuideNodes();
+        AudioMgr.inst.releasePreparedGuideVoices();
         this.openingGuideLevelOneCells = [];
         this.openingGuideLevelOneStep = -1;
         this.inputLocked = false;
@@ -4414,8 +4527,7 @@ export class PchConveyorGameplayController {
         if (added > 0 && this.analyticsStats) this.analyticsStats.capacityExpandCount += 1;
         if (added > 0 && this.runtime.isCoopMode?.()) this.runtime.recordCoopRuleEvent(7, added);
         this.lastEntranceAudioVisitByCarrier.clear();
-        this.renderConveyor();
-        this.renderEntranceQueue();
+        // Expanding the limit does not change existing carrier or queued bean visuals.
         this.refreshStatus();
         this.showCapacityBurst(added);
         return added > 0;

@@ -1,8 +1,25 @@
 export const CHAPTER_AVATAR_IDS = [1009, 1010, 1011, 1012] as const;
 export const CHAPTER_FRAME_IDS = [2006, 2007, 2008, 2009] as const;
-export const CHAPTER_BEAN_IDS = [2001, 2002, 2003, 2004] as const;
+export const CHAPTER_BEAN_IDS = [2004, 2002, 2003, 2001] as const;
 export const CHAPTER_BACKGROUND_IDS = [1002, 1003, 1004, 1006] as const;
 export type ChapterReward = { key: string; chapter: number; milestone: number; gold: number; brushCount: number; magnetCount: number; avatarId: number; frameId: number; beanSkinId: number; backgroundSkinId: number };
+// Presentation only: receipts and grant amounts remain owned by the claim flow.
+export function mergeChapterRewardDisplay(rewards: ChapterReward[]): ChapterReward[] {
+    if (!rewards.length) return [];
+    const totals = { ...rewards[0], gold: 0, brushCount: 0, magnetCount: 0, avatarId: 0, frameId: 0, beanSkinId: 0, backgroundSkinId: 0 };
+    const decorations: ChapterReward[] = [];
+    const seen = new Set<string>();
+    for (const reward of rewards) {
+        totals.gold += reward.gold; totals.brushCount += reward.brushCount; totals.magnetCount += reward.magnetCount;
+        for (const field of ['avatarId', 'frameId', 'beanSkinId', 'backgroundSkinId'] as const) {
+            const key = `${field}:${reward[field]}`;
+            if (!reward[field] || seen.has(key)) continue;
+            seen.add(key);
+            decorations.push({ ...totals, gold: 0, brushCount: 0, magnetCount: 0, [field]: reward[field] });
+        }
+    }
+    return [totals, ...decorations];
+}
 export function chapterReward(chapter: number, milestone: 4 | 9): ChapterReward {
     if (!Number.isSafeInteger(chapter) || chapter < 1) throw Error('章节编号错误');
     const cycle = Math.floor((chapter - 1) / 4), kind = (chapter - 1) % 4;

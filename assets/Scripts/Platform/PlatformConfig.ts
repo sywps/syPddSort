@@ -4,5 +4,6 @@ export type RewardedAdPlatformConfig = {
 
 export type MiniGamePlatformConfig = {
     readonly appId: string;
+    readonly gameName?: string;
     readonly ads: RewardedAdPlatformConfig;
 };

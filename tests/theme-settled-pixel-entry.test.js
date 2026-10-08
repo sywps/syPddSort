@@ -111,7 +111,7 @@ assert.ok(
 );
 assert.ok(
     settlement.includes('const nextThemeLevelId = this.getNextThemeLevelId(currentThemeLevelId);')
-        && settlement.includes('this.startThemeLevel(nextThemeLevelId);')
+        && /this\.startThemeLevel\(nextThemeLevelId(?:,\s*\{\s*settlementAttemptId:\s*attempt(?:,\s*fromSettlement:\s*true)?\s*\})?\);/.test(settlement)
         && !settlement.includes('syncPixelPuzzleUnlockHint'),
     'theme completion must continue to the next theme level without obsolete unlock prompts',
 );

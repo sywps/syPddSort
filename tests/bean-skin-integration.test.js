@@ -37,7 +37,9 @@ assert.deepStrictEqual(catalog.skins.map((skin) => skin.id), expectedIds, 'catal
 assert.deepStrictEqual(catalog.skins.map((skin) => skin.key), expectedKeys, 'neutral product keys');
 assert.strictEqual(catalog.skins[0].resourceMode, 'bootstrap_existing', 'default atlas stays in Bootstrap');
 assert.ok(catalog.skins.slice(1).every((skin) => skin.resourceMode === 'game_assets_atlas'), 'new atlases use gameAssets');
-assert.ok(catalog.skins.slice(1).every((skin, i) => skin.unlockType === 'chapter' && skin.unlockValue === (i * 4 + 1) * 9), 'bean skins unlock at rotating chapter milestones');
+const unlockLevels = {2001:117,2002:45,2003:81,2004:9};
+assert.ok(catalog.skins.slice(1).every(skin => skin.unlockType === 'chapter' && skin.unlockValue === unlockLevels[skin.id]), 'bean skins unlock at assigned chapter milestones');
+assert.deepStrictEqual([...catalog.skins].sort((a,b)=>a.sort-b.sort).map(skin=>skin.id),[2000,2004,2002,2003,2001], 'catalog display follows unlock order');
 assert.ok(!/(type|screw)[_-]?[1-5]/i.test(read(catalogPath)), 'catalog must not expose source package names');
 
 const defaultAtlas = readJson('assets/BootstrapBundle/Beans/bean-atlas-data.json');

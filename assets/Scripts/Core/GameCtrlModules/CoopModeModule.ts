@@ -2,6 +2,7 @@ import { Label, Graphics, Color, BlockInputEvents, Sprite } from 'cc';
 import { BOARD_SLOT_BATCH_MAX_CELLS, BoardSlotBatchRenderer } from '../BoardSlotBatchRenderer';
 import type { BoardSlotBatchCell } from '../BoardSlotBatchRenderer';
 import { AppRoot } from '../AppRoot';
+import { AnalyticsMgr } from '../AnalyticsMgr';
 import { CoopServiceMgr } from '../CoopServiceMgr';
 import { COOP_ROUTE_REASON, coopRegionGrid, type CoopLevelData } from '../CoopModeConfig';
 import { CoopPanelController, coopButton, coopNode, coopText } from '../Panels/CoopPanelController';
@@ -218,7 +219,7 @@ export function installCoopModeModule(target: any): void {
             } catch (e) { console.error('[coop] restart failed', e); this.showToast?.('暂时无法开始，请稍后再试', 3); }
             finally { this._coopRestarting = false; }
         },
-        async leaveCoop(): Promise<void> {
+        async leaveCoop(settlementAttemptId: string = ''): Promise<void> {
             if (this._coopLeaving) return;
             const savedActive = CoopServiceMgr.inst.active;
             this._coopLeaving = true;
@@ -230,7 +231,9 @@ export function installCoopModeModule(target: any): void {
                 if (savedActive?.completed) await CoopServiceMgr.inst.flushAll();
                 CoopServiceMgr.inst.active = null; CoopServiceMgr.inst.returnToLobby = true;
                 await AppRoot.tryGet()!.requestHomeRoute('coop', 'none');
+                AnalyticsMgr.inst.settlement.finish(settlementAttemptId, 'returned_home', 'coop_result');
             } catch (error) {
+                AnalyticsMgr.inst.settlement.finish(settlementAttemptId, 'failed', 'coop_return_failed', String(error));
                 CoopServiceMgr.inst.active = savedActive;
                 CoopServiceMgr.inst.returnToLobby = false;
                 console.error('[coop] leave failed', error);
@@ -242,6 +245,7 @@ export function installCoopModeModule(target: any): void {
             if (!this.isCoopMode() || !passed) return false;
             if (this._coopTerminal) return true;
             this._coopTerminal = true; this.isGameEnd = true;
+            this._settlementAnalyticsId = AnalyticsMgr.inst.beginSettlement('win', null, 'coop');
             CoopServiceMgr.inst.active!.completed = true;
             this.unschedule(this.tickTimer);
             this._pchConveyorGameplayController?.pauseForSettlement();
@@ -280,7 +284,11 @@ export function installCoopModeModule(target: any): void {
                 } catch (e) { console.error('[coop] result submission failed', e); if (status.isValid) status.string = '本局结果待同步\n点击继续同步后解锁分享与收藏'; }
             };
             coopButton(panel, '继续同步', -155, -55, () => { void save(); });
-            coopButton(panel, '保存并返回', 155, -55, () => { void this.leaveCoop(); });
+            coopButton(panel, '保存并返回', 155, -55, () => {
+                const attempt = AnalyticsMgr.inst.settlement.action(this._settlementAnalyticsId, 'home', null);
+                void this.leaveCoop(attempt);
+            });
+            AnalyticsMgr.inst.settlement.shown(this._settlementAnalyticsId, 'coop_result');
             void save(); return true;
         },
         flushCoopOnHide(): void {

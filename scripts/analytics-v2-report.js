@@ -46,6 +46,74 @@ function compatibleFunnelRecords(records) {
   return result;
 }
 
+function buildSettlementFlowReport(records, asOf = Date.now()) {
+  const rows = unique(records, 'first_level_funnel').filter(x => x.analyticsEnvironment === 'wechat_release'
+    && Number(x.extra?.settlementSchemaVersion) === 1 && x.extra?.settlementId
+    && Number(x.timestamp) <= asOf && String(x.eventName || '').startsWith('settlement_'));
+  if (!rows.length) return { available: false, reason: 'no_settlement_flow_events', levels: [] };
+  const groups = new Map();
+  for (const x of rows) {
+    const mode = ['main', 'theme', 'external', 'coop', 'pvp'].includes(x.gameplayEntryMode) ? x.gameplayEntryMode : 'unknown';
+    const key = `${mode}:${level(x)}`;
+    if (!groups.has(key)) groups.set(key, { mode, levelId: level(x), rows: [] });
+    groups.get(key).rows.push(x);
+  }
+  const levels = [...groups.values()].map(g => {
+    const settlements = new Map(), attempts = new Map();
+    for (const x of g.rows) {
+      const sid = `${x.openid}:${x.extra.settlementId}`;
+      if (!settlements.has(sid)) settlements.set(sid, []);
+      settlements.get(sid).push(x);
+      if (x.extra.transitionAttemptId) {
+        const id = `${x.openid}:${x.extra.transitionAttemptId}`;
+        if (!attempts.has(id)) attempts.set(id, []);
+        attempts.get(id).push(x);
+      }
+    }
+    const s = [...settlements.values()], a = [...attempts.values()];
+    const has = (list, name, predicate = () => true) => list.some(x => x.eventName === name && predicate(x.extra));
+    const outcome = (list, result) => has(list, 'settlement_transition_result', x => x.result === result);
+    const next = a.filter(list => has(list, 'settlement_action', x => x.action === 'next' && Number(x.toLogicalLevelId) > 0));
+    const endResults = ['playable', 'failed', 'cancelled', 'completed', 'returned_home', 'superseded'];
+    const shownEligible = s.filter(list => has(list, 'settlement_started', x => x.hasNextLevel === true) && has(list, 'settlement_shown'));
+    const choseNext = list => has(list, 'settlement_action', x => x.action === 'next' && Number(x.toLogicalLevelId) > 0);
+    const timings = (name, field, predicate = () => true) => {
+      const values = g.rows.filter(x => x.eventName === name && predicate(x.extra))
+        .map(x => x.extra[field]).filter(x => typeof x === 'number' && Number.isFinite(x) && x >= 0).sort((a, b) => a - b);
+      return { samples: values.length, p50: values.length ? values[Math.ceil(values.length * .5) - 1] : null,
+        p90: values.length ? values[Math.ceil(values.length * .9) - 1] : null };
+    };
+    return { mode: g.mode, levelId: g.levelId, settlements: s.length,
+      shown: s.filter(list => has(list, 'settlement_shown')).length,
+      displayFailed: s.filter(list => has(list, 'settlement_display_failed')).length,
+      eligibleForNext: s.filter(list => has(list, 'settlement_started', x => x.hasNextLevel === true)).length,
+      noNextLevel: s.filter(list => has(list, 'settlement_started', x => x.hasNextLevel === false)).length,
+      shownEligibleForNext: shownEligible.length,
+      nextChosenSettlements: s.filter(choseNext).length,
+      nextChoiceRateAmongShownEligible: shownEligible.length ? shownEligible.filter(choseNext).length / shownEligible.length : null,
+      playableRateAmongShownEligible: shownEligible.length ? shownEligible.filter(list => outcome(list, 'playable')).length / shownEligible.length : null,
+      nextAttempts: next.length,
+      vigorBlockedAttempts: next.filter(list => has(list, 'settlement_gate_result', x => x.result === 'blocked')).length,
+      gateErrorAttempts: next.filter(list => has(list, 'settlement_gate_result', x => x.result === 'failed')).length,
+      gatePassedAttempts: next.filter(list => has(list, 'settlement_gate_result', x => ['passed', 'exempt'].includes(x.result))).length,
+      transitionStartedAttempts: next.filter(list => has(list, 'settlement_transition_start')).length,
+      enteredAttempts: next.filter(list => outcome(list, 'entered')).length,
+      playableAttempts: next.filter(list => outcome(list, 'playable')).length,
+      failedAttempts: next.filter(list => outcome(list, 'failed')).length,
+      cancelledAttempts: next.filter(list => outcome(list, 'cancelled')).length,
+      supersededAttempts: next.filter(list => outcome(list, 'superseded')).length,
+      unresolvedAttempts: next.filter(list => !endResults.some(result => outcome(list, result))).length,
+      returnedHome: a.filter(list => outcome(list, 'returned_home')).length,
+      completedWithoutNext: a.filter(list => outcome(list, 'completed')).length,
+      settlementToShownWallMs: timings('settlement_shown', 'elapsedMsFromSettlement'),
+      actionToPlayableWallMs: timings('settlement_transition_result', 'elapsedMsFromAction', x => x.result === 'playable') };
+  }).sort((a, b) => a.mode.localeCompare(b.mode) || a.levelId - b.levelId);
+  return { available: true, asOf, levels, scope: 'all levels; gameplay modes kept separate',
+    notes: ['Settlements and action attempts have different denominators. An entered target is not yet playable.',
+      'Missing endpoints remain unresolved; no-next-level settlements are not continuation losses.',
+      'Timing includes background, reward, and other pauses. Rates use only settlements with eligible and shown evidence in this window.'] };
+}
+
 function buildAnalyticsV2Report({ behaviorRecords, funnelRecords, levelRecords, asOf = Date.now(), clientBuildId, experimentBucket }) {
   if (![behaviorRecords, funnelRecords, levelRecords].every(Array.isArray)) return { available: false, reason: 'missing_raw_collection' };
   const allRecords = [...behaviorRecords, ...funnelRecords, ...levelRecords];
@@ -71,12 +139,22 @@ function buildAnalyticsV2Report({ behaviorRecords, funnelRecords, levelRecords, 
     && (!experimentBucket || (x.experimentBucket || x.abBucket) === experimentBucket);
   const b = unique(behaviorRecords, 'user_behavior').filter(selected), f = unique(funnelRecords, 'first_level_funnel').filter(selected), r = unique(levelRecords, 'level_record').filter(selected);
   const levels = [];
-  for (let id = 1; id <= 10; id++) {
+  for (let id = 1; id <= 20; id++) {
     const bs = b.filter(x => level(x) === id), fs = f.filter(x => level(x) === id), rs = r.filter(x => level(x) === id);
     const event = name => bs.filter(x => x.eventName === name);
     const signal = name => fs.filter(x => x.eventName === name);
     const entered = event('enter_level'); const cohort = new Set(entered.map(roundKey).filter(Boolean));
-    const cohortRecords = rs.filter(x => cohort.has(roundKey(x)));
+    // One terminal state per identified round; conflicting outcomes remain unresolved.
+    const roundResults = new Map();
+    for (const x of rs.filter(x => cohort.has(roundKey(x)))) {
+      const key = roundKey(x);
+      if (!roundResults.has(key)) roundResults.set(key, []);
+      roundResults.get(key).push(x);
+    }
+    const validEnds = new Set(['pass', 'fail', 'abandon']);
+    const cohortRecords = [...roundResults.values()].filter(xs =>
+      xs.every(x => validEnds.has(x.endReason)) && new Set(xs.map(x => x.endReason)).size === 1)
+      .map(xs => xs.slice().sort((a, b) => Number(b.endTime || b.timestamp) - Number(a.endTime || a.timestamp))[0]);
     const ended = new Set(cohortRecords.map(roundKey));
     const latest = latestGuideSummaries(fs);
     const sampleMiss = fs.filter(x => x.eventName === 'pch_guide_tap_result' && Number(x.analyticsSchemaVersion) >= 2 && isMiss(x));
@@ -106,7 +184,17 @@ function buildAnalyticsV2Report({ behaviorRecords, funnelRecords, levelRecords, 
     }
     const unresolved = [...cohort].filter(k => !ended.has(k));
     const inferred = unresolved.filter(k => { const x = lastState.get(k); return x?.eventName === 'level_pause_snapshot' && asOf - Number(x.timestamp) >= 1800000; });
+    const passTimes = new Map();
+    for (const x of event('level_pass')) if (x.openid && Number.isFinite(Number(x.timestamp))) {
+      passTimes.set(x.openid, Math.min(passTimes.get(x.openid) ?? Infinity, Number(x.timestamp)));
+    }
+    const passedUsers = new Set(event('level_pass').map(x => x.openid).filter(Boolean));
+    const nextEntries = b.filter(x => level(x) === id + 1 && x.eventName === 'enter_level');
+    const carried = new Set(nextEntries.filter(x => passTimes.has(x.openid)
+      && passTimes.get(x.openid) <= Number(x.timestamp)).map(x => x.openid));
     levels.push({ levelId: id, entered: { users: uv(entered), count: entered.length, identifiedRounds: cohort.size },
+      nextLevel: { passedUsers: passedUsers.size, enteredAfterPassUsers: carried.size,
+        scope: 'same_day_same_user_after_pass; missing next entry is not confirmed churn' },
       ready: { users: uv(signal('level_interaction_ready')), count: signal('level_interaction_ready').length },
       guide: { applicable: id <= 4, eligibleUsers: uv(signal('level_measurement_start').filter(x => x.extra?.guideApplicable)),
         shownUsers: id === 4 && !guides.length && !signal('level_measurement_start').length ? null : uv(guides),
@@ -124,7 +212,9 @@ function buildAnalyticsV2Report({ behaviorRecords, funnelRecords, levelRecords, 
       terminal: { pass: terminal('pass'), fail: terminal('fail'), abandon: terminal('abandon'),
         explicitExit: cohortRecords.filter(x => x.endReason === 'abandon' && ['settings', 'restart', 'lose_panel_home'].includes(x.exitReason)).length,
         unknownAbandonReason: cohortRecords.filter(x => x.endReason === 'abandon' && !x.exitReason).length,
-        inferredUnreturned: inferred.length, unresolved: unresolved.length, unknownRoundRecords: rs.filter(x => !x.roundId).length },
+        inferredUnreturned: inferred.length, unresolved: unresolved.length,
+        conflictingRounds: roundResults.size - cohortRecords.length,
+        unknownRoundRecords: rs.filter(x => !x.roundId).length },
       backgroundUsers: uv(pauses.filter(x => x.source === 'background')),
       exitIntentUsers: uv(signal('level_exit_intent')),
       reviveDeclinedUsers: uv(signal('revive_declined')),
@@ -143,6 +233,9 @@ function buildAnalyticsV2Report({ behaviorRecords, funnelRecords, levelRecords, 
     });
   }
   return { available: true, schemaVersion: 2, asOf, levels,
+    settlementFlow: buildSettlementFlowReport(funnelRecords.filter(x =>
+      (!clientBuildId || (x.clientBuildId || x.extra?.clientBuildId) === clientBuildId)
+      && (!experimentBucket || (x.experimentBucket || x.abBucket) === experimentBucket)), asOf),
     environmentScope: official ? 'wechat_release' : 'historical_environment_unknown',
     appDiagnostics: buildCsdDetails(unique(funnelRecords, 'first_level_funnel').filter(x => environmentSelected(x) && Number(x.logicalLevelId || x.levelId || 0) === 0)),
     filters: { clientBuildId: clientBuildId || null, experimentBucket: experimentBucket || null, mode: 'main (explicit or unambiguous linked attribution)' },
@@ -179,10 +272,14 @@ function buildAnalyticsV2FromSummaries(summaries) {
 }
 function renderAnalyticsV2(report) {
   if (!report.available) return '# CSD 检查\n\n原始数据缺失，无法生成。\n';
-  return '# 前十关 CSD 检查\n\n采集范围：' + (report.environmentScope === 'wechat_release' ? '已确认微信正式版本' : '历史环境未知，不能视为已验证正式数据')
+  return '# 前二十关 CSD 检查\n\n采集范围：' + (report.environmentScope === 'wechat_release' ? '已确认微信正式版本' : '历史环境未知，不能视为已验证正式数据')
     + '。人数跨结果可重叠；终局仅统计有局标识且在进入队列中的记录。缺失结局不等于失败。\n\n|关卡|进入人数|引导展示|引导完成|未命中人数/次数|通关人数|失败人数|复活人数|主动放弃局|未决局|\n|---|---:|---:|---:|---|---:|---:|---:|---:|---:|\n'
     + report.levels.map(x => `|${x.levelId}|${x.entered.users}|${x.guide.applicable ? x.guide.shownUsers ?? '未知' : '不适用'}|${x.guide.applicable ? x.guide.completedUsers ?? '未知' : '不适用'}|${x.guide.missUsers}/${x.guide.missCount ?? '未知'}|${x.pass.users}|${x.failureEncounters.users}|${x.revived.users}|${x.terminal.explicitExit}（另有${x.terminal.unknownAbandonReason}局中断原因未知）|${x.terminal.unresolved}|`).join('\n')
-    + '\n\n质量统计：' + JSON.stringify(report.quality) + '\n';
+    + '\n\n质量统计：' + JSON.stringify(report.quality) + '\n'
+    + (report.settlementFlow?.available
+      ? '\n## 全关卡结算续关\n\n结算按次、续关按有效操作尝试统计；无下一关正常结束，缺少终点保持未决。\n\n|模式|来源关卡|结算展示|续关尝试|体力阻断|目标已进入|目标可操作|失败|取消|未决|\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n'
+        + report.settlementFlow.levels.map(x => `|${x.mode}|${x.levelId}|${x.shown}|${x.nextAttempts}|${x.vigorBlockedAttempts}|${x.enteredAttempts}|${x.playableAttempts}|${x.failedAttempts}|${x.cancelledAttempts}|${x.unresolvedAttempts}|`).join('\n') + '\n'
+      : '\n结算续关细分：该数据窗口暂无新链路记录，细分数据不可得。\n');
 }
 if (require.main === module) {
   const dir = process.argv[2]; if (!dir) throw new Error('Usage: node scripts/analytics-v2-report.js <daily-export-directory>');
@@ -191,4 +288,4 @@ if (require.main === module) {
   fs.writeFileSync(path.join(dir, 'analytics_v2.md'), renderAnalyticsV2(report));
   console.log('Analytics v2 report written; available=' + report.available);
 }
-module.exports = { buildAnalyticsV2Report, latestGuideSummaries, renderAnalyticsV2, compatibleFunnelRecords, buildAnalyticsV2FromSummaries };
+module.exports = { buildAnalyticsV2Report, buildSettlementFlowReport, latestGuideSummaries, renderAnalyticsV2, compatibleFunnelRecords, buildAnalyticsV2FromSummaries };

@@ -32,6 +32,8 @@ class UITransform {
     }
 }
 class Node {
+    setPosition(x, y, z) { this.position = { x, y, z }; }
+    setScale(x, y, z) { this.scale = { x, y, z }; }
     constructor(name) {
         this.name = name;
         this.active = true;
@@ -110,6 +112,11 @@ function makeController() {
     const irisMaskNode = new Node('IrisMask');
     const contentNode = new Node('Content');
     const backgroundNode = new Node('Background');
+    const patternNode = new Node('Pattern');
+    const patternUI = new UITransform();
+    patternUI.node = patternNode;
+    patternNode.components.set(UITransform, patternUI);
+    contentNode.children.push(patternNode);
     cameraNode.components.set(UITransform, new UITransform());
     irisMaskNode.components.set(UITransform, new UITransform());
     irisMaskNode.components.set(Mask, new Mask());
@@ -128,6 +135,7 @@ function makeController() {
         camera,
         irisMask: irisMaskNode.getComponent(UITransform),
         background: backgroundNode.getComponent(UITransform),
+        pattern: patternUI,
     };
 }
 
@@ -164,6 +172,12 @@ async function verifyGameplayEntries(fixture) {
         './RuntimeLog': {}, './StartupRouteService': {},
         './Panels/FeedbackPanelController': {},
         '../PatternCompleteWaveFx': {},
+        '../BrowserLevelPreview': { getBrowserLevelPreview: () => ({ active: false }) },
+        '../ChapterRewardView': {},
+        '../CompletedPatternPreview': {},
+        '../RuntimeAssetRelease': {},
+        '../FirstLevelContent': {},
+        './BrowserLevelPreview': { getBrowserLevelPreview: () => ({ active: false }) },
         './HardLevelIntroController': { ensureHardLevelIntroController: () => ({ stop() {} }) },
         './PchConveyorGameplayController': { ensurePchConveyorGameplayController: () => ({ stop() {} }) },
         './LevelExperimentService': {}, './LevelConfig': {},
@@ -172,6 +186,7 @@ async function verifyGameplayEntries(fixture) {
         './StartupCloudRestoreHelper': {},
         '../../Platform/WeChatShareReturnService': {},
     };
+    dependencies['./StartupTrace'] = { markStartupTrace() {}, flushStartupTrace() {} };
     function load(relativePath) {
         const compiled = ts.transpileModule(fs.readFileSync(path.join(root, 'assets/Scripts/Core', relativePath), 'utf8'), {
             compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, experimentalDecorators: true },
@@ -366,8 +381,12 @@ async function run() {
     assert.equal(first.blocker.enabled, false, 'idle transition must not block input');
     assert.equal(first.camera.priority, 110, 'transition camera must render above startup loading');
     assert.equal(first.camera.clearFlags, Camera.ClearFlag.DEPTH_ONLY, 'transition camera must preserve the scene color buffer');
-    assert.equal(first.background.width, 960, 'background must preserve its 3:4 aspect while covering 720x1280');
+    assert.equal(first.background.width, 720, 'solid background must cover the visible width');
     assert.equal(first.background.height, 1280, 'background cover-fit must keep the full visible height');
+    assert.equal(first.pattern.width, 1280, 'pattern covers horizontal motion with two extra tiles');
+    assert.equal(first.pattern.height, 1792, 'pattern covers vertical motion with two extra tiles');
+    first.controller.update(1);
+    assert.equal(first.pattern.node.position, undefined, 'idle background must not animate');
 
     let taskCalls = 0;
     const promise = first.controller.run('route:Game:level_1', 'Game', 'forward', async () => {
@@ -387,6 +406,7 @@ async function run() {
     assert.equal(taskCalls, 0, 'route task must not start before the old page is covered');
 
     first.controller.update(0.16);
+    assert.ok(first.pattern.node.position.x > 0 && first.pattern.node.position.y < 0, 'tile moves diagonally down/right');
     assert.ok(first.irisMask.width > 0, 'cover must grow the themed circular layer from the screen center');
     first.controller.update(0.16);
     await flushPromises();
@@ -408,6 +428,9 @@ async function run() {
     await promise;
     assert.equal(first.rootNode.active, false, 'successful reveal must hide the persistent canvas');
     assert.equal(first.blocker.enabled, false, 'successful reveal must release input');
+    const stoppedOffset = first.pattern.node.position.x;
+    first.controller.update(10);
+    assert.equal(first.pattern.node.position.x, stoppedOffset, 'hidden transition must not move');
 
     const failed = first.controller.run('route:Home', 'Home', 'reverse', async () => {
         throw new Error('home route failed');

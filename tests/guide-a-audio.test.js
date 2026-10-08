@@ -8,16 +8,18 @@ const compile = file => ts.transpileModule(fs.readFileSync(path.join(root, file)
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, experimentalDecorators: true },
 }).outputText;
 class Source {
-    static EventType = { ENDED: 'ended' };
+    static EventType = { STARTED: 'started', ENDED: 'ended' };
     isValid = true;
-    play() { this.playing = true; }
+    play() { this.playing = true; this.node.emit('started'); }
     stop() { this.playing = false; }
 }
 class Node {
     isValid = true;
+    events = new Map();
     addChild(child) { this.child = child; }
     addComponent() { const source = new Source(); source.node = this; return source; }
-    on(event, callback) { this.ended = callback; }
+    on(event, callback) { this.events.set(event, callback); }
+    emit(event) { this.events.get(event)?.(); }
     destroy() { this.isValid = false; }
 }
 const manifest = { exports: {} };
@@ -57,12 +59,12 @@ assert.equal(second.playing, false);
 assert.equal(second.node.isValid, false);
 
 audio.playGuideVoice('guideA1');
-audio.setSfxEnabled(false);
+audio.setVoiceEnabled(false);
 pending.shift()();
 assert.equal(audio.guideVoiceSource, null, 'mute must cancel pending narration');
 audio.playGuideVoice('guideA1');
 assert.equal(pending.length, 0, 'muted narration must not load');
-audio.setSfxEnabled(true);
+audio.setVoiceEnabled(true);
 audio.playGuideVoice('guideA1');
 pending.shift()();
 const first = audio.guideVoiceSource;
@@ -79,7 +81,7 @@ audio.endExternalInterruption();
 audio.playGuideVoice('guideA2');
 pending.shift()();
 const ended = audio.guideVoiceSource;
-ended.node.ended();
+ended.node.emit('ended');
 assert.equal(audio.guideVoiceSource, null);
 assert.equal(ended.node.isValid, false, 'finished voice channel must release its node');
 console.log('guide-a-audio.test.js passed');

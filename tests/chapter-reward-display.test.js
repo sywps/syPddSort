@@ -1,0 +1,11 @@
+const assert=require('assert'),fs=require('fs'),ts=require('typescript');
+const m={exports:{}};
+new Function('exports',ts.transpileModule(fs.readFileSync('assets/Scripts/Core/ChapterRewardPolicy.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(m.exports);
+const {chapterReward,mergeChapterRewardDisplay,eligibleChapterRewards}=m.exports;
+assert.deepEqual(mergeChapterRewardDisplay([]),[]);
+const merged=mergeChapterRewardDisplay([chapterReward(17,4),chapterReward(17,9),chapterReward(18,9)]);
+assert.equal(merged.length,1);assert.equal(merged[0].gold,250);assert.equal(merged[0].brushCount,2);assert.equal(merged[0].magnetCount,2);
+const raw=eligibleChapterRewards(153,[]),before=JSON.stringify(raw),all=mergeChapterRewardDisplay(raw);
+assert.equal(all.length,17);assert.equal(all[0].gold,950);assert.equal(all[0].brushCount,1);assert.equal(JSON.stringify(raw),before);
+assert.equal(mergeChapterRewardDisplay([chapterReward(1,9),chapterReward(1,9)]).length,2);
+console.log('Merged reward totals, 16 distinct decorations, empty input, deduplication and input preservation passed');

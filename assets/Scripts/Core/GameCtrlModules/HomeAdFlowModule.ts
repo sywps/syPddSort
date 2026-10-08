@@ -1615,7 +1615,7 @@ export function installHomeAdFlowModule(target: any): void {
             const countLbl = this.requireUiChild(parent, 'VigorCount', 'VigorGroup/VigorCount');
             const vigorLabel = countLbl.getComponent(Label);
             if (!vigorLabel) throw new Error('[HomeScene] Home.scene is missing Label component on VigorGroup/VigorCount');
-            vigorLabel.string = `${this.getVigor()}/${(this.constructor as any).VIGOR_CEILING}`;
+            vigorLabel.string = `${this.getVigor()}`;
             this._vigorCountLbl = vigorLabel;
             this.requireUiChild(parent, 'TimeBg', 'VigorGroup/TimeBg');
             const timeLbl = this.requireUiChild(parent, 'VigorTime', 'VigorGroup/VigorTime');
@@ -1635,11 +1635,8 @@ export function installHomeAdFlowModule(target: any): void {
             this._goldCountLbl = goldLabel;
         
             parent.targetOff(this);
-            parent.getComponent(Button) || parent.addComponent(Button);
-            parent.on(Button.EventType.CLICK, () => {
-                AudioMgr.inst.play('button');
-                this.openGoldAcquirePanel();
-            }, this);
+            const button = parent.getComponent(Button);
+            if (button) button.interactable = false;
             this.refreshGoldUI();
         },
 

@@ -759,7 +759,11 @@ logStep('2. 运行构建后处理...');
 runNode('scripts/postbuild-wechat.js', [buildDir]);
 if (fs.existsSync(path.join(projectDir, 'cloudfunctions'))) {
     rm(path.join(buildDir, 'cloudfunctions'));
-    fs.cpSync(path.join(projectDir, 'cloudfunctions'), path.join(buildDir, 'cloudfunctions'), { recursive: true });
+    fs.cpSync(path.join(projectDir, 'cloudfunctions'), path.join(buildDir, 'cloudfunctions'), {
+        recursive: true,
+        // DevTools installs cloud dependencies separately; do not package its mutable cache.
+        filter: (source) => path.basename(source) !== 'node_modules',
+    });
     logInfo('cloudfunctions 已复制到本地包');
 }
 

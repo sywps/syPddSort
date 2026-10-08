@@ -1,158 +1,104 @@
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const ts = require('typescript');
 const { PNG } = require('pngjs');
-
 const root = path.resolve(__dirname, '..');
-const source = fs.readFileSync(
-    path.join(root, 'assets/Scripts/Core/GameplayResultPanelController.ts'),
-    'utf8',
-);
-
-const componentStart = source.indexOf("@ccclass('WinConfettiFx')");
-const componentEnd = source.indexOf('export class GameplayResultPanelController', componentStart);
-const clearStart = source.indexOf('private clearWinConfettiFx(panel: Node): void');
-const methodStart = source.indexOf('private loadWinConfettiFrames(');
-const methodEnd = source.indexOf('playWinSettlementBannerFx(panel?: Node | null): void', methodStart);
-assert.ok(
-    componentStart >= 0 && componentEnd > componentStart && clearStart >= 0 && methodStart > clearStart && methodEnd > methodStart,
-    'win confetti component and loading entry must remain identifiable',
-);
-const component = source.slice(componentStart, componentEnd);
-const clearMethod = source.slice(clearStart, methodStart);
-const method = source.slice(methodStart, methodEnd);
-
-assert.ok(
-    source.includes("const WIN_CONFETTI_ATLAS_PATH = 'UI/Images/win_confetti_atlas';")
-        && source.includes('const WIN_CONFETTI_PIECE_COUNT = 48;')
-        && source.includes('const WIN_CONFETTI_BURST_COUNT = 32;')
-        && source.includes('const WIN_CONFETTI_EMISSION_SECONDS = 0.35;')
-        && source.includes('const WIN_CONFETTI_RAIN_START_SECONDS = 1.05;')
-        && source.includes('const WIN_CONFETTI_RAIN_INTERVAL_MIN = 0.22;')
-        && source.includes('const WIN_CONFETTI_RAIN_INTERVAL_RANGE = 0.12;')
-        && source.includes('const WIN_CONFETTI_HORIZONTAL_COVERAGE = 0.9;')
-        && source.includes('const WIN_CONFETTI_LANE_COUNT = 12;'),
-    'confetti must use the shared atlas, a 32-piece opening burst, and a bounded 48-piece continuous pool',
-);
-assert.ok(
-    source.includes('const shapeSlot = index % 6;')
-        && source.includes('shapeSlot < 3 ? 0 : shapeSlot < 5 ? 1 : 2')
-        && source.includes('minWidth: 22')
-        && source.includes('minHeight: 54')
-        && source.includes('minHeight: 78'),
-    'confetti must retain distinct background, middle, and foreground shapes at readable sizes',
-);
-assert.ok(
-    component.includes('const side = index % 2 === 0 ? -1 : 1;')
-        && component.includes('const x = side * (width * 0.43 + sample(5) * 20);')
-        && component.includes('const y = -height * (0.31 - sample(6) * 0.07);')
-        && component.includes('const targetX = this.getStratifiedX(index, 22);')
-        && component.includes('const lane = (sequence * 5) % WIN_CONFETTI_LANE_COUNT;')
-        && component.includes("complete: index >= WIN_CONFETTI_BURST_COUNT"),
-    'opening confetti must launch from both lower sides toward stratified targets across the top',
-);
-assert.ok(
-    component.includes('const apexY = height * (0.40 + sample(20) * 0.07);')
-        && component.includes('Math.sqrt(2 * launchGravity * (apexY - y))')
-        && component.includes("particle.phase = 'fall';")
-        && component.includes('particle.y = particle.apexY;')
-        && component.includes('-particle.maxFallSpeed')
-        && component.includes('Math.pow(particle.decay, dt * 60)')
-        && !component.includes('Math.pow(0.994, dt * 60)')
-        && component.includes('particle.drift')
-        && component.includes('Math.sin(particle.wobble) * particle.sway')
-        && component.includes('Math.abs(Math.cos(particle.tilt))'),
-    'each piece must reach a controlled top apex before switching to limited-speed drift, wobble, and tilt',
-);
-const sample = (index, channel) => {
-    const raw = Math.sin((index + 1) * 12.9898 + channel * 78.233) * 43758.5453;
-    return raw - Math.floor(raw);
-};
-const coverage = 0.9;
-const laneCount = 12;
-const stratifiedX = (sequence, channel, width) => {
-    const span = width * coverage;
-    const laneWidth = span / laneCount;
-    const lane = (sequence * 5) % laneCount;
-    const jitter = (sample(sequence, channel) - 0.5) * laneWidth * 0.55;
-    return -span * 0.5 + (lane + 0.5) * laneWidth + jitter;
-};
-const burstLaneCounts = Array(laneCount).fill(0);
-const burstTargets = [];
-for (let index = 0; index < 32; index += 1) {
-    const height = 1280;
-    const width = 720;
-    const startY = -height * (0.31 - sample(index, 6) * 0.07);
-    const apexY = height * (0.40 + sample(index, 20) * 0.07);
-    const launchGravity = 2100 + sample(index, 21) * 260;
-    const launchTime = Math.sqrt(2 * (apexY - startY) / launchGravity);
-    const launchVelocityY = Math.sqrt(2 * launchGravity * (apexY - startY));
-    const lane = (index * 5) % laneCount;
-    burstLaneCounts[lane] += 1;
-    burstTargets.push(stratifiedX(index, 22, width));
-    assert.ok(apexY >= 512 && apexY <= 602, `piece ${index} apex must stay near the visible top`);
-    assert.ok(launchTime >= 0.8 && launchTime <= 1.02, `piece ${index} must reach the top with a clear short launch`);
-    assert.ok(launchVelocityY >= 1800, `piece ${index} must have a visibly strong upward impulse`);
+const source = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameplayResultPanelController.ts'), 'utf8');
+const component = source.slice(source.indexOf("@ccclass('WinConfettiFx')"), source.indexOf('export class GameplayResultPanelController'));
+const constants = source.slice(source.indexOf('const WIN_CONFETTI_FX_NAME'), source.indexOf('const REVIVE_SHARE_STATE_KEY'));
+// Execute the real particle component; only Cocos rendering objects are replaced.
+class Component { enabled = true; }
+class Vec3 { constructor(x = 0, y = 0, z = 0) { Object.assign(this, { x, y, z }); } }
+class Color {
+    constructor(value) {
+        if (typeof value === 'string') this.set(...value.slice(1).match(/../g).map(x => parseInt(x, 16)), 255);
+        else Object.assign(this, value);
+    }
+    set(r, g, b, a = 255) { Object.assign(this, { r, g, b, a }); }
 }
-assert.ok(Math.min(...burstTargets) < -285 && Math.max(...burstTargets) > 285, 'opening targets must span at least 80% of the 720px screen');
-assert.ok(burstLaneCounts.every((count) => count >= 2 && count <= 3), 'opening targets must be balanced across all 12 horizontal lanes');
-
-const rainLaneCounts = Array(laneCount).fill(0);
-for (let sequence = 0; sequence < 24; sequence += 1) {
-    rainLaneCounts[(sequence * 5) % laneCount] += 1;
-    const x = stratifiedX(sequence, 31, 720);
-    assert.ok(x >= -324 && x <= 324, `rain piece ${sequence} must stay inside the approved 90% width`);
+class UITransform {
+    setContentSize(width, height) { Object.assign(this, { width, height }); }
+    convertToNodeSpaceAR(v) { return new Vec3(v.x / this.worldScale - this.offsetX, v.y / this.worldScale - this.offsetY); }
 }
-assert.deepStrictEqual(rainLaneCounts, Array(laneCount).fill(2), 'continuous rain must rotate evenly through every horizontal lane');
-assert.ok(
-    component.includes('this.elapsed >= this.nextRainAt')
-        && component.includes('this.particles.find((particle) => particle.complete)')
-        && component.includes('this.configureRainParticle(available, this.rainSequence)')
-        && component.includes('particle.y = this.viewportHeight * (0.515 + sample(32) * 0.035);')
-        && component.includes('particle.life = 6.2 + sample(30) * 1.2;')
-        && component.includes('particle.maxFallSpeed = 205 + sample(37) * 40;')
-        && component.includes('particle.phase = \'fall\';')
-        && component.includes('particle.y < -this.viewportHeight * 0.56')
-        && component.includes('particle.life - particle.age')
-        && component.includes('particle.node.active = false;')
-        && !component.includes('this.node.destroy();'),
-    'the effect must continuously reuse off-screen pieces from the full-width top until its panel destroys the layer',
+class Sprite { static SizeMode = { CUSTOM: 0 }; }
+class Node {
+    children = []; components = new Map(); active = true; angle = 0;
+    constructor(name) { this.name = name; }
+    addChild(n) { this.children.push(n); }
+    addComponent(T) { const c = new T(); c.node = this; this.components.set(T, c); return c; }
+    getComponent(T) { return this.components.get(T); }
+    setPosition(x, y, z) { this.position = new Vec3(x, y, z); }
+    setScale(x, y, z) { this.scale = new Vec3(x, y, z); }
+}
+const code = ts.transpileModule(constants + component + '\nreturn WinConfettiFx;', {
+    compilerOptions: { target: ts.ScriptTarget.ES2020, experimentalDecorators: true },
+}).outputText;
+const Fx = new Function('Component', 'Node', 'UITransform', 'Sprite', 'Color', 'Vec3', 'ccclass', code)(
+    Component, Node, UITransform, Sprite, Color, Vec3, () => value => value,
 );
-assert.ok(
-    source.includes('this.playWinConfettiFx(targetPanel!);'),
-    'the visible win settlement animation entry must trigger confetti',
-);
-assert.ok(
-    method.includes("const topHud = panel.getChildByName('SettlementTopHud');")
-        && method.includes('layer.setSiblingIndex(topHud.getSiblingIndex());'),
-    'confetti must render below the settlement top HUD',
-);
-assert.ok(
-    method.includes('bundle.load(candidates[index], SpriteFrame')
-        && method.includes('layer.addComponent(WinConfettiFx).play(frames'),
-    'confetti must load one atlas and hand it to the update-driven component',
-);
-assert.ok(
-    clearMethod.includes('layer.removeFromParent();')
-        && clearMethod.includes('layer.destroy();'),
-    'replaying or closing the settlement must retain an explicit confetti cleanup path',
-);
-assert.ok(!component.includes('tween(') && !component.includes('addComponent(Graphics)'), 'confetti must not regress to Graphics or fixed Tween paths');
-assert.ok(!component.includes('repeatForever'), 'continuous confetti must use the bounded update pool rather than endless tweens');
-assert.ok(!method.includes('BlockInputEvents') && !method.includes('addComponent(Button)'), 'confetti must not intercept settlement input');
-
+for (const [width, height, scale] of [[720, 1280, 1], [720, 1600, 0.6], [960, 1280, 1.2]]) {
+    const fx = new Fx(); fx.node = new Node('Fx');
+    const transform = fx.node.addComponent(UITransform);
+    Object.assign(transform, { worldScale: scale, offsetX: 73, offsetY: 91 });
+    let rewardTop = -height / 2 + 535;
+    const bounds = (y, h) => ({ x: 73 * scale, y: (y + 91) * scale, yMax: (y + h + 91) * scale, height: h * scale });
+    const rewards = { getBoundingBoxToWorld: () => bounds(rewardTop - 360, 360) };
+    const artworkBottom = -height / 2 + 620;
+    const artwork = { getBoundingBoxToWorld: () => bounds(artworkBottom, 475) };
+    fx.play([{}, {}, {}], width, height, rewards, artwork);
+    assert.equal(fx.node.children.length, 48, 'bounded node pool');
+    assert.equal(fx.particles.filter(p => !p.complete).length, 32, 'opening burst retained');
+    assert(fx.particles.every(p => p.y >= artworkBottom + 475 * 0.65), 'launch from artwork upper sides');
+    const initialRain = fx.configureRainParticle.bind(fx);
+    const rainTimes = [];
+    fx.configureRainParticle = (particle, sequence) => {
+        rainTimes.push(fx.elapsed);
+        initialRain(particle, sequence);
+        assert(Math.abs(particle.x) >= width * 0.34 && Math.abs(particle.x) <= width * 0.44, 'rain stays near sides');
+    };
+    let visibleSamples = 0, fadingSamples = 0;
+    for (let tick = 0; tick < 361; tick++) {
+        if (tick === 120) rewardTop += 110; // Exercise a live layout change.
+        if (fx.enabled) fx.update(1 / 60);
+        for (const p of fx.particles) {
+            if (!p.node.active || !p.sprite.color?.a) continue;
+            visibleSamples++;
+            assert(p.y - p.radius > rewardTop + 24, 'entire rotating piece stays above rewards');
+            if (fx.elapsed > 3.8) {
+                assert(p.sprite.color.a <= Math.round(255 * (5 - fx.elapsed) / 1.2), 'global fade before 5s');
+                fadingSamples++;
+            }
+        }
+    }
+    assert(visibleSamples > 0 && fadingSamples > 0, 'celebration remains visible and fades');
+    assert(rainTimes.length >= 2 && rainTimes.length <= 4, 'sparse trailing rain');
+    assert(rainTimes.every(t => t >= 1.05 && t < 3), 'no new particles after 3s');
+    if (rainTimes.length > 2) assert(rainTimes[2] - rainTimes[1] >= rainTimes[1] - rainTimes[0], 'rain frequency decreases');
+    assert.equal(fx.enabled, false, 'updates stop after celebration');
+    assert(fx.node.children.every(n => !n.active), 'nothing remains after 5s');
+    const stalled = new Fx(); stalled.node = fx.node;
+    stalled.play([{}, {}, {}], width, height, rewards, artwork);
+    stalled.update(6);
+    assert.equal(stalled.enabled, false, 'long frames do not extend the 5s duration');
+}
+assert(source.includes("getChildByName('BottomGroup')?.getComponent(UITransform)"));
+assert(source.includes("getChildByName('PreviewFrame')?.getComponent(UITransform)"));
+assert(source.includes('layer.setSiblingIndex(topHud.getSiblingIndex());'), 'top HUD remains above particles');
+assert(source.includes('layer.removeFromParent();') && source.includes('layer.destroy();'), 'existing cleanup preserved');
+assert(!component.includes('BlockInputEvents') && !component.includes('Button') && !component.includes('tween('), 'noninteractive update-driven effect');
+const prefab = JSON.parse(fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/UI/Prefabs/Panels/WinPanel.prefab'), 'utf8'));
+const banner = prefab.find(n => n.__type__ === 'cc.Node' && n._name === 'TitleBanner');
+assert.equal(banner._lscale.x, 0.855); assert.equal(banner._lscale.y, 0.855);
+const artwork = prefab.find(n => n.__type__ === 'cc.Node' && n._name === 'PatternPreview');
+assert.equal(artwork._lscale.x, 1); assert.equal(artwork._lscale.y, 1);
 const atlasPath = path.join(root, 'assets/GameAssetsBundle/UI/Images/win_confetti_atlas.png');
-const atlasMetaPath = `${atlasPath}.meta`;
-assert.ok(fs.existsSync(atlasPath) && fs.existsSync(atlasMetaPath), 'the original shared confetti atlas and Cocos meta must exist');
 const atlas = PNG.sync.read(fs.readFileSync(atlasPath));
-assert.deepStrictEqual([atlas.width, atlas.height], [128, 128], 'confetti atlas must stay at the approved 128x128 size');
+assert.deepEqual([atlas.width, atlas.height], [128, 128]);
 let opaquePixels = 0;
-for (let offset = 3; offset < atlas.data.length; offset += 4) {
-    if (atlas.data[offset] > 0) opaquePixels += 1;
-}
-assert.ok(opaquePixels > 1000 && opaquePixels < 12000, 'atlas must contain isolated shapes on a mostly transparent background');
-const atlasMeta = JSON.parse(fs.readFileSync(atlasMetaPath, 'utf8'));
-assert.strictEqual(atlasMeta.userData.hasAlpha, true, 'atlas must preserve transparency');
-assert.strictEqual(atlasMeta.subMetas.f9941.userData.trimType, 'none', 'atlas frame must retain stable sub-frame coordinates');
-
-console.log('win-confetti-fx.test.js passed');
+for (let offset = 3; offset < atlas.data.length; offset += 4) if (atlas.data[offset] > 0) opaquePixels++;
+assert(opaquePixels > 1000 && opaquePixels < 12000);
+const meta = JSON.parse(fs.readFileSync(atlasPath + '.meta', 'utf8'));
+assert.equal(meta.userData.hasAlpha, true);
+assert.equal(meta.subMetas.f9941.userData.trimType, 'none');
+console.log('Confetti runtime simulation passed: 3 sizes/scales, moving reward boundary, 3s stop, 5s fade, banner and atlas checks.');

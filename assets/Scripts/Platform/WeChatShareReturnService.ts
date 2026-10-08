@@ -7,37 +7,34 @@ export type WeChatShareImage = {
 };
 
 export const WECHAT_SHARE_TITLE_POOL: readonly string[] = [
-    '轻松拼豆，快来一起玩！',
-    '这个拼豆挑战太有趣了！',
-    '一起来完成漂亮的拼豆作品吧！',
-    '来试试这个好玩的拼豆挑战！',
-    '看看谁能更快完成拼豆！',
+    '对不起，今天满脑子都是豆豆',
+    '别光看我玩呀，你也来两把？',
+    '这把不算，再来两把！',
+    '说好只玩两把，怎么天都黑了',
+    '不回消息的时候，我可能在忙豆豆',
+    '手说不玩了，脑子说再来两把',
 ];
 
 export const WECHAT_SHARE_IMAGE_POOL: readonly WeChatShareImage[] = [
     {
-        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCsRIebaicr4ibE7iamMMmq5L7oPFgK0KJJAfDthibGUr3a8EOIa5gQ5JHX6/0',
-        imageUrlId: 'vovDzpuaRYOAEvt6YSApSQ==',
+        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/wELKBxWdz8CtmibGyBj2CJk0l3gwsnWl1NUuTK3XdAwA57IrzejXB3yhzcibqEFTeT/0',
+        imageUrlId: 'NuDqI6jVSoGSXTZzRYHbrg==',
     },
     {
-        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCtLiarKOPGnUibvRmPtdIfJMVy0K6ej597zUlmHSia06OYEv8Oy6BEKyrd/0',
-        imageUrlId: 'VQAihD6+SnSbV6X4Q5FVXw==',
+        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/mWbPTdBTvtuHGNq9k9xibdM0X5kdCX2MOp873uiaUhJKWTHoia5yedib2sdBLDDhibCAc/0',
+        imageUrlId: 'V3SpXulmSgeGKnSZbMUX3w==',
     },
     {
-        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCvpB0wueLsrAPnj4ZYMCf2oYJeXEQcMEs4V8k4Afk5BiaGftHZvRzDXK/0',
-        imageUrlId: 'BuDsvtluTWC77Yqc+vT0JA==',
+        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/wxDBm0PIt6IjW4So7BNEpC1xoBONIXRd0JelsHscuVNxmt7r4d8BtEpBDdoBBp1y/0',
+        imageUrlId: 'MjinQT5XRCKzFJCiQFDKYA==',
     },
     {
-        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCsBP3Kym6YIZMhVm1nic2RkALzTiaXDuVMTib59ZvbLvpdsy2TxzicvLAF3/0',
-        imageUrlId: 'gdEeipd5REakrW2eDJRIMA==',
+        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/ulot0Xibmy1DeMia3hGZSuWXiczibZkrHibGDicdqm2JPM8TvvV44ZVlicpDL2utxnDNIdf/0',
+        imageUrlId: '3lARMWJKQEuOE+qhOzv/9Q==',
     },
     {
-        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCtia6XicAvZmVXHovOgtrgVCJ8FEahFgicGJ9TUCuicZzAGZXzicHkE5jAJV/0',
-        imageUrlId: '/+Loyr7uTT6rQPHuNxvqBA==',
-    },
-    {
-        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCsiaBgRBNpqaVpiaXAYRkUp4DBStIyXWzFbV3u6V1E4SmVuuTGujDq2HE/0',
-        imageUrlId: 'QSLQ93GWTkKq+40i1QrNNA==',
+        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/CRCCaFDqI0VlxpcGUm8bKYiaiaasRX3lL4q4IgNnwLh7xOvJ1Ff2aegE12bRtOvv4Y/0',
+        imageUrlId: 'TbOmJ43yQb6ner1wR0TrFw==',
     },
 ];
 

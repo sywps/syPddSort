@@ -23,7 +23,7 @@
         } catch (_) { return { message: '数据不可得：合作/PvP汇总加载失败或格式错误，请检查文件与服务。' }; }
     }
 
-    function render(data, { escapeHtml: e, renderMetricCard: metric, renderTable: table, renderBulletList: bullets }) {
+    function render(data, { escapeHtml: e, renderMetricCard: metric, renderTable: table, renderBulletList: bullets, selectedMode }) {
         const time = data?.observationEnd ? new Date(data.observationEnd).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) : '';
         const period = time ? `观察至 ${time}（北京时间）${data.partial ? '，今天尚未完整' : '，自然日已结束'}；独立服务端口径，不叠加到主线或普通像素拼图。` : '独立玩法口径；缺少导出不等于没有用户。';
         function section(mode, title, content) {
@@ -69,7 +69,7 @@
             <p class="card-subtitle">结算不完整对局：${number(d.partialSettlementMatches)}；全部实际参与者都有结算才计为已结算对局。</p>
             ${bullets(d.limitations)}`;
         });
-        return coop + pvp;
+        return selectedMode === 'coop' ? coop : selectedMode === 'pvp' ? pvp : coop + pvp;
     }
     const api = { load, render };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;

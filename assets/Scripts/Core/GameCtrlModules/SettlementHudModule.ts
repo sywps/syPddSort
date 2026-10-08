@@ -33,6 +33,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { runtimeWarn } from '../RuntimeLog';
+import { ensureGameplayVoiceController } from '../GameplayVoiceController';
 import { renderCompletedPatternPreview as renderPixelPosterPreview } from '../CompletedPatternPreview';
 import { getFrontLevelExperimentAnalyticsContext } from '../LevelExperimentService';
 import { isWorkbenchPreviewRequested, WorkbenchPreviewService } from '../WorkbenchPreviewService';
@@ -611,6 +612,11 @@ export function installSettlementHudModule(target: any): void {
         handleWinSettlementPrimaryAction() {
             if (!this.beginSettlementNextTransition()) return;
             if (this.shouldChainTutorialLevelsOnWin()) {
+                const attempt = AnalyticsMgr.inst.settlement.action(this._settlementAnalyticsId, 'next', {
+                    logicalLevelId: this.levelData.levelId + 1, gameplayEntryMode: 'main',
+                });
+                AnalyticsMgr.inst.settlement.gate(attempt, 'exempt', 'tutorial_chain');
+                AnalyticsMgr.inst.settlement.transition(attempt);
                 this.continueTutorialToSlotIntro(this.levelData.levelId + 1);
                 return;
             }
@@ -651,10 +657,12 @@ export function installSettlementHudModule(target: any): void {
             if (revealToken !== this._settlementRevealToken || this._settlementRevealState === 'failed') return;
             this._settlementRevealState = 'failed';
             const message = error instanceof Error ? error.message : String(error || 'unknown error');
+            AnalyticsMgr.inst.settlement.displayFailed(this._settlementAnalyticsId, 'win_panel_reveal_failed', message);
             console.error('[settlement] failed to reveal win panel:', error);
             try {
                 this.showBasicSettlement('win');
                 this._settlementRevealState = 'shown';
+                ensureGameplayVoiceController(this).win(this.panelWin, this.getActiveLogicalLevelId());
                 renderChapterRewards(this);
             } catch (fatalUiError) {
                 console.error('[settlement] basic controls unavailable:', message, fatalUiError);
@@ -684,10 +692,12 @@ export function installSettlementHudModule(target: any): void {
                 }
                 panel.active = true;
                 panel.setSiblingIndex(999);
+                AnalyticsMgr.inst.settlement.shown(this._settlementAnalyticsId, 'win_panel');
                 const bottomHud = this.getGameplayBottomHudGroup?.();
                 if (bottomHud) bottomHud.active = false;
                 this.playWinSettlementBannerFx?.();
                 this._settlementRevealState = 'shown';
+                ensureGameplayVoiceController(this).win(panel, logicalLevelId);
                 renderChapterRewards(this);
                 return true;
             } catch (error) {
@@ -764,6 +774,12 @@ export function installSettlementHudModule(target: any): void {
                     smartHintShownCount,
                 },
             });
+            const nextAnalyticsLevel = this._isThemeLevel
+                ? this.getNextThemeLevelId(this._currentThemeLevelId || this.levelData.levelId)
+                : logicalLevelId + 1;
+            this._settlementAnalyticsId = AnalyticsMgr.inst.beginSettlement('win', nextAnalyticsLevel > 0
+                ? { logicalLevelId: nextAnalyticsLevel, gameplayEntryMode: this._isThemeLevel ? 'theme' : 'main' }
+                : null);
             AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId, {
                 gameplayStats: this._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
             });
@@ -957,6 +973,7 @@ export function installSettlementHudModule(target: any): void {
                     this._gameplayResultPanelController?.resetReviveHoldToPeek?.(this.panelBufferFullContinue);
                     AnalyticsMgr.inst.trackRevivePanelShow('pch_buffer_full_revive', logicalLevelId);
                     this.panelBufferFullContinue.setSiblingIndex(999);
+                    ensureGameplayVoiceController(this).revive(this.panelBufferFullContinue);
                     if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
                     if (this.panelLose) this.panelLose.active = false;
                     playFailureSound();
@@ -967,6 +984,7 @@ export function installSettlementHudModule(target: any): void {
                     this._gameplayResultPanelController?.resetReviveHoldToPeek?.(this.panelTimeoutContinue);
                     AnalyticsMgr.inst.trackRevivePanelShow('level_revive', logicalLevelId);
                     this.panelTimeoutContinue.setSiblingIndex(999);
+                    ensureGameplayVoiceController(this).revive(this.panelTimeoutContinue);
                     if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
                     if (this.panelLose) this.panelLose.active = false;
                     playFailureSound();
@@ -1056,6 +1074,7 @@ export function installSettlementHudModule(target: any): void {
         /** 看广告后继续游戏；普通超时等待重新选豆，PCH 与满槽复活立即恢复原倒计时。 */
         continueAfterLose(addSeconds: number, resumeTimerImmediately: boolean = false) {
             if (!Number.isFinite(addSeconds) || addSeconds < 0) throw new Error('Invalid revival time');
+            this._gameplayVoiceController?.resumedAfterRevive();
             const timerWasStarted = !!this._timerStarted;
             const conveyor = this._pchConveyorGameplayController;
             const shouldResumePchTimer = conveyor?.isActive?.() === true;
@@ -1112,9 +1131,13 @@ export function installSettlementHudModule(target: any): void {
             if (this._isThemeLevel) {
                 const currentThemeLevelId = this._currentThemeLevelId || this.levelData.levelId;
                 const nextThemeLevelId = this.getNextThemeLevelId(currentThemeLevelId);
+                const attempt = AnalyticsMgr.inst.settlement.action(this._settlementAnalyticsId, 'next', nextThemeLevelId > 0
+                    ? { logicalLevelId: nextThemeLevelId, gameplayEntryMode: 'theme' } : null);
                 if (nextThemeLevelId > 0) {
-                    this.startThemeLevel(nextThemeLevelId);
+                    this.startThemeLevel(nextThemeLevelId, { settlementAttemptId: attempt, fromSettlement: true });
                 } else {
+                    AnalyticsMgr.inst.settlement.gate(attempt, 'exempt', 'no_next_level');
+                    AnalyticsMgr.inst.settlement.finish(attempt, 'completed', 'no_next_level');
                     this._isThemeLevel = false;
                     this._currentThemeLevelId = 0;
                     this.showMainMenu();
@@ -1122,27 +1145,40 @@ export function installSettlementHudModule(target: any): void {
                 return;
             }
             const nextId = this.getActiveLogicalLevelId() + 1;
+            const attempt = AnalyticsMgr.inst.settlement.action(this._settlementAnalyticsId, 'next', {
+                logicalLevelId: nextId, gameplayEntryMode: 'main',
+            });
             this.saveLevelProgress(nextId);
             // 下一关消耗体力
             if (!this.costVigorForLevel(nextId, 'main')) {
+                AnalyticsMgr.inst.settlement.gate(attempt, 'blocked', 'vigor');
                 this.showNoLivesAdModal({
                     source: 'next_level',
                     onResult: (result: any) => {
                         if (result?.status !== 'granted') {
+                            AnalyticsMgr.inst.settlement.gate(attempt,
+                                result?.status === 'cancelled' ? 'cancelled' : 'failed', result?.status || 'vigor_result_missing',
+                                result?.status === 'failed' && this._noLivesModal?.isValid === true);
                             this.endSettlementNextTransition();
                             return;
                         }
                         if (!this.isValid) return;
                         if (this.getRuntimeSceneName('Game') !== 'Game') return;
                         if (!this.costVigorForLevel(nextId, 'main')) {
+                            AnalyticsMgr.inst.settlement.gate(attempt, 'failed', 'vigor_after_reward');
                             this.endSettlementNextTransition();
                             return;
                         }
+                        AnalyticsMgr.inst.settlement.gate(attempt, 'passed', 'vigor_after_reward');
+                        AnalyticsMgr.inst.settlement.transition(attempt);
                         void this.requestLevelTransition(nextId);
                     },
                 });
                 return;
             }
+            AnalyticsMgr.inst.settlement.gate(attempt,
+                this.isTutorialVigorFreeLevel(nextId, 'main') ? 'exempt' : 'passed', 'vigor');
+            AnalyticsMgr.inst.settlement.transition(attempt);
             void this.requestLevelTransition(nextId);
         },
 

@@ -24,7 +24,7 @@ async function main() {
         if (image.width !== row.width || image.height !== row.height) throw Error(`装扮尺寸校验失败 ${row.id}`);
     }
     const base = target.cdnRootUrl + 'profile/';
-    const oss = 'oss://game-pdd-v2/' + target.ossRootPath + 'profile/';
+    const oss = 'oss://game-pdd-v4/' + target.ossRootPath + 'profile/';
     console.log(`${dry ? 'Dry-run' : 'Publish'}: ${manifest.items.length} images + manifests -> ${base}`);
     if (dry) return;
     const upload = file => {

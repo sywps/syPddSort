@@ -83,6 +83,7 @@ function makeController(carrierCount, beltTravel) {
         },
         skillMovementPaused: false,
         updateSphereFlyEffects() {},
+        updateOrdinaryReturnQueue() {},
         updateExitArrowAnimation() {},
         getEffectiveBeltSpeedMultiplier() {
             return 1;
@@ -91,7 +92,7 @@ function makeController(carrierCount, beltTravel) {
         handleCarrierAtEntrance(carrierIndex) {
             entranceCalls.push(carrierIndex);
         },
-        handleCarrierAtExit() {},
+        handleCarriersAtExit() {},
         checkBufferDeadlock() {
             return false;
         },

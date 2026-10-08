@@ -27,13 +27,27 @@ declare const wx: any;
 export type { SfxName } from './AudioManifest';
 
 type Bundle = AssetManager.Bundle;
+export type VoiceKind = 'judgment' | 'hint' | 'warning' | 'guide' | 'result';
+const VOICE_PRIORITY: Record<VoiceKind, number> = { judgment: 0, hint: 1, warning: 2, guide: 3, result: 4 };
+export type VoicePlaybackOptions = {
+    isCurrent?: () => boolean;
+    onStarted?: () => void;
+    onCompleted?: () => void;
+    maxDelayMs?: number;
+};
 
 const LS_SFX = 'pdd.setting.sfx';
+const LS_VOICE = 'pdd.setting.voice';
 const LS_BGM = 'pdd.setting.bgm';
 const LS_VIB = 'pdd.setting.vib';
 const SFX_CHANNEL_COUNT = 8;
+const SFX_IDLE_POOL_LIMIT = 10;
+const SFX_START_TIMEOUT_MS = 5000;
+const AUDIO_LOAD_RETRY_DELAYS_MS = [2000, 5000, 15000, 30000];
 const GAME_SCENE_SFX_ALLOWLIST = new Set<SfxName>([
     'settle',
+    'conveyorEnter',
+    'conveyorReturn',
     'button',
     'tick',
     'winColor',
@@ -65,14 +79,22 @@ export class AudioMgr {
     private audioRoot: Node | null = null;
     private sfxSources: AudioSource[] = [];
     private busySfxSources: Set<AudioSource> = new Set();
-    private placeOneShotSources: Set<AudioSource> = new Set();
-    private sfxSourceCursor = 0;
+    private sfxStartTimers = new Map<AudioSource, ReturnType<typeof setTimeout>>();
     private bgmSrc: AudioSource | null = null;
+    private readonly reportedUnknownSources = new WeakSet<AudioSource>();
     private guideVoiceSource: AudioSource | null = null;
     private guideVoiceGeneration = 0;
+    // One narrator channel, shared by guides, judgments and gameplay voices.
+    private activeVoiceKind: VoiceKind | null = null;
+    private voiceCancellationVersion = 0;
+    private voiceLoadTimer: ReturnType<typeof setTimeout> | null = null;
+    private preparedGuideVoices = new Map<SfxName, AudioSource>();
+    private pendingGuideVoicePreparations = new Set<SfxName>();
+    private guideVoicePreparationGeneration = 0;
     private gameAssetsBundle: Bundle | null = null;
     private bootstrapBundle: Bundle | null = null;
     private sfxEnabled = true;
+    private voiceEnabled = true;
     private bgmEnabled = true;
     private vibrateEnabled = true;
     private suspended = false;
@@ -81,15 +103,19 @@ export class AudioMgr {
     private bgmWasPlayingBeforeExternalInterruption = false;
     private pendingSfxLoads: Set<SfxName> = new Set();
     private sfxLoadCallbacks = new Map<string, Array<(error?: Error) => void>>();
-    private pendingAutoplaySfx: Set<SfxName> = new Set();
-    private deferredBootstrapSfxLoads: Set<SfxName> = new Set();
-    private deferredSfxLoads: Set<SfxName> = new Set();
+    private pendingAutoplaySfx: Map<SfxName, number> = new Map();
     private gameAssetsBundleCallbacks: Array<(bundle: Bundle | null) => void> | null = null;
     private bootstrapBundleCallbacks: Array<(bundle: Bundle | null) => void> | null = null;
     private bootstrapBundleState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
+    private bootstrapBundleFailures = 0;
+    private bootstrapBundleRetryAt = 0;
     private preferRemoteAudio = false;
     private gameAssetsBundleState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
+    private gameAssetsBundleFailures = 0;
+    private gameAssetsBundleRetryAt = 0;
     private bgmLoadState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
+    private bgmClipFailures = 0;
+    private bgmClipRetryAt = 0;
     private bgmAutoplayRequested = false;
     private bgmWarmupTimer: any = null;
     private bgmResourcePath = AUDIO_BGM_RESOURCE_PATH;
@@ -100,6 +126,10 @@ export class AudioMgr {
     private constructor() {
         // 从本地存储加载设置（默认开启）
         this.sfxEnabled = sys.localStorage.getItem(LS_SFX) !== '0';
+        const savedVoice = sys.localStorage.getItem(LS_VOICE);
+        this.voiceEnabled = savedVoice === null ? this.sfxEnabled : savedVoice !== '0';
+        // Preserve existing users' mute choice once, then keep voice and SFX independent.
+        if (savedVoice === null) sys.localStorage.setItem(LS_VOICE, this.voiceEnabled ? '1' : '0');
         this.bgmEnabled = sys.localStorage.getItem(LS_BGM) !== '0';
         this.vibrateEnabled = sys.localStorage.getItem(LS_VIB) !== '0';
     }
@@ -108,24 +138,51 @@ export class AudioMgr {
     init(host: Node) {
         if (!host?.isValid) return;
         const audioHost = this.getOrCreateAudioRoot(host);
-        if (this.host === audioHost
-            && this.host?.isValid
-            && this.hasExactAudioSourceLayout(audioHost)) return;
-        this.disposeAudioSources(audioHost);
-        this.host = audioHost;
-        for (let i = 0; i < SFX_CHANNEL_COUNT; i++) {
-            const source = audioHost.addComponent(AudioSource);
-            source.playOnAwake = false;
-            source.loop = false;
-            this.sfxSources.push(source);
+        const previousHost = this.host;
+        if (previousHost !== audioHost) {
+            if (previousHost && isValid(previousHost, true)) {
+                previousHost.off(AudioSource.EventType.STARTED, this._handleSfxSourceStarted, this);
+                previousHost.off(AudioSource.EventType.ENDED, this._handleSfxSourceEnded, this);
+            }
+            if (previousHost) {
+                this.stopVoice();
+                this.pendingAutoplaySfx.clear();
+                // Only retire registered sources on the old root, never unknown components.
+                for (const source of new Set([...this.sfxSources, this.bgmSrc])) {
+                    if (source && isValid(source, true) && source.node === previousHost) {
+                        source.stop();
+                        source.clip = null;
+                        source.destroy();
+                    }
+                }
+            }
         }
+        this.host = audioHost;
+        this.reconcileSfxSources(audioHost);
+        // Rebind idempotently, including recovery from an invalid source layout.
+        audioHost.off(AudioSource.EventType.STARTED, this._handleSfxSourceStarted, this);
+        audioHost.on(AudioSource.EventType.STARTED, this._handleSfxSourceStarted, this);
+        audioHost.off(AudioSource.EventType.ENDED, this._handleSfxSourceEnded, this);
         audioHost.on(AudioSource.EventType.ENDED, this._handleSfxSourceEnded, this);
-        this.bgmSrc = audioHost.addComponent(AudioSource);
-        this.bgmSrc.playOnAwake = false;
-        this.bgmSrc.loop = true;
-        this.bgmSrc.volume = this.bgmVolume;
+        const needsBgmSource = !isValid(this.bgmSrc, true) || this.bgmSrc!.node !== audioHost;
+        if (needsBgmSource) {
+            if (this.bgmSrc && isValid(this.bgmSrc, true)) {
+                console.warn('[AudioMgr] BGM source belongs to another node; preserving unconfirmed source');
+            }
+            this.bgmSrc = audioHost.addComponent(AudioSource);
+            this.bgmSrc.playOnAwake = false;
+            this.bgmSrc.loop = true;
+            this.bgmSrc.volume = this.bgmVolume;
+        }
+        const knownSources = new Set([...this.sfxSources, this.bgmSrc, this.guideVoiceSource]);
+        for (const source of audioHost.getComponents(AudioSource)) {
+            if (!isValid(source, true) || knownSources.has(source) || this.reportedUnknownSources.has(source)) continue;
+            this.reportedUnknownSources.add(source);
+            console.warn('[AudioMgr] Unregistered AudioSource preserved; ownership must be confirmed');
+        }
         this.preferRemoteAudio = this._isMinigameEnv();
-        if (this.bgmAutoplayRequested) {
+        // Normal level initialization must not set clip, seek, stop or replay a valid BGM source.
+        if (needsBgmSource && this.bgmAutoplayRequested) {
             this.ensureBgmPlaying('audio-init');
         }
     }
@@ -148,133 +205,104 @@ export class AudioMgr {
         return root;
     }
 
-    private hasExactAudioSourceLayout(audioHost: Node): boolean {
-        if (this.sfxSources.length !== SFX_CHANNEL_COUNT || !isValid(this.bgmSrc, true)) {
-            return false;
+    private reconcileSfxSources(audioHost: Node): void {
+        const sources = new Set<AudioSource>();
+        for (const source of this.sfxSources) {
+            if (!isValid(source, true) || source.node !== audioHost
+                || source === this.bgmSrc || source === this.guideVoiceSource) {
+                console.warn('[AudioMgr] Removed invalid or incorrectly registered SFX source record');
+                continue;
+            }
+            if (sources.has(source)) console.warn('[AudioMgr] Removed duplicate SFX source record');
+            sources.add(source);
         }
-        const trackedSources = [...this.sfxSources, this.bgmSrc];
-        if (trackedSources.some((source) => !isValid(source, true))) {
-            return false;
+        this.sfxSources = Array.from(sources);
+        for (const source of this.sfxStartTimers.keys()) {
+            if (!sources.has(source)) this._clearSfxStartTimer(source);
         }
-        const trackedSourceSet = new Set(trackedSources);
-        if (trackedSourceSet.size !== SFX_CHANNEL_COUNT + 1) {
-            return false;
+        for (const source of this.busySfxSources) {
+            if (!sources.has(source)) this.busySfxSources.delete(source);
         }
-        const liveRootSources = audioHost.getComponents(AudioSource).filter((source) => isValid(source, true));
-        return liveRootSources.length === SFX_CHANNEL_COUNT + 1
-            && liveRootSources.every((source) => trackedSourceSet.has(source));
+        // Reconcile real playback without stopping it, even if the busy record was lost.
+        for (const source of sources) {
+            if (source.playing) this.busySfxSources.add(source);
+        }
+        const initialCount = Math.min(SFX_CHANNEL_COUNT, this._sfxChannelLimit());
+        while (this.sfxSources.length < initialCount) {
+            const source = audioHost.addComponent(AudioSource);
+            source.playOnAwake = false;
+            source.loop = false;
+            this.sfxSources.push(source);
+        }
     }
 
-    private disposeAudioSources(audioHost: Node): void {
-        this.stopGuideVoice();
-        this._releaseAllPlaceOneShotSources(true);
-        audioHost.off(AudioSource.EventType.ENDED, this._handleSfxSourceEnded, this);
-        this.pendingAutoplaySfx.clear();
-        this.busySfxSources.clear();
-        this.sfxSourceCursor = 0;
-        for (const source of audioHost.getComponents(AudioSource)) {
-            if (!isValid(source, true)) continue;
-            try {
-                source.stop();
-            } catch (_) { /* ignore */ }
-            try {
-                source.clip = null;
-            } catch (_) { /* ignore */ }
-            try {
-                source.destroy();
-            } catch (_) { /* ignore */ }
-        }
-        this.sfxSources = [];
-        this.bgmSrc = null;
+    private _clearSfxStartTimer(source: AudioSource): void {
+        const timer = this.sfxStartTimers.get(source);
+        if (timer === undefined) return;
+        clearTimeout(timer);
+        this.sfxStartTimers.delete(source);
+    }
+
+    private _handleSfxSourceStarted(source: AudioSource): void {
+        this._clearSfxStartTimer(source);
+    }
+
+    private _discardSfxSource(source: AudioSource): void {
+        this._clearSfxStartTimer(source);
+        this.busySfxSources.delete(source);
+        this.sfxSources = this.sfxSources.filter(item => item !== source);
+        if (!isValid(source, true)) return;
+        source.stop();
+        // Invalidate late native loads and never reuse a source with a pending play promise.
+        source.clip = null;
+        source.destroy();
     }
 
     private _handleSfxSourceEnded(source: AudioSource) {
-        this.busySfxSources.delete(source);
+        this._clearSfxStartTimer(source);
+        if (!this.busySfxSources.delete(source)) return;
+        this._trimIdleSfxSources();
     }
 
-    private _handlePlaceOneShotEnded(source: AudioSource) {
-        this._releasePlaceOneShotSource(source, false);
-    }
-
-    private _releasePlaceOneShotSource(source: AudioSource, stopPlayback: boolean): void {
-        if (!this.placeOneShotSources.delete(source)) return;
-        const sourceNode = source.node;
-        try {
-            sourceNode?.off(AudioSource.EventType.ENDED, this._handlePlaceOneShotEnded, this);
-        } catch (_) { /* ignore */ }
-        if (stopPlayback) {
-            try {
-                source.stop();
-            } catch (_) { /* ignore */ }
-        }
-        try {
+    private _trimIdleSfxSources(): void {
+        let idleCount = 0;
+        this.sfxSources = this.sfxSources.filter((source) => {
+            if (this.busySfxSources.has(source)) return true;
+            if (++idleCount <= SFX_IDLE_POOL_LIMIT) return true;
+            source.stop();
             source.clip = null;
-        } catch (_) { /* ignore */ }
-        try {
             source.destroy();
-        } catch (_) { /* ignore */ }
-        if (sourceNode?.isValid) {
-            try {
-                sourceNode.destroy();
-            } catch (_) { /* ignore */ }
-        }
+            return false;
+        });
     }
 
-    private _releaseAllPlaceOneShotSources(stopPlayback: boolean): void {
-        for (const source of [...this.placeOneShotSources]) {
-            this._releasePlaceOneShotSource(source, stopPlayback);
-        }
+    private _sfxChannelLimit(): number {
+        return Math.max(0, Math.floor(AudioSource.maxAudioChannel) - 2);
     }
 
-    private _playPlaceOneShot(clip: AudioClip, volume: number): void {
-        // 每颗归位独立播放，允许短暂重叠；播放结束后各自回收。
-        const audioRoot = this.audioRoot;
-        if (!audioRoot?.isValid) return;
-        let source: AudioSource | null = null;
-        let sourceNode: Node | null = null;
-        try {
-            sourceNode = new Node('PddPlaceOneShot');
-            audioRoot.addChild(sourceNode);
-            source = sourceNode.addComponent(AudioSource);
-            source.playOnAwake = false;
-            source.loop = false;
-            source.clip = clip;
-            source.volume = volume;
-            this.placeOneShotSources.add(source);
-            sourceNode.on(AudioSource.EventType.ENDED, this._handlePlaceOneShotEnded, this);
-            source.play();
-        } catch (_) {
-            if (source) {
-                this._releasePlaceOneShotSource(source, true);
-            } else if (sourceNode?.isValid) {
-                try {
-                    sourceNode.destroy();
-                } catch (_) { /* ignore */ }
-            }
-        }
+    private _pendingSfxCount(): number {
+        let count = 0;
+        for (const value of this.pendingAutoplaySfx.values()) count += value;
+        return count;
+    }
+
+    private _flushPendingAutoplay(name: SfxName, clip: AudioClip | null): void {
+        const count = this.pendingAutoplaySfx.get(name) || 0;
+        this.pendingAutoplaySfx.delete(name);
+        if (clip) for (let i = 0; i < count; i++) this._playLoadedClip(name, clip);
     }
 
     private _acquireSfxSource(): AudioSource | null {
-        const sourceCount = this.sfxSources.length;
-        if (sourceCount === 0) return null;
-        let firstValidSource: AudioSource | null = null;
-        let firstValidIndex = -1;
-        for (let offset = 0; offset < sourceCount; offset++) {
-            const index = (this.sfxSourceCursor + offset) % sourceCount;
-            const source = this.sfxSources[index];
-            if (!source?.isValid) continue;
-            if (!firstValidSource) {
-                firstValidSource = source;
-                firstValidIndex = index;
-            }
-            if (this.busySfxSources.has(source)) continue;
-            this.sfxSourceCursor = (index + 1) % sourceCount;
-            return source;
+        if (this.busySfxSources.size >= this._sfxChannelLimit()) return null;
+        for (const source of this.sfxSources) {
+            if (source?.isValid && !this.busySfxSources.has(source)) return source;
         }
-        if (!firstValidSource) return null;
-        this.sfxSourceCursor = (firstValidIndex + 1) % sourceCount;
-        this.busySfxSources.delete(firstValidSource);
-        return firstValidSource;
+        if (!this.audioRoot?.isValid || this.sfxSources.length >= this._sfxChannelLimit()) return null;
+        const source = this.audioRoot.addComponent(AudioSource);
+        source.playOnAwake = false;
+        source.loop = false;
+        this.sfxSources.push(source);
+        return source;
     }
 
     private _clearBgmWarmupTimer() {
@@ -291,19 +319,27 @@ export class AudioMgr {
     }
 
     private _loadFromBootstrapBundleAuto(onReady?: (bundle: Bundle | null) => void) {
-        if (this.bootstrapBundleState === 'ready') {
-            if (onReady) onReady(this.bootstrapBundle);
-            return;
-        }
-        if (this.bootstrapBundleState === 'failed') {
-            if (onReady) onReady(null);
-            return;
-        }
         if (this.bootstrapBundleState === 'loading') {
             if (onReady) {
                 if (!this.bootstrapBundleCallbacks) this.bootstrapBundleCallbacks = [];
                 this.bootstrapBundleCallbacks.push(onReady);
             }
+            return;
+        }
+        // Another owner may have loaded the bundle since our last failed attempt.
+        const cached = assetManager.getBundle(LOCAL_BOOTSTRAP_BUNDLE_NAME);
+        if (cached) {
+            this.bootstrapBundle = cached;
+            this.bootstrapBundleState = 'ready';
+            this.bootstrapBundleFailures = 0;
+            this.bootstrapBundleRetryAt = 0;
+        }
+        if (this.bootstrapBundleState === 'ready') {
+            onReady?.(this.bootstrapBundle);
+            return;
+        }
+        if (Date.now() < this.bootstrapBundleRetryAt) {
+            onReady?.(null);
             return;
         }
         this.bootstrapBundleCallbacks = onReady ? [onReady] : [];
@@ -313,32 +349,41 @@ export class AudioMgr {
             this.bootstrapBundleCallbacks = null;
             if (err || !bundle) {
                 this.bootstrapBundleState = 'failed';
-                console.warn('[Audio] loadBundle bootstrap 失败，继续等待 remote:', err?.message);
-                this._flushDeferredBootstrapSfxLoads();
+                const delay = AUDIO_LOAD_RETRY_DELAYS_MS[Math.min(this.bootstrapBundleFailures++, AUDIO_LOAD_RETRY_DELAYS_MS.length - 1)];
+                this.bootstrapBundleRetryAt = Date.now() + delay;
+                console.warn('[Audio] loadBundle bootstrap 失败，后续请求将在冷却后重试:', err?.message, delay);
                 callbacks.forEach((callback) => callback(null));
                 return;
             }
             this.bootstrapBundleState = 'ready';
             this.bootstrapBundle = bundle;
-            this._flushDeferredBootstrapSfxLoads();
+            this.bootstrapBundleFailures = 0;
+            this.bootstrapBundleRetryAt = 0;
             callbacks.forEach((callback) => callback(bundle));
         });
     }
 
     private _loadFromGameAssetsBundleAuto(onReady?: (bundle: Bundle | null) => void) {
-        if (this.gameAssetsBundleState === 'ready') {
-            if (onReady) onReady(this.gameAssetsBundle);
-            return;
-        }
-        if (this.gameAssetsBundleState === 'failed') {
-            if (onReady) onReady(null);
-            return;
-        }
         if (this.gameAssetsBundleState === 'loading') {
             if (onReady) {
                 if (!this.gameAssetsBundleCallbacks) this.gameAssetsBundleCallbacks = [];
                 this.gameAssetsBundleCallbacks.push(onReady);
             }
+            return;
+        }
+        const cached = assetManager.getBundle(GAME_ASSETS_BUNDLE_NAME);
+        if (cached) {
+            this.gameAssetsBundle = cached;
+            this.gameAssetsBundleState = 'ready';
+            this.gameAssetsBundleFailures = 0;
+            this.gameAssetsBundleRetryAt = 0;
+        }
+        if (this.gameAssetsBundleState === 'ready') {
+            onReady?.(this.gameAssetsBundle);
+            return;
+        }
+        if (Date.now() < this.gameAssetsBundleRetryAt) {
+            onReady?.(null);
             return;
         }
         this.gameAssetsBundleCallbacks = onReady ? [onReady] : [];
@@ -348,52 +393,18 @@ export class AudioMgr {
             this.gameAssetsBundleCallbacks = null;
             if (err || !bundle) {
                 this.gameAssetsBundleState = 'failed';
-                console.warn(`[Audio] loadBundle ${GAME_ASSETS_BUNDLE_NAME} 失败:`, err?.message);
-                this._flushDeferredSfxLoads();
+                const delay = AUDIO_LOAD_RETRY_DELAYS_MS[Math.min(this.gameAssetsBundleFailures++, AUDIO_LOAD_RETRY_DELAYS_MS.length - 1)];
+                this.gameAssetsBundleRetryAt = Date.now() + delay;
+                console.warn(`[Audio] loadBundle ${GAME_ASSETS_BUNDLE_NAME} 失败，后续请求将在冷却后重试:`, err?.message, delay);
                 callbacks.forEach((callback) => callback(null));
                 return;
             }
             this.gameAssetsBundleState = 'ready';
             this.gameAssetsBundle = bundle;
-            this._flushDeferredSfxLoads();
+            this.gameAssetsBundleFailures = 0;
+            this.gameAssetsBundleRetryAt = 0;
             callbacks.forEach((callback) => callback(bundle));
         });
-    }
-
-    private _flushDeferredBootstrapSfxLoads() {
-        if (this.deferredBootstrapSfxLoads.size === 0) {
-            return;
-        }
-        const pendingNames = Array.from(this.deferredBootstrapSfxLoads);
-        this.deferredBootstrapSfxLoads.clear();
-        for (const name of pendingNames) {
-            const clip = this.sfxClips.get(name);
-            if (clip) {
-                if (this.pendingAutoplaySfx.delete(name)) {
-                    this._playLoadedClip(name, clip);
-                }
-                continue;
-            }
-            this._ensureSfxLoaded(name);
-        }
-    }
-
-    private _flushDeferredSfxLoads() {
-        if (this.deferredSfxLoads.size === 0) {
-            return;
-        }
-        const pendingNames = Array.from(this.deferredSfxLoads);
-        this.deferredSfxLoads.clear();
-        for (const name of pendingNames) {
-            const clip = this.sfxClips.get(name);
-            if (clip) {
-                if (this.pendingAutoplaySfx.delete(name)) {
-                    this._playLoadedClip(name, clip);
-                }
-                continue;
-            }
-            this._ensureSfxLoaded(name);
-        }
     }
 
     private _loadSingleSfxFromBundle(bundle: Bundle, name: SfxName, onDone: (clip: AudioClip | null) => void, logMissing: boolean = true) {
@@ -424,22 +435,25 @@ export class AudioMgr {
             const variance = AUDIO_SFX_VOLUME_VARIANCE[name] ?? 0;
             const jitter = variance > 0 ? (Math.random() * 2 - 1) * variance : 0;
             const volume = Math.max(0, Math.min(1, baseVolume * (1 + jitter)));
-            if (name === 'settle') {
-                this._playPlaceOneShot(clip, volume);
-                return;
-            }
+
             source = this._acquireSfxSource();
             if (!source) return;
-            source.stop();
             source.playOnAwake = false;
             source.loop = false;
             source.clip = clip;
             source.volume = volume;
             this.busySfxSources.add(source);
+            const pendingSource = source;
+            const timer = setTimeout(() => {
+                if (this.sfxStartTimers.get(pendingSource) !== timer) return;
+                console.error('[Audio] SFX startup timed out:', name);
+                this._discardSfxSource(pendingSource);
+            }, SFX_START_TIMEOUT_MS);
+            this.sfxStartTimers.set(source, timer);
             source.play();
         } catch (e) {
-            if (source) this.busySfxSources.delete(source);
-            // WeChat innerAudioContext may throw if audio not ready
+            if (source) this._discardSfxSource(source);
+            console.error('[Audio] SFX playback failed:', name, e);
         }
     }
 
@@ -448,54 +462,25 @@ export class AudioMgr {
         if (this.sfxClips.has(name) || this.pendingSfxLoads.has(name)) {
             return;
         }
-        if (this.preferRemoteAudio && BOOTSTRAP_SFX_NAME_SET.has(name) && !this.bootstrapBundle && this.bootstrapBundleState !== 'failed') {
-            this.deferredBootstrapSfxLoads.add(name);
-            if (this.bootstrapBundleState === 'idle') {
-                this._loadFromBootstrapBundleAuto();
-            }
-            return;
-        }
-        if (this.bootstrapBundle && BOOTSTRAP_SFX_NAME_SET.has(name)) {
-            this.pendingSfxLoads.add(name);
-            const finish = (clip: AudioClip | null) => {
-                this._finishSfxLoad(name, clip);
-            };
-            this._loadSingleSfxFromBundle(this.bootstrapBundle, name, (clip) => {
-                if (clip) {
-                    finish(clip);
-                    return;
-                }
-                this._loadFromGameAssetsBundleAuto((bundle) => {
-                    if (!bundle) {
-                        finish(null);
-                        return;
-                    }
-                    this._loadSingleSfxFromBundle(bundle, name, finish);
-                });
-            }, false);
-            return;
-        }
-        if (!this.gameAssetsBundle) {
-            if (this.gameAssetsBundleState === 'failed') {
-                console.warn(`[Audio] gameAssets bundle unavailable, skip SFX: ${name}`);
-                this._finishSfxLoad(name, null);
-                return;
-            }
-            this.deferredSfxLoads.add(name);
-            if (this.gameAssetsBundleState === 'idle') {
-                this._loadFromGameAssetsBundleAuto();
-            }
-            return;
-        }
         this.pendingSfxLoads.add(name);
         const finish = (clip: AudioClip | null) => {
             this._finishSfxLoad(name, clip);
         };
-        if (this.gameAssetsBundle) {
-            this._loadSingleSfxFromBundle(this.gameAssetsBundle, name, finish);
+        const loadFromGameAssets = () => this._loadFromGameAssetsBundleAuto(bundle => {
+            if (!bundle) { finish(null); return; }
+            this._loadSingleSfxFromBundle(bundle, name, finish);
+        });
+        if (BOOTSTRAP_SFX_NAME_SET.has(name) && (this.preferRemoteAudio || this.bootstrapBundle)) {
+            this._loadFromBootstrapBundleAuto(bundle => {
+                if (!bundle) { loadFromGameAssets(); return; }
+                this._loadSingleSfxFromBundle(bundle, name, clip => {
+                    if (clip) finish(clip);
+                    else loadFromGameAssets();
+                }, false);
+            });
             return;
         }
-        finish(null);
+        loadFromGameAssets();
     }
 
     private _finishSfxLoad(name: SfxName, clip: AudioClip | null): void {
@@ -504,7 +489,7 @@ export class AudioMgr {
         for (const alias of AUDIO_BOOTSTRAP_SFX_NAMES) {
             if (AUDIO_SFX_RESOURCE_PATH[alias] !== resourcePath) continue;
             if (clip) this.sfxClips.set(alias, clip);
-            if (this.pendingAutoplaySfx.delete(alias) && clip) this._playLoadedClip(alias, clip);
+            this._flushPendingAutoplay(alias, clip);
         }
         const callbacks = this.sfxLoadCallbacks.get(resourcePath) || [];
         this.sfxLoadCallbacks.delete(resourcePath);
@@ -522,7 +507,7 @@ export class AudioMgr {
         }
         this.stopUnexpectedLoopSources();
         try {
-            this.bgmSrc.clip = this.bgmClip;
+            if (this.bgmSrc.clip !== this.bgmClip) this.bgmSrc.clip = this.bgmClip;
             if (!this.bgmSrc.playing) this.bgmSrc.play();
         } catch (e) {
             // WeChat innerAudioContext may throw if audio not ready
@@ -547,8 +532,10 @@ export class AudioMgr {
 
     private stopUnexpectedLoopSources(): void {
         if (!this.audioRoot?.isValid) return;
-        for (const source of this.audioRoot.getComponents(AudioSource)) {
-            if (source === this.bgmSrc || !isValid(source, true) || !source.loop) continue;
+        // Only SFX registered to this manager are known to be invalid loop owners.
+        for (const source of this.sfxSources) {
+            if (source === this.bgmSrc || source === this.guideVoiceSource
+                || !isValid(source, true) || source.node !== this.audioRoot || !source.loop) continue;
             try {
                 source.stop();
             } catch (_) { /* ignore */ }
@@ -576,6 +563,8 @@ export class AudioMgr {
         this.bgmResourcePath = nextPath;
         this.bgmClip = null;
         this.bgmLoadState = 'idle';
+        this.bgmClipFailures = 0;
+        this.bgmClipRetryAt = 0;
         this.bgmLoadToken += 1;
         if (this.bgmSrc?.isValid) {
             try {
@@ -593,7 +582,7 @@ export class AudioMgr {
             this._playBgmClip();
             return;
         }
-        if (this.bgmLoadState === 'idle') {
+        if (this.bgmLoadState === 'idle' || this.bgmLoadState === 'failed') {
             this._ensureBgmLoaded(true);
         }
     }
@@ -607,42 +596,46 @@ export class AudioMgr {
             if (autoPlay) this._playBgmClip();
             return;
         }
-        if (this.bgmLoadState === 'loading') {
+        if (this.bgmLoadState === 'loading' || Date.now() < this.bgmClipRetryAt) {
             return;
         }
         this.bgmLoadState = 'loading';
         const resourcePath = this.bgmResourcePath;
         const loadToken = this.bgmLoadToken;
-        const loadFromGameAssets = () => {
+        const fail = (clipError?: Error) => {
+            this.bgmLoadState = 'failed';
+            // Bundle failures already have their own cooldown. Count only actual clip failures here.
+            if (!clipError) return;
+            const delay = AUDIO_LOAD_RETRY_DELAYS_MS[Math.min(this.bgmClipFailures++, AUDIO_LOAD_RETRY_DELAYS_MS.length - 1)];
+            this.bgmClipRetryAt = Date.now() + delay;
+            console.warn(`[Audio] BGM 加载失败，后续请求将在冷却后重试: ${resourcePath}`, clipError.message, delay);
+        };
+        const loadFromGameAssets = (localClipError?: Error) => {
             this._loadFromGameAssetsBundleAuto((bundle) => {
                 if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath) return;
                 if (bundle) {
-                    this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken);
+                    this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken, fail);
                     return;
                 }
-                this.bgmLoadState = 'failed';
+                fail(localClipError);
             });
         };
-        if (this.bootstrapBundleState !== 'failed') {
-            this._loadFromBootstrapBundleAuto((bundle) => {
-                if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath) return;
-                if (bundle) {
-                    this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken, loadFromGameAssets);
-                    return;
-                }
-                loadFromGameAssets();
-            });
-            return;
-        }
-        loadFromGameAssets();
+        this._loadFromBootstrapBundleAuto((bundle) => {
+            if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath) return;
+            if (bundle) {
+                this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken, loadFromGameAssets);
+                return;
+            }
+            loadFromGameAssets();
+        });
     }
 
     private _loadBgm(
         bundle: Bundle,
         resourcePath: string,
-        autoPlay: boolean = true,
-        loadToken: number = this.bgmLoadToken,
-        onMissing?: () => void,
+        autoPlay: boolean,
+        loadToken: number,
+        onMissing: (error: Error) => void,
     ) {
         if (this.bgmClip) {
             this.bgmLoadState = 'ready';
@@ -656,15 +649,12 @@ export class AudioMgr {
             if (!err && clip) {
                 this.bgmClip = clip;
                 this.bgmLoadState = 'ready';
+                this.bgmClipFailures = 0;
+                this.bgmClipRetryAt = 0;
                 if (autoPlay) this._playBgmClip();
             } else {
-                if (onMissing) {
-                    this.bgmLoadState = 'idle';
-                    onMissing();
-                    return;
-                }
-                this.bgmLoadState = 'failed';
-                console.warn(`[Audio] BGM 加载失败: ${resourcePath}`, err?.message);
+                // Keep the request in flight while trying the remote fallback.
+                onMissing(err || new Error(`BGM clip missing: ${resourcePath}`));
             }
         });
     }
@@ -713,9 +703,6 @@ export class AudioMgr {
         if (this.bgmClip) {
             this._playBgmClip();
             return;
-        }
-        if (this.bgmLoadState === 'failed') {
-            this.bgmLoadState = 'idle';
         }
         this._ensureBgmLoaded(true);
     }
@@ -779,9 +766,6 @@ export class AudioMgr {
             this._restartBgmClip();
             return;
         }
-        if (this.bgmLoadState === 'failed') {
-            this.bgmLoadState = 'idle';
-        }
         this._ensureBgmLoaded(true);
     }
 
@@ -814,56 +798,171 @@ export class AudioMgr {
 
     play(name: SfxName) {
         this._retryRequestedBgmPlayback();
-        if (this.suspended || !this.sfxEnabled || this.sfxSources.length === 0 || !this._isSfxAllowedInCurrentScene(name)) return;
+        if (this.suspended || !this.sfxEnabled || !this.audioRoot?.isValid || !this._isSfxAllowedInCurrentScene(name)) return;
+        if (this.busySfxSources.size + this._pendingSfxCount() >= this._sfxChannelLimit()) return;
         const clip = this.sfxClips.get(name);
         if (clip) {
             this._playLoadedClip(name, clip);
             return;
         }
-        this.pendingAutoplaySfx.add(name);
+        this.pendingAutoplaySfx.set(name, (this.pendingAutoplaySfx.get(name) || 0) + 1);
         this._ensureSfxLoaded(name);
     }
 
     playGuideVoice(name: 'guideA1' | 'guideA2'): void {
-        this.stopGuideVoice();
-        if (!this.sfxEnabled || this.suspended || this.externalInterruptionRefs > 0) return;
+        this.playVoice(name, 'guide', { maxDelayMs: 5000 });
+    }
+
+    /** Prepare the two tutorial players without playing or waiting for them. */
+    prepareGuideVoices(): void {
+        this.releasePreparedGuideVoices();
+        if (!this.canPlayVoice() || !this.audioRoot?.isValid) return;
+        const generation = this.guideVoicePreparationGeneration;
+        for (const name of ['guideA1', 'guideA2'] as const) {
+            this.pendingGuideVoicePreparations.add(name);
+            this.preload(name, (error) => {
+                if (generation !== this.guideVoicePreparationGeneration
+                    || !this.pendingGuideVoicePreparations.delete(name)) return;
+                if (!this.canPlayVoice()) return;
+                const clip = this.sfxClips.get(name);
+                if (error || !clip || !this.audioRoot?.isValid) {
+                    console.error('[Audio] Guide voice preparation failed:', name, error);
+                    return;
+                }
+                try {
+                    this.preparedGuideVoices.set(name, this.createVoiceSource(name, clip));
+                } catch (error) {
+                    console.error('[Audio] Guide player preparation failed:', name, error);
+                }
+            });
+        }
+    }
+
+    releasePreparedGuideVoices(): void {
+        this.guideVoicePreparationGeneration += 1;
+        this.pendingGuideVoicePreparations.clear();
+        for (const source of this.preparedGuideVoices.values()) this.destroyVoiceSource(source);
+        this.preparedGuideVoices.clear();
+    }
+
+    private createVoiceSource(name: SfxName, clip: AudioClip): AudioSource {
+        const node = new Node('NarratorVoice');
+        this.audioRoot!.addChild(node);
+        try {
+            const source = node.addComponent(AudioSource);
+            source.playOnAwake = false;
+            source.loop = false;
+            source.volume = AUDIO_SFX_VOLUME[name];
+            // Setting clip starts Cocos player preparation; play() is reserved for the actual cue.
+            source.clip = clip;
+            return source;
+        } catch (error) {
+            node.destroy();
+            throw error;
+        }
+    }
+
+    getVoiceCancellationVersion(): number { return this.voiceCancellationVersion; }
+
+    canPlayVoice(): boolean {
+        return this.voiceEnabled && !this.suspended && this.externalInterruptionRefs === 0;
+    }
+
+    playVoice(name: SfxName, kind: VoiceKind, options: VoicePlaybackOptions = {}): boolean {
+        if (!this.canPlayVoice() || (options.isCurrent && !options.isCurrent())) return false;
+        if (this.activeVoiceKind && VOICE_PRIORITY[this.activeVoiceKind] > VOICE_PRIORITY[kind]) return false;
+        this.clearVoiceSource();
+        this.pendingGuideVoicePreparations.delete(name);
+        this.activeVoiceKind = kind;
         const generation = this.guideVoiceGeneration;
+        const expiresAt = Date.now() + (options.maxDelayMs ?? 1200);
+        const expire = () => {
+            if (generation !== this.guideVoiceGeneration) return;
+            console.error('[Audio] Voice startup timed out:', name);
+            this.clearVoiceSource();
+        };
+        this.voiceLoadTimer = setTimeout(expire, options.maxDelayMs ?? 1200);
         this.preload(name, (error) => {
             if (generation !== this.guideVoiceGeneration) return;
             if (error) {
-                console.error('[Audio] Guide voice load failed:', name, error);
+                this.clearVoiceSource();
+                console.error('[Audio] Voice load failed:', name, error);
                 return;
             }
-            if (!this.sfxEnabled || this.suspended || this.externalInterruptionRefs > 0) return;
+            if (Date.now() >= expiresAt) { expire(); return; }
+            if (!this.canPlayVoice() || (options.isCurrent && !options.isCurrent())) {
+                this.clearVoiceSource();
+                return;
+            }
             const clip = this.sfxClips.get(name);
             if (!clip || !this.audioRoot?.isValid) {
-                console.error('[Audio] Guide voice is not ready:', name);
+                this.clearVoiceSource();
+                console.error('[Audio] Voice is not ready:', name);
                 return;
             }
-            const node = new Node('GuideVoice');
-            this.audioRoot.addChild(node);
-            const source = node.addComponent(AudioSource);
+            let source: AudioSource;
+            try {
+                source = this.preparedGuideVoices.get(name) || this.createVoiceSource(name, clip);
+                this.preparedGuideVoices.delete(name);
+            } catch (error) {
+                this.clearVoiceSource();
+                console.error('[Audio] Voice player preparation failed:', name, error);
+                return;
+            }
+            const node = source.node;
             this.guideVoiceSource = source;
-            source.playOnAwake = false;
-            source.loop = false;
-            source.clip = clip;
-            source.volume = AUDIO_SFX_VOLUME[name];
+            let started = false;
+            node.on(AudioSource.EventType.STARTED, () => {
+                if (generation !== this.guideVoiceGeneration || this.guideVoiceSource !== source || started) return;
+                if (Date.now() >= expiresAt) { expire(); return; }
+                if (!this.canPlayVoice() || (options.isCurrent && !options.isCurrent())) {
+                    this.clearVoiceSource();
+                    return;
+                }
+                started = true;
+                if (this.voiceLoadTimer !== null) clearTimeout(this.voiceLoadTimer);
+                this.voiceLoadTimer = null;
+                options.onStarted?.();
+            });
             node.on(AudioSource.EventType.ENDED, () => {
-                if (this.guideVoiceSource === source) this.stopGuideVoice();
+                if (generation !== this.guideVoiceGeneration || this.guideVoiceSource !== source) return;
+                const completed = started && this.canPlayVoice() && (!options.isCurrent || options.isCurrent());
+                this.clearVoiceSource();
+                if (completed) options.onCompleted?.();
             });
             try {
                 source.play();
             } catch (error) {
-                this.stopGuideVoice();
-                console.error('[Audio] Guide voice playback failed:', name, error);
+                if (generation === this.guideVoiceGeneration) this.clearVoiceSource();
+                console.error('[Audio] Voice playback failed:', name, error);
+                return;
             }
         });
+        return true;
     }
 
     stopGuideVoice(): void {
+        if (this.activeVoiceKind === 'guide') this.clearVoiceSource();
+    }
+
+    stopVoice(kind?: VoiceKind): void {
+        if (!kind || kind === 'guide') this.releasePreparedGuideVoices();
+        if (kind && this.activeVoiceKind !== kind) return;
+        this.voiceCancellationVersion += 1;
+        this.clearVoiceSource();
+    }
+
+    private clearVoiceSource(): void {
+        if (this.voiceLoadTimer !== null) clearTimeout(this.voiceLoadTimer);
+        this.voiceLoadTimer = null;
         this.guideVoiceGeneration += 1;
+        this.activeVoiceKind = null;
         const source = this.guideVoiceSource;
         this.guideVoiceSource = null;
+        this.destroyVoiceSource(source);
+    }
+
+    private destroyVoiceSource(source: AudioSource | null): void {
         if (!source?.isValid) return;
         source.stop();
         source.clip = null;
@@ -871,9 +970,13 @@ export class AudioMgr {
     }
 
     stopSfx(): void {
-        this.stopGuideVoice();
+        this.stopVoice();
+        this.stopEffectSources();
+    }
+
+    private stopEffectSources(): void {
         this.pendingAutoplaySfx.clear();
-        this._releaseAllPlaceOneShotSources(true);
+        for (const source of this.sfxStartTimers.keys()) this._discardSfxSource(source);
         for (const source of this.sfxSources) {
             if (!source?.isValid) continue;
             try {
@@ -881,6 +984,7 @@ export class AudioMgr {
             } catch (_) { /* ignore */ }
         }
         this.busySfxSources.clear();
+        this._trimIdleSfxSources();
     }
 
     /** 触发轻震动（Web 最多 12ms），用于点击/放置等触觉反馈 */
@@ -936,13 +1040,19 @@ export class AudioMgr {
     }
 
     isSfxEnabled() { return this.sfxEnabled; }
+    isVoiceEnabled() { return this.voiceEnabled; }
     isBgmEnabled() { return this.bgmEnabled; }
     isVibrateEnabled() { return this.vibrateEnabled; }
 
     setSfxEnabled(on: boolean) {
         this.sfxEnabled = on;
         sys.localStorage.setItem(LS_SFX, on ? '1' : '0');
-        if (!on) this.stopSfx();
+        if (!on) this.stopEffectSources();
+    }
+    setVoiceEnabled(on: boolean) {
+        this.voiceEnabled = on;
+        sys.localStorage.setItem(LS_VOICE, on ? '1' : '0');
+        if (!on) this.stopVoice();
     }
     setBgmEnabled(on: boolean) {
         this.bgmEnabled = on;

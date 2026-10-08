@@ -11,8 +11,8 @@ class Vec3 { constructor(x,y,z) { Object.assign(this,{x,y,z}); } }
 class Skeleton { static AnimationCacheMode = {SHARED_CACHE:1}; setAnimationCacheMode() {} findAnimation() { return true; } setAnimation(...args) { this.animation=args; } clearTracks() { this.cleared=true; } }
 const compiled=ts.transpileModule('export class Harness {'+methods+'}',{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 const mod={exports:{}};
-new Function('module','exports','sp','UITransform','Vec3',compiled)(mod,mod.exports,{Skeleton,SkeletonData:class{}},class{},Vec3);
-function harness(){const h=new mod.exports.Harness();h.openingGuideRingLoadVersion=0;h.openingGuideRingNodes=[];h.rules={};h.runtime={isGameEnd:false};return h;}
+new Function('module','exports','sp','UITransform','Vec3','AudioMgr','getFirstLevelContent',compiled)(mod,mod.exports,{Skeleton,SkeletonData:class{}},class{},Vec3,{inst:{stopGuideVoice(){}}},()=> 'B');
+function harness(){const h=new mod.exports.Harness();h.openingGuideRingLoadVersion=0;h.openingGuideRingNodes=[];h.rules={};h.runtime={isGameEnd:false};h.prepareLevelOnePromptLayout=()=>0;h.clearLevelTwoSoftHand=()=>{};return h;}
 for(const cancellation of ['clear','rules','end','parent']) {
     const h=harness(),parent={isValid:true};let callback,ready=0;
     h.runtime._withBootstrapBundle=cb=>cb({load:(p,t,done)=>{callback=done;}});
@@ -51,4 +51,20 @@ assert.equal(h.handleLevelOneOpeningGuideRootTap({getUILocation:()=>({x:80,y:0})
 assert.equal(taps,1);
 const rings=h.openingGuideRingNodes.slice();h.clearOpeningGuideNodes();
 assert.equal(h.openingGuideRingNodes.length,0);assert(rings.every(n=>!n.isValid&&n.skeleton.cleared));
+// Second step keeps bean rings and adds only matching, unlocked empty targets.
+cells.push({row:0,col:4,current:0,target:20,locked:false},
+    {row:0,col:5,current:0,target:13,locked:false},
+    {row:0,col:6,current:0,target:20,locked:true});
+h.runtime.cellNodes[0].push(makeBean(160),makeBean(200),makeBean(240));
+h.rules.board.currentColors[0].push(0,0,0);
+h.openingGuideLevelOneCells=[{row:0,col:0},{row:0,col:0}];
+h.showLevelOneBoardGuideStep({getComponent:()=>({convertToNodeSpaceAR:p=>p})});
+assert.equal(h.openingGuideRingNodes.length,2,'first step must not highlight empty targets');
+h.clearOpeningGuideNodes();
+h.openingGuideLevelOneStep=1;
+h.showLevelOneBoardGuideStep({getComponent:()=>({convertToNodeSpaceAR:p=>p})});
+assert.deepEqual(h.openingGuideRingNodes.map(n=>n.parent),[h.runtime.cellNodes[0][0],h.runtime.cellNodes[0][1],h.runtime.cellNodes[0][4]]);
+assert.equal(h.handleLevelOneOpeningGuideRootTap({getUILocation:()=>({x:160,y:0})}),false,'empty target ring does not change tap rules');
+const secondRings=h.openingGuideRingNodes.slice();h.clearOpeningGuideNodes();
+assert(secondRings.every(n=>!n.isValid&&n.skeleton.cleared),'all second-step rings are cleaned up');
 console.log('pch-opening-guide-ring.test.js passed');

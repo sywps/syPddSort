@@ -97,12 +97,23 @@ function startWeChatDisplayShare(runtime: any, options: WeChatDisplayShareOption
 
 export function installThemeLoadingOverlayModule(target: any): void {
     Object.assign(target, {
-        startThemeLevel(levelId: number, options: { suppressFailureToast?: boolean } = {}): boolean | Promise<boolean> {
+        startThemeLevel(levelId: number, options: { suppressFailureToast?: boolean; settlementAttemptId?: string; fromSettlement?: boolean } = {}): boolean | Promise<boolean> {
             if (this._gameplayTransitionPromise) return false;
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             const startedFromHome = this.getRuntimeSceneName('Game') === 'Home';
+            const attempt = options.settlementAttemptId || '';
+            const initSeq = this._gameplayInitSeq;
+            const isCurrent = () => this.isValid && (!options.fromSettlement
+                || (initSeq === this._gameplayInitSeq && this.getRuntimeSceneName('Game') === 'Game'
+                    && this.isGameEnd && this._settlementNextTransitioning));
+            const releaseSettlement = () => {
+                if (options.fromSettlement && isCurrent()) this.endSettlementNextTransition();
+            };
             const onFail = (error: unknown): false => {
+                AnalyticsMgr.inst.settlement.finish(attempt, 'failed', 'theme_transition_failed', String(error));
                 console.error('[theme_unlock] start theme level failed:', { levelId: normalizedLevelId, error });
+                if (options.fromSettlement && !isCurrent()) return false;
+                releaseSettlement();
                 if (!options.suppressFailureToast) {
                     this.showToast('像素关启动失败，请重试');
                 }
@@ -110,17 +121,39 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 return false;
             };
             if (!this.costVigorForLevel(normalizedLevelId, 'theme')) {
-                this.showNoLivesAdModal({
-                    source: 'theme_start',
-                    levelId: normalizedLevelId,
-                    gameplayEntryMode: 'theme',
-                    onResult: (result: any) => {
-                        if (result?.status !== 'granted' || !this.isValid) return;
-                        this.startThemeLevel(normalizedLevelId, options);
-                    },
-                });
+                AnalyticsMgr.inst.settlement.gate(attempt, 'blocked', 'vigor');
+                let handled = false;
+                try {
+                    this.showNoLivesAdModal({
+                        source: 'theme_start',
+                        levelId: normalizedLevelId,
+                        gameplayEntryMode: 'theme',
+                        onResult: (result: any) => {
+                            if (handled || !isCurrent()) return;
+                            if (result?.status !== 'granted') {
+                                const retryable = result?.status === 'failed' && this._noLivesModal?.isValid === true;
+                                AnalyticsMgr.inst.settlement.gate(attempt,
+                                    result?.status === 'cancelled' ? 'cancelled' : 'failed', result?.status || 'vigor_result_missing', retryable);
+                                if (!retryable) {
+                                    handled = true;
+                                    releaseSettlement();
+                                }
+                                return;
+                            }
+                            handled = true;
+                            this.startThemeLevel(normalizedLevelId, options);
+                        },
+                    });
+                } catch (error) {
+                    handled = true;
+                    AnalyticsMgr.inst.settlement.gate(attempt, 'failed', 'vigor_modal_failed');
+                    releaseSettlement();
+                    throw error;
+                }
                 return false;
             }
+            AnalyticsMgr.inst.settlement.gate(attempt, 'passed', 'vigor');
+            AnalyticsMgr.inst.settlement.transition(attempt);
             if (startedFromHome) {
                 return this.requestGameplayRoute(normalizedLevelId, 'zt_level_', false, 'auto')
                     .then(() => true)

@@ -475,6 +475,7 @@ export class SettingsPanelController {
                     { row: 'SettingsRow0', get: () => AudioMgr.inst.isSfxEnabled(), set: (value: boolean) => AudioMgr.inst.setSfxEnabled(value) },
                     { row: 'SettingsRow1', get: () => AudioMgr.inst.isVibrateEnabled(), set: (value: boolean) => AudioMgr.inst.setVibrateEnabled(value) },
                     { row: 'SettingsRow2', get: () => AudioMgr.inst.isBgmEnabled(), set: (value: boolean) => AudioMgr.inst.setBgmEnabled(value) },
+                    { row: 'SettingsRow3', get: () => AudioMgr.inst.isVoiceEnabled(), set: (value: boolean) => AudioMgr.inst.setVoiceEnabled(value) },
                 ];
                 for (let i = 0; i < items.length; i++) {
                     const item = items[i];

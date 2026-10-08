@@ -22,9 +22,9 @@ const LY_0224_OVERRIDE_LEVEL_IDS = Object.freeze([2, 3, 4, 5, 6, 7, 8, 9]);
 const LY_0224_STABLE_SOURCE_DIR = 'assets/LevelData';
 const LY_0224_TUTORIAL_CONTRACTS = Object.freeze({});
 const LY_0224_TREATMENT_CDN_URL =
-    'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat_b/0722_levels/front10_v1/treatment/';
+    'https://game-pdd-v4.oss-cn-beijing.aliyuncs.com/syGame/pdd_v4/remote_wechat_b/0722_levels/front10_v1/treatment/';
 const LY_0224_TREATMENT_OSS_PATH =
-    'syGame/pdd_v2/remote_wechat_b/0722_levels/front10_v1/treatment/';
+    'syGame/pdd_v4/remote_wechat_b/0722_levels/front10_v1/treatment/';
 const LY_0224_OUTPUT_DIR = 'build/level-experiment-cdn/ly_0224/treatment';
 const cdnPlatform = process.env.PDD_CDN_PLATFORM === 'douyin' ? 'douyin' : 'wechat';
 const syncCommand = parseSyncCommand(process.argv.slice(2), cdnPlatform);
@@ -58,7 +58,7 @@ const cdnUrl = levelExperimentTarget
     : (process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/' + platformRemoteDir + '/levels/'));
 const ossutilBin = process.env.PDD_OSSUTIL_BIN || 'ossutil';
 const ossEndpoint = process.env.PDD_OSS_ENDPOINT || 'https://oss-cn-beijing.aliyuncs.com';
-const ossBucket = process.env.PDD_OSS_BUCKET || 'game-pdd-v2';
+const ossBucket = process.env.PDD_OSS_BUCKET || (cdnPlatform === 'wechat' ? 'game-pdd-v4' : 'game-pdd-v2');
 const ossPath = levelExperimentTarget
     ? levelExperimentTarget.ossPath
     : (cdnPlatform === 'wechat'

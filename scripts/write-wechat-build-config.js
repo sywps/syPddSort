@@ -105,7 +105,7 @@ const config = {
             highPerformanceMode: false,
         },
     },
-    name: 'NewProject',
+    name: platformConfig.wechat.gameName,
     server: '',
     engineModulesConfigKey: 'defaultConfig',
     includeModules: MINIGAME_ENGINE_MODULES,

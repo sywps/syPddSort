@@ -26,7 +26,7 @@ const cdnUrl = cdnPlatform === 'wechat'
     : (process.env.PDD_SKIN_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/' + platformRemoteDir + '/skin/');
 const ossutilBin = process.env.PDD_OSSUTIL_BIN || 'ossutil';
 const ossEndpoint = process.env.PDD_OSS_ENDPOINT || 'https://oss-cn-beijing.aliyuncs.com';
-const ossBucket = process.env.PDD_OSS_BUCKET || 'game-pdd-v2';
+const ossBucket = process.env.PDD_OSS_BUCKET || (cdnPlatform === 'wechat' ? 'game-pdd-v4' : 'game-pdd-v2');
 const ossPath = cdnPlatform === 'wechat'
     ? wechatCdnTarget.skinDataOssPath
     : (process.env.PDD_SKIN_DATA_OSS_PATH || 'syGame/pdd_v2/' + platformRemoteDir + '/skin/');

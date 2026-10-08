@@ -274,7 +274,8 @@ export class CompletedPatternPreview extends Component {
         status.fontSize = 24; status.lineHeight = 32;
         status.color = new Color('#6655A7');
         status.isBold = true;
-        status.string = '图案加载中…'; status.enabled = true;
+        status.string = options.hideLoadingStatus ? '' : '图案加载中…';
+        status.enabled = !options.hideLoadingStatus;
         try {
             const side = Math.max(options.maxW, options.maxH) > 256 ? 512 : 256;
             const entry = await acquire(this.grid, side, this.skin, runtime,
@@ -295,6 +296,7 @@ export class CompletedPatternPreview extends Component {
         } catch (error) {
             if (!this.isValid || token !== this.token) return;
             status.string = '图案加载失败';
+            status.enabled = true;
             console.error('[completed-pattern-preview]', error);
             const onReady = this.onReady; this.onReady = undefined;
             onReady?.(false);

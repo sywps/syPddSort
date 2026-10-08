@@ -15,9 +15,10 @@ module.exports = {
         },
     },
     wechat: {
-        appId: "wxbb6160c828f380ca",
+        appId: "wxcacf359488bc4db6",
+        gameName: "再来两把",
         ads: {
-            rewardedVideo: "adunit-6a581caa226250fd",
+            rewardedVideo: "adunit-08491bf5b63564e4",
         },
     },
 };

@@ -538,8 +538,9 @@ assert.ok(
 );
 assert.ok(
     capacityFocusMaskSource.includes("'PchOpeningGuideCapacityDimMask'")
-        && capacityFocusMaskSource.includes('this.capacityTrack || this.capacityProgress?.node || null')
-        && capacityFocusMaskSource.includes('conveyorTransform.getBoundingBoxToWorld()')
+        && !capacityFocusMaskSource.includes('this.capacityTrack')
+        && !capacityFocusMaskSource.includes('conveyorTransform')
+        && capacityFocusMaskSource.includes('const buttonPadding = 4;')
         && capacityFocusMaskSource.includes('const focusLeft = clamp(')
         && capacityFocusMaskSource.includes('const focusRight = clamp(')
         && capacityFocusMaskSource.includes('const focusBottom = clamp(')

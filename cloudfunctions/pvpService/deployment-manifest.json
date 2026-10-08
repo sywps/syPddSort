@@ -70,7 +70,8 @@
     }
   ],
   "environment": {
-    "required": ["PVP_MAINTENANCE_TOKEN"],
+    "required": [],
+    "manualMaintenanceOnly": ["PVP_MAINTENANCE_TOKEN"],
     "production": {
       "PVP_ALLOW_DEV_SEED": "false",
       "PVP_RANK_REWARDS_ENABLED": "false"

@@ -65,9 +65,16 @@ function isCollectionMissing(error) {
   return /collection/i.test(message) && /(not exist|does not exist|不存在)/i.test(message);
 }
 
+// Requires a unique index on user_profile.openid in the deployed database.
+function isDuplicateProfileError(error) {
+  const message = String(error?.message || error?.errMsg || '');
+  return Number(error?.code) === 11000 || /\bE11000\b|duplicate key/i.test(message);
+}
+
 async function findUserProfile(openid) {
   try {
-    const res = await db.collection(USER_PROFILE_COLLECTION).where({ openid }).limit(1).get();
+    const res = await db.collection(USER_PROFILE_COLLECTION).where({ openid }).limit(2).get();
+    if (res.data?.length > 1) throw new Error('duplicate user profiles; repair required');
     return Array.isArray(res.data) && res.data.length > 0 ? res.data[0] : null;
   } catch (error) {
     if (isCollectionMissing(error)) {
@@ -77,7 +84,7 @@ async function findUserProfile(openid) {
   }
 }
 
-exports.main = async (event = {}) => {
+async function login(event = {}, allowCreate = true) {
   const wxContext = cloud.getWXContext();
   const openid = wxContext.OPENID;
 
@@ -112,6 +119,7 @@ exports.main = async (event = {}) => {
     }
 
     if (!current) {
+      if (!allowCreate) throw new Error('profile creation conflict could not be resolved');
       const profile = {
         openid,
         channel,
@@ -129,7 +137,13 @@ exports.main = async (event = {}) => {
         ...buildStarterInventoryFields(),
       };
 
-      await collection.add({ data: profile });
+      try {
+        await collection.add({ data: profile });
+      } catch (error) {
+        if (!isDuplicateProfileError(error)) throw error;
+        // Re-read and resolve experiments against the winning persisted profile.
+        return login(event, false);
+      }
       return {
         ok: true,
         openid,
@@ -185,3 +199,5 @@ exports.main = async (event = {}) => {
     };
   }
 };
+
+exports.main = (event = {}) => login(event);

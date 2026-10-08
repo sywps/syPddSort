@@ -3,6 +3,7 @@ import { _decorator, Game, game, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
 import { AnalyticsDelivery } from './AnalyticsDelivery';
 import { AnalyticsMeasurements } from './AnalyticsMeasurements';
+import { SettlementAnalytics, type SettlementTarget } from './SettlementAnalytics';
 import { isOfficialAnalyticsRuntime, CSD_MEASUREMENT_VERSION } from './CsdAnalyticsPolicy';
 import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime, getMiniGameBuildPlatform } from './MiniGamePlatform';
 import { firstLevelExperiment } from './FirstLevelExperiment';
@@ -370,12 +371,27 @@ export class AnalyticsMgr {
     private lastRuntimeCheckpointAt = this.appLaunchTime;
     private delivery: AnalyticsDelivery;
     private measurements: AnalyticsMeasurements;
+    readonly settlement = new SettlementAnalytics(event => this.trackFunnelEvent(event), () => this.isCollectionEnabled());
     private launchReported = false;
     private failureSeq = 0;
     private failureId = '';
     isCollectionEnabled(): boolean {
         return !isWorkbenchPreviewRequested() && !getBrowserLevelPreview().active
             && isOfficialAnalyticsRuntime(getWeChatMiniGameRuntime());
+    }
+
+    beginSettlement(outcome: string, target: SettlementTarget | null, gameplayEntryMode?: string): string {
+        const session = this.levelSession;
+        if (!this.isCollectionEnabled()) return '';
+        return this.settlement.begin({
+            roundId: session?.roundId, levelId: session?.levelId, page: session?.page || 'level_game',
+            logicalLevelId: session?.logicalLevelId, physicalLevelId: session?.physicalLevelId,
+            gameplayEntryMode: gameplayEntryMode || session?.gameplayEntryMode,
+            gameplayMode: session?.gameplayMode, gameplaySchemaVersion: session?.gameplaySchemaVersion,
+            clientBuildId: session?.clientBuildId, levelDataSource: session?.levelDataSource,
+            abId: session?.abId, abBucket: session?.abBucket,
+            extra: { ...firstLevelExperiment.fields(), ...thirdLevelExperiment.fields() },
+        }, outcome, target);
     }
     private constructor() {
         firstLevelExperiment.initialize(sys.localStorage,
@@ -704,6 +720,8 @@ export class AnalyticsMgr {
         );
         const clientBuild = resolveClientBuildIdentity();
         const roundId = appScoped ? '' : normalizeAnalyticsText(opt.roundId, 120) || session?.roundId || '';
+        const settlementLink = eventName === 'level_interaction_ready'
+            ? this.settlement.ready({ ...opt, roundId }) : {};
         const experimentId = normalizeAnalyticsText(opt.experimentId, 64) || normalizeAnalyticsText(abId, 64);
         const experimentBucket = normalizeAnalyticsText(opt.experimentBucket, 64) || normalizeAnalyticsText(abBucket, 64);
         const event: Record<string, unknown> = {
@@ -743,6 +761,7 @@ export class AnalyticsMgr {
         };
         event.extra = {
             ...(opt.extra || {}),
+            ...settlementLink,
             ...firstLevelExperiment.fields(),
             ...beanSelectionExperiment.fields(),
             ...encouragementExperiment.fields(), ...thirdLevelExperiment.fields(),
@@ -887,6 +906,7 @@ export class AnalyticsMgr {
         };
 
         this.failureId = '';
+        this.settlement.levelStarted({ roundId, logicalLevelId, physicalLevelId, gameplayEntryMode });
         this.persistRound('begin');
         this.trackFunnelEvent({ eventName: 'level_measurement_start', levelId: normalizedLevelId,
             success: true, extra: { guideApplicable: gameplayEntryMode === 'main' && logicalLevelId <= 4,
@@ -1450,6 +1470,7 @@ export class AnalyticsMgr {
             return;
         }
         this.exitReported = true;
+        this.settlement.background();
         this.persistRound('background');
         this.flushMeasurementSummaries('background');
         this.trackFunnelEvent({ eventName: 'analytics_quality', success: true,

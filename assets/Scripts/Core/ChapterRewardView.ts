@@ -1,5 +1,6 @@
 import { _decorator, Component, assetManager, instantiate, Prefab, BlockInputEvents, Label, Node, Sprite, SpriteFrame, Tween, UITransform, tween } from 'cc';
-import { chapterReward, ChapterReward } from './ChapterRewardPolicy';
+import { chapterReward, ChapterReward, mergeChapterRewardDisplay } from './ChapterRewardPolicy';
+import { Mask, ScrollView } from 'cc';
 import { ProfileCustomizationMgr } from './ProfileCustomizationMgr';
 import { ProfileResourceService } from './ProfileResourceService';
 import { UserStateSyncMgr } from './UserStateSyncMgr';
@@ -76,9 +77,14 @@ export function renderChapterRewards(runtime: any): void {
     const fill = child(group, 'Fill').getComponent(UITransform)!;
     Tween.stopAllByTarget(fill);
     tween(fill).to(0.5, { width: 500 * completed / 9 }).start();
+    const nearest = ([4, 9] as const).find(milestone => !session.claimed.includes(chapterReward(chapter, milestone).key));
     for (const milestone of [4, 9] as const) {
         const gift = child(group, `Milestone${milestone}`);
-        child(gift, 'Opened').active = session.claimed.includes(chapterReward(chapter, milestone).key);
+        const claimed = session.claimed.includes(chapterReward(chapter, milestone).key);
+        child(gift, 'Opened').active = claimed;
+        label(group, `Reward${milestone}Label`, claimed ? '已领取'
+            : completed >= milestone ? '待确认'
+            : milestone === nearest ? `再过${milestone - completed}关` : `完成${milestone}关`);
         const bubble = child(gift, 'Preview');
         bubble.active = !child(gift, 'Opened').active;
         if (bubble.active) renderRewardPreview(bubble, chapterReward(chapter, milestone));
@@ -99,10 +105,26 @@ function renderRewardPreview(bubble: Node, reward: ChapterReward): void {
     const avatar = child(bubble, 'Avatar');
     const decoration = reward.avatarId || reward.frameId || reward.beanSkinId || reward.backgroundSkinId;
     avatar.active = !!decoration;
-    for (const [name, count, x] of [['Gold', reward.gold, reward.magnetCount ? -48 : reward.brushCount ? -30 : 0], ['Brush', reward.brushCount, reward.magnetCount ? 0 : 30], ['Magnet', reward.magnetCount, 48]] as const) {
+    const resources = [['Gold', reward.gold], ['Brush', reward.brushCount], ['Magnet', reward.magnetCount]] as const;
+    const visibleCount = resources.filter(([, count]) => count > 0).length;
+    const origin = (bubble as any).__rewardPreviewOrigin ||= {
+        x: bubble.position.x, y: bubble.position.y, resourceY: child(bubble, 'Gold').position.y,
+    };
+    const size = bubble.getComponent(UITransform)!;
+    size.width = visibleCount > 1 ? 224 : 176;
+    size.height = visibleCount === 3 ? 104 : 80;
+    bubble.setPosition(origin.x - (visibleCount > 1 ? 20 : 0), origin.y + (visibleCount === 3 ? 8 : 0));
+    let visibleIndex = 0;
+    for (const [name, count] of resources) {
         const slot = child(bubble, name);
         slot.active = count > 0;
-        slot.setPosition(x, 0);
+        if (slot.active) {
+            // Keep each icon/count pair horizontal; three rewards use two rows inside the same bubble.
+            const index = visibleIndex++;
+            slot.setPosition(visibleCount === 3 ? (index === 0 ? 0 : index === 1 ? -50 : 50)
+                : (index - (visibleCount - 1) / 2) * 112,
+                origin.resourceY + (visibleCount === 3 ? (index === 0 ? 16 : -22) : 0));
+        }
         label(slot, 'Count', `×${count}`);
     }
     const artKey = `${reward.avatarId}/${reward.frameId}/${reward.beanSkinId}/${reward.backgroundSkinId}`;
@@ -155,8 +177,8 @@ async function showNextReward(runtime: any, session: Settlement): Promise<void> 
     if (!panel?.isValid || !panel.active || sessions.get(runtime) !== session || runtime._settlementNextTransitioning) return;
     const overlay = await rewardOverlay(panel);
     if (!panel.isValid || !panel.active || sessions.get(runtime) !== session || session.token !== runtime._settlementRevealToken || runtime._settlementNextTransitioning) { overlay.active = false; return; }
-    const reward = session.rewards[0];
-    if (!reward) { overlay.active = false; session.showing = false; return; }
+    const rewards = mergeChapterRewardDisplay(session.rewards);
+    if (!rewards.length) { overlay.active = false; session.showing = false; return; }
     overlay.active = true;
     if (!overlay.getComponent(BlockInputEvents)) overlay.addComponent(BlockInputEvents);
     const shade = child(overlay, 'Shade');
@@ -180,19 +202,42 @@ async function showNextReward(runtime: any, session: Settlement): Promise<void> 
         if (!content.getComponent(BlockInputEvents)) content.addComponent(BlockInputEvents);
     }
     for (const slot of slots) slot.active = false;
+    const previousScroll = overlay.getChildByName('RewardScroll');
+    if (previousScroll) { previousScroll.active = false; previousScroll.destroy(); }
     try {
+        for (const reward of rewards) {
         if (reward.avatarId || reward.frameId || reward.beanSkinId || reward.backgroundSkinId) items.push({ frame: await loadRewardArt(reward), count: '' });
         if (reward.gold) items.push({ frame: frames[0], count: `×${reward.gold}` });
         if (reward.brushCount) items.push({ frame: frames[1], count: `×${reward.brushCount}` });
         if (reward.magnetCount) items.push({ frame: frames[2], count: `×${reward.magnetCount}` });
+        }
         if (!overlay.isValid || !panel.active || sessions.get(runtime) !== session || session.token !== runtime._settlementRevealToken || runtime._settlementNextTransitioning) return;
-        const center = (positions[0].x + positions[items.length - 1].x) / 2;
+        let content: Node | null = null;
+        if (items.length > 3) {
+            const viewport = new Node('RewardScroll'); viewport.layer = overlay.layer; overlay.addChild(viewport);
+            viewport.setPosition(0, -10);
+            viewport.addComponent(UITransform).setContentSize(660, 480);
+            viewport.addComponent(Mask);
+            viewport.addComponent(BlockInputEvents);
+            content = new Node('Content'); content.layer = overlay.layer; viewport.addChild(content);
+            const transform = content.addComponent(UITransform); transform.setAnchorPoint(0.5, 1);
+            transform.setContentSize(660, Math.ceil(items.length / 3) * 240);
+            content.setPosition(0, 240);
+            const scroll = viewport.addComponent(ScrollView); scroll.content = content;
+            scroll.horizontal = false; scroll.vertical = true;
+        }
+        const center = items.length <= 3 ? (positions[0].x + positions[items.length - 1].x) / 2 : 0;
         items.forEach((item, i) => {
-            slots[i].active = true;
-            slots[i].setPosition(positions[i].x - center, positions[i].y, positions[i].z);
-            icons[i].spriteFrame = item.frame;
-            label(slots[i], 'Count', item.count);
-            const glow = child(slots[i], 'Glow');
+            const slot = content ? instantiate(slots[0]) : slots[i];
+            if (content) {
+                content.addChild(slot);
+                const rowCount = Math.min(3, items.length - Math.floor(i / 3) * 3);
+                slot.setPosition((i % 3 - (rowCount - 1) / 2) * 205, -120 - Math.floor(i / 3) * 240);
+            } else slot.setPosition(positions[i].x - center, positions[i].y, positions[i].z);
+            slot.active = true;
+            child(slot, 'Icon').getComponent(Sprite)!.spriteFrame = item.frame;
+            label(slot, 'Count', item.count);
+            const glow = child(slot, 'Glow');
             if (!glow.getComponent(ChapterRewardGlowRotation)) glow.addComponent(ChapterRewardGlowRotation);
         });
     } catch (error) {
@@ -203,8 +248,9 @@ async function showNextReward(runtime: any, session: Settlement): Promise<void> 
     const dismiss = () => {
         if (dismissed || sessions.get(runtime) !== session) return;
         dismissed = true;
-        session.rewards.shift();
-        void showNextReward(runtime, session);
+        session.rewards.length = 0;
+        session.showing = false;
+        overlay.active = false;
     };
     confirm.on(Node.EventType.TOUCH_END, dismiss);
     shade.on(Node.EventType.TOUCH_END, dismiss);

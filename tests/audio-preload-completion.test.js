@@ -21,7 +21,7 @@ function harness() {
         require(id) {
             if (id === 'cc') return {
                 _decorator: { ccclass: () => cls => cls }, AudioClip: class {}, AudioSource: class {}, Node: class {},
-                director: { getScene: () => ({ name: 'Game' }) }, assetManager: {}, sys: { localStorage: { getItem: () => null } }, isValid: () => true,
+                director: { getScene: () => ({ name: 'Game' }) }, assetManager: { getBundle: () => null }, sys: { localStorage: { getItem: () => null, setItem() {} } }, isValid: () => true,
             };
             if (id === './AudioManifest') return manifestModule.exports;
             if (id === './PackageNames') return { LOCAL_BOOTSTRAP_BUNDLE_NAME: 'bootstrap', GAME_ASSETS_BUNDLE_NAME: 'gameAssets' };
@@ -32,7 +32,7 @@ function harness() {
     const audio = new module.exports.AudioMgr();
     audio.bootstrapBundle = { load(file, type, cb) { loads.push({ file, finish(error, clip = { file }) { cb(error, error ? null : clip); } }); } };
     audio.bootstrapBundleState = 'ready';
-    audio.sfxSources = [{}]; audio.sfxEnabled = true;
+    audio.audioRoot = { isValid: true }; audio.sfxSources = [{}]; audio.sfxEnabled = true;
     audio._playLoadedClip = (name, clip) => played.push({ name, clip });
     return { audio, loads, played, timers, expire() { for (const [id, fn] of [...timers]) { timers.delete(id); fn(); } } };
 }
@@ -95,7 +95,7 @@ function harness() {
     const readyBundle = h.audio.bootstrapBundle;
     let bootstrapDone;
     h.audio.bootstrapBundle = null; h.audio.bootstrapBundleState = 'idle'; h.audio.preferRemoteAudio = true;
-    h.audio._loadFromBootstrapBundleAuto = () => { h.audio.bootstrapBundleState = 'loading'; bootstrapDone = () => { h.audio.bootstrapBundle = readyBundle; h.audio._flushDeferredBootstrapSfxLoads(); }; };
+    h.audio._loadFromBootstrapBundleAuto = callback => { bootstrapDone = () => callback(readyBundle); };
     h.audio.preload('winAll', error => { assert.ifError(error); loaded++; });
     assert.equal(h.loads.length, 0);
     bootstrapDone(); assert.equal(h.loads.length, 1);

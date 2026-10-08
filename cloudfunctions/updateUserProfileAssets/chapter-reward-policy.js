@@ -2,12 +2,34 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CHAPTER_BACKGROUND_IDS = exports.CHAPTER_BEAN_IDS = exports.CHAPTER_FRAME_IDS = exports.CHAPTER_AVATAR_IDS = void 0;
+exports.mergeChapterRewardDisplay = mergeChapterRewardDisplay;
 exports.chapterReward = chapterReward;
 exports.eligibleChapterRewards = eligibleChapterRewards;
 exports.CHAPTER_AVATAR_IDS = [1009, 1010, 1011, 1012];
 exports.CHAPTER_FRAME_IDS = [2006, 2007, 2008, 2009];
-exports.CHAPTER_BEAN_IDS = [2001, 2002, 2003, 2004];
+exports.CHAPTER_BEAN_IDS = [2004, 2002, 2003, 2001];
 exports.CHAPTER_BACKGROUND_IDS = [1002, 1003, 1004, 1006];
+// Presentation only: receipts and grant amounts remain owned by the claim flow.
+function mergeChapterRewardDisplay(rewards) {
+    if (!rewards.length)
+        return [];
+    const totals = { ...rewards[0], gold: 0, brushCount: 0, magnetCount: 0, avatarId: 0, frameId: 0, beanSkinId: 0, backgroundSkinId: 0 };
+    const decorations = [];
+    const seen = new Set();
+    for (const reward of rewards) {
+        totals.gold += reward.gold;
+        totals.brushCount += reward.brushCount;
+        totals.magnetCount += reward.magnetCount;
+        for (const field of ['avatarId', 'frameId', 'beanSkinId', 'backgroundSkinId']) {
+            const key = `${field}:${reward[field]}`;
+            if (!reward[field] || seen.has(key))
+                continue;
+            seen.add(key);
+            decorations.push({ ...totals, gold: 0, brushCount: 0, magnetCount: 0, [field]: reward[field] });
+        }
+    }
+    return [totals, ...decorations];
+}
 function chapterReward(chapter, milestone) {
     if (!Number.isSafeInteger(chapter) || chapter < 1)
         throw Error('章节编号错误');

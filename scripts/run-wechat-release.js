@@ -417,11 +417,20 @@ async function main(args = process.argv.slice(2)) {
     if (!primaryError) {
         try {
             syncGeneratedOutputs(workerDir);
+            const runtimeDir = path.join(projectDir, 'build', 'wechatgame', 'minigame');
+            const gameConfig = JSON.parse(fs.readFileSync(path.join(runtimeDir, 'game.json'), 'utf8'));
+            for (const relative of ['game.js', path.join(gameConfig.openDataContext, 'game.js'), path.join(gameConfig.openDataContext, 'index.js')]) {
+                if (!fs.existsSync(path.join(runtimeDir, relative))) fail('回传产物缺少入口: ' + relative);
+            }
             console.log('=== 工作区 Release 产物回传完成 ===');
             console.log('本地包：' + path.join(projectDir, 'build', 'wechatgame'));
         } catch (error) {
             primaryError = error;
         }
+    }
+    if (primaryError) {
+        console.error('   构建或回传失败，保留完整工位供排查: ' + workerDir);
+        throw primaryError;
     }
     try {
         cleanupFreshWorkerDir(workerDir);

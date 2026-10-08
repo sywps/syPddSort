@@ -144,12 +144,12 @@ export class LeaderboardPanelController {
                     updateTabStyle();
                     tabWrap.setSiblingIndex(box.children.length - 1);
                     const initialRequestToken = runtime.beginLeaderboardTabRequest?.('global');
+                    runtime.playPopupOpenAnim?.(overlay, box);
                     await runtime.loadGlobalLeaderboard(box, listNode, selfBox, initialRequestToken);
                     if (!isOpenTargetAlive() || !overlay?.isValid) {
                         cancelStaleOpen();
                         return;
                     }
-                    runtime.playPopupOpenAnim?.(overlay, box);
                 } catch (error) {
                     if (!isOpenTargetAlive()) {
                         cancelStaleOpen();

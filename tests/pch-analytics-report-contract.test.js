@@ -270,10 +270,12 @@ try {
     const scriptBlock = html.match(/<script>([\s\S]*?)<\/script>/);
     assert.ok(scriptBlock, 'dashboard HTML must contain its script block');
     new Function(scriptBlock[1]);
-    assert.ok(html.includes('前三关传送带玩法里程碑（PCH）'));
-    assert.ok(html.includes('传送带玩法引导结果（PCH）'));
+    const reportView = fs.readFileSync(path.join(root, 'tools/cloudbase-report-dashboard.js'), 'utf8');
+    assert.ok(reportView.includes('前三关里程碑与引导明细（兼容会话口径）'));
+    assert.ok(html.includes('funnel: () => renderDiagnosisFunnelTable'));
+    assert.ok(html.includes('guide: () => renderPchGuideResultTable'));
     assert.ok(html.includes('分关卡复活广告漏斗'));
-    assert.ok(html.includes('分关卡分享复活漏斗'));
+    assert.ok(reportView.includes('分享复活（不计广告）'));
     assert.ok(html.includes("enabled_2x: '2 倍速已开启'"), 'dashboard must retain the historical 2x guide-result label');
     assert.ok(html.includes("enabled_3x: '3 倍速已开启'"), 'dashboard must label the current 3x guide result');
 

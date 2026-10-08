@@ -149,7 +149,7 @@ function parseBeanSkinConfig(json: any): BeanSkinConfig {
             const row: BeanSkinRow = {
                 id,
                 key: String(raw?.key || ''),
-                sort: Math.floor(Number(raw?.sort) || 0),
+                sort: Number(raw?.sort),
                 isDefault: !!raw?.isDefault,
                 resourceMode,
                 atlasDataKey: String(raw?.atlasDataKey || ''),
@@ -161,8 +161,11 @@ function parseBeanSkinConfig(json: any): BeanSkinConfig {
                 enabled: true,
             };
             const isDefault = id === DEFAULT_BEAN_SKIN_ID;
-            if (!id || row.key !== expectedKey || row.sort !== expectedIndex || row.isDefault !== isDefault) {
+            if (!id || row.key !== expectedKey || row.isDefault !== isDefault) {
                 throw new Error(`[bean-skin] invalid identity row: ${JSON.stringify(raw)}`);
+            }
+            if (!Number.isSafeInteger(row.sort) || row.sort < 1 || row.sort > BEAN_SKIN_IDS.length || (isDefault && row.sort !== 1)) {
+                throw new Error(`[bean-skin] invalid sort row: ${JSON.stringify(raw)}`);
             }
             if (!row.iconKey || row.previewColorId < MIN_BEAN_COLOR_ID || row.previewColorId > MAX_BEAN_COLOR_ID) {
                 throw new Error(`[bean-skin] invalid preview row: ${JSON.stringify(raw)}`);
@@ -183,8 +186,12 @@ function parseBeanSkinConfig(json: any): BeanSkinConfig {
             return row;
         })
         .sort((a: BeanSkinRow, b: BeanSkinRow) => a.sort - b.sort || a.id - b.id);
-    if (rows.length !== BEAN_SKIN_IDS.length || rows.some((row, index) => row.id !== BEAN_SKIN_IDS[index])) {
+    const sortedIds = rows.map(row => row.id).sort((a, b) => a - b);
+    if (rows.length !== BEAN_SKIN_IDS.length || sortedIds.some((id, index) => id !== BEAN_SKIN_IDS[index])) {
         throw new Error(`[bean-skin] catalog must contain exactly ids ${BEAN_SKIN_IDS.join(',')}`);
+    }
+    if (rows.some((row, index) => row.sort !== index + 1)) {
+        throw new Error('[bean-skin] catalog sort positions must be unique');
     }
     if (normalizeBeanSkinId(json?.defaultEquipped) !== DEFAULT_BEAN_SKIN_ID) {
         throw new Error(`[bean-skin] catalog default must be ${DEFAULT_BEAN_SKIN_ID}`);

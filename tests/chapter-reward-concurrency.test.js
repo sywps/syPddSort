@@ -31,7 +31,7 @@ for (const chapter of [1, 4]) {
  assert.equal(merged.magnetCount,1,'consumed tools must not be restored');
  assert.equal(merged.stateUpdatedAt,1100);
  const skinField=chapter===1?'ownedBeanSkinIds':'ownedBackgroundSkinIds';
- const skinId=chapter===1?2001:1002;
+ const skinId=chapter===1?2004:1002;
  assert(merged[skinField].includes(skinId));
  // Saving before the grant must converge to the same inventory as granting first.
  const saveFirst={...initial,...m.exports.merge(queued,initial)};

@@ -15,6 +15,8 @@ const BOOTSTRAP_PATH_MAP = (() => {
         'Audio/bgm',
         'Audio/pindd/bean_pickup',
         'Audio/pindd/bean_return_settle',
+        'Audio/pindd/sfx_bead_placesnap',
+        'Audio/pindd/sfx_bead_patternsnap',
         'Audio/pindd/bean_fly',
         'Audio/ui',
         'Audio/tick',

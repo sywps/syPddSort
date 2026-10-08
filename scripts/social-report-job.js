@@ -66,7 +66,7 @@ function parseArgs(argv) {
 
 async function run(args) {
     const bundle = createApiKeyBundle(), cutoff = Date.now();
-    assert.equal(bundle.envId, 'cloud1-d5gzq8ia0c404ee3e', '未确认的CloudBase环境');
+    assert.equal(bundle.envId, 'cloud1-d4gzxk7ooc414ad98', '未确认的CloudBase环境');
     const days = [], start = shanghaiDayRange(args.from).startMs, last = shanghaiDayRange(args.to).startMs;
     assert.ok(last < cutoff && last - start <= 90 * 86400000, '日期超出范围或尚未开始');
     for (let t = start; t <= last; t += 86400000) days.push(new Date(t + 8 * 3600000).toISOString().slice(0, 10));

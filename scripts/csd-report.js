@@ -10,7 +10,7 @@ function latency(values) {
   const at = p => xs.length ? xs[Math.max(0, Math.ceil(xs.length * p) - 1)] : null;
   return { samples: xs.length, p50Ms: at(.5), p90Ms: at(.9), p95Ms: at(.95) };
 }
-function buildCsdDetails(rows) {
+function buildCsdDetails(rows, includePlacements = true) {
   const events = name => rows.filter(x => x.eventName === name);
   const ads = new Map();
   for (const x of rows) {
@@ -20,6 +20,8 @@ function buildCsdDetails(rows) {
     ads.get(key).push(x);
   }
   const waits = [], all = [], origin = {}, final = { shown: 0, completed: 0, rewarded: 0, failed: 0, incomplete: 0, unknown: 0, ambiguous: 0 };
+  const loadingOutcomes = { shown: 0, failedWithoutShow: 0, unknownWithoutShow: 0 };
+  const requestsSeen = [];
   let nativeRequests = 0;
   for (const list of ads.values()) {
     const requests = list.filter(x => x.eventName === 'rewarded_ad_request');
@@ -28,7 +30,9 @@ function buildCsdDetails(rows) {
     const request = requests[0];
     if (request.extra?.adProvider !== 'native') continue;
     nativeRequests++;
-    const subsequent = list.filter(x => Number(x.timestamp) >= Number(request.timestamp));
+    requestsSeen.push(request);
+    const subsequent = list.filter(x => Number(x.timestamp) >= Number(request.timestamp))
+      .sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
     const show = subsequent.find(x => x.eventName === 'rewarded_ad_show');
     const complete = subsequent.some(x => x.eventName === 'rewarded_ad_close' && x.extra?.isEnded === true);
     const reward = subsequent.some(x => x.eventName === 'rewarded_ad_reward_success' && x.success === true);
@@ -44,14 +48,17 @@ function buildCsdDetails(rows) {
       waits.push(request);
       const source = request.extra?.loadOrigin || 'unknown';
       origin[source] = (origin[source] || 0) + 1;
+      if (show) loadingOutcomes.shown++;
+      else if (failed) loadingOutcomes.failedWithoutShow++;
+      else loadingOutcomes.unknownWithoutShow++;
     }
   }
   const blocks = events('csd_input_block_summary');
   const effects = events('csd_freeze_effect_result');
   const freezeRewards = events('rewarded_ad_reward_success').filter(x => x.success
     && ['skill_freeze_acquire', 'freeze_rescue_60s'].includes(x.page || x.extra?.page));
-  const appliedKeys = new Set(effects.filter(x => x.success).map(transactionKey).filter(Boolean));
-  const rejectedKeys = new Set(effects.filter(x => !x.success).map(transactionKey).filter(Boolean));
+  const appliedKeys = new Set(effects.filter(x => x.success === true).map(transactionKey).filter(Boolean));
+  const rejectedKeys = new Set(effects.filter(x => x.success === false).map(transactionKey).filter(Boolean));
   const knownExposure = events('ad_entry_exposure').filter(x => Number(x.csdVersion) >= 3 && x.extra?.mode === 'ad');
   const freeExposure = events('csd_free_capacity_entry_exposure');
   const guideReasons = {};
@@ -60,17 +67,40 @@ function buildCsdDetails(rows) {
     guideReasons[reason] = (guideReasons[reason] || 0) + 1;
   }
   const technical = rows.filter(x => ['runtime_error', 'runtime_unhandled_rejection', 'csd_game_circle_native_error'].includes(x.eventName));
+  // Attribute every transaction to its single request placement; never join across placements by count.
+  const placementRows = new Map();
+  if (includePlacements) {
+    const placement = x => x.extra?.placement || x.page || x.extra?.page || 'unknown';
+    const requestPages = new Map();
+    for (const [key, list] of ads) {
+      const requests = list.filter(x => x.eventName === 'rewarded_ad_request');
+      if (requests.length === 1) requestPages.set(key, placement(requests[0]));
+      else if (requests.length > 1) requestPages.set(key, 'ambiguous_transaction');
+    }
+    for (const x of rows) {
+      const page = requestPages.get(transactionKey(x)) || placement(x);
+      if (!placementRows.has(page)) placementRows.set(page, []);
+      placementRows.get(page).push(x);
+    }
+  }
   return {
     exposure: { adEntry: metric(knownExposure), freeEntry: metric(freeExposure),
       historicalUnknown: metric(events('ad_entry_exposure').filter(x => Number(x.csdVersion || 0) < 3)) },
-    ads: { nativeRequests, waiting: metric(waits), waitOrigin: origin, clickToShow: latency(all), final,
+    ads: { nativeRequests, nativeRequestUsers: countUsers(requestsSeen), waiting: metric(waits),
+      loadingOutcomes, waitOrigin: origin, clickToShow: latency(all), final,
       definition: '客户端原生展示信号，不是平台结算曝光；最终结果可重叠，未知不是失败' },
     input: { episodes: metric(blocks), recovered: blocks.filter(x => x.extra?.outcome === 'recovered').length,
       foregroundDuration: latency(blocks.map(x => x.extra?.foregroundMs)),
       unfinished: blocks.filter(x => x.extra?.observationComplete !== true).length,
       definition: '非预期阻挡候选片段；前台采样时长，不代表无法游玩人数' },
+    placements: includePlacements ? [...placementRows].map(([page, items]) => {
+      const detail = buildCsdDetails(items, false);
+      return { page, exposure: detail.exposure, ads: detail.ads };
+    }).filter(x => x.ads.nativeRequests || x.ads.final.ambiguous || x.exposure.adEntry.count || x.exposure.freeEntry.count
+      || x.exposure.historicalUnknown.count) : undefined,
     guideSampleReasons: guideReasons,
-    freeze: { applied: metric(effects.filter(x => x.success)), rejected: metric(effects.filter(x => !x.success)),
+    freeze: { applied: metric(effects.filter(x => x.success === true)), rejected: metric(effects.filter(x => x.success === false)),
+      unknown: metric(effects.filter(x => typeof x.success !== 'boolean')),
       withAdTransaction: effects.filter(transactionKey).length,
       rewardedButEffectRejected: freezeRewards.filter(x => rejectedKeys.has(transactionKey(x)) && !appliedKeys.has(transactionKey(x))).length,
       rewardedWithoutEffectEvidence: freezeRewards.filter(x => !appliedKeys.has(transactionKey(x)) && !rejectedKeys.has(transactionKey(x))).length },

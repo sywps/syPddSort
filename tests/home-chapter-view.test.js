@@ -31,18 +31,26 @@ class Node {
     destroy() { this.isValid = false; }
 }
 const rendered = [], failures = [], opened = [];
+let holdTextures = false;
+const textureReady = [];
 const previewState = { active: false, level: 1, getLevel() { return this.level; } };
 const route = { exports: {} };
 vm.runInNewContext(ts.transpileModule(fs.readFileSync('assets/Scripts/Core/LevelRouteService.ts', 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS },
 }).outputText, { exports: route.exports });
 const mod = { exports: {} };
+const timers = new Map(); let timerId = 0;
 vm.runInNewContext(ts.transpileModule(fs.readFileSync('assets/Scripts/Core/HomeChapterView.ts', 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS },
 }).outputText, {
     exports: mod.exports,
+    setTimeout: fn => { timers.set(++timerId, fn); return timerId; },
+    clearTimeout: id => timers.delete(id),
     require: name => name === 'cc' ? { Node, Label, UITransform, UIOpacity, Vec3, Tween, tween } : name === './HomeArtworkPreview' ? { openHomeArtworkPreview: (...args) => opened.push(args) } : name === './LevelRouteService' ? route.exports : name === './BrowserLevelPreview' ? { getBrowserLevelPreview: () => previewState } : {
-        renderCompletedPatternPreview: (...args) => { rendered.push(args); args[4]?.(true); },
+        renderCompletedPatternPreview: (...args) => {
+            rendered.push(args);
+            if (holdTextures) textureReady.push(args[4]); else args[4]?.(true);
+        },
         releaseCompletedPatternPreviewTree: () => {},
     },
     console: { error: text => failures.push(text) },
@@ -149,3 +157,41 @@ loads.forEach(load => load.callback({ correctColorArr: [[1]] }));
 assert.equal(loads.length, 3, 'Normal mode still uses saved progress');
 assert.equal(animations.length, 0, 'Preview must not overwrite normal animation baseline');
 console.log('home-chapter-view.test.js passed');
+async function verifyReadiness() {
+    runtime._homeChapterEntryPending = true;
+    holdTextures = true;
+    runtime.getSavedLevel = () => 897;
+    loads.length = 0; animations.length = 0;
+    renderHomeChapter(runtime, hero, 897);
+    let ready = false;
+    runtime._homeChapterReady.then(() => { ready = true; });
+    for (const slot of grid.children) {
+        assert.equal(slot.getChildByName('Status').active, false);
+        assert.equal(slot.getChildByName('Status').getComponent(Label).string, '');
+    }
+    loads.slice(0, -1).forEach(load => load.callback({ correctColorArr: [[1]] }));
+    await Promise.resolve();
+    assert.equal(ready, false, 'all completed cells, including historical cells, gate readiness');
+    loads.at(-1).callback({ correctColorArr: [[1]] });
+    await Promise.resolve();
+    assert.equal(ready, false, 'JSON loaded is not texture ready');
+    textureReady.forEach(callback => callback(true));
+    holdTextures = false;
+    assert.equal(await runtime._homeChapterReady, null);
+    assert.equal(animations.length, 0, 'entry cover must not consume completion animation');
+    runtime._homeChapterEntryPending = false;
+    runtime._revealHomeChapter();
+    assert.equal(animations.filter(item => item.target instanceof Node).length, 2);
+    assert.equal(timers.size, 0);
+    renderHomeChapter(runtime, hero, 897);
+    const expired = runtime._homeChapterReady;
+    [...timers.values()][0]();
+    assert.match((await expired).message, /超时/);
+    renderHomeChapter(runtime, hero, 897);
+    const cancelled = runtime._homeChapterReady;
+    renderHomeChapter(runtime, hero, 898);
+    assert.match((await cancelled).message, /取消/);
+    runtime._cancelHomeChapterLoad();
+    console.log('home chapter readiness, deferred animations, timeout and cancellation passed');
+}
+verifyReadiness().catch(error => { console.error(error); process.exitCode = 1; });

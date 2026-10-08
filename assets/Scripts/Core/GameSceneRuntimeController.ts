@@ -1,5 +1,7 @@
 import { getBrowserLevelPreview } from './BrowserLevelPreview';
+import { ensureGameplayVoiceController } from './GameplayVoiceController';
 import { disposeFeedbackPanel } from './Panels/FeedbackPanelController';
+import { openGameplayHelp } from './Panels/GameplayHelpAnimation';
 import {
     AnalyticsMgr,
     AudioMgr,
@@ -138,12 +140,16 @@ export class GameSceneRuntimeController {
         try {
             this.initializeHomeSceneRuntime(appRoot);
         } catch (error) {
+            this.runtime._cancelHomeChapterLoad?.();
+            appRoot.startupLoading?.hide();
             appRoot.completeAppTransitionAfterDraw('Home', error);
             throw error;
         }
     }
 
     private initializeHomeSceneRuntime(appRoot: AppRoot): void {
+        appRoot.homePresentationReady = false;
+        this.runtime._homeChapterEntryPending = true;
         const startupHomeFromLocalProgress = appRoot.session.visualState === 'boot'
             && resolveStartupRouteDecision().reason === 'local_progress_home';
         debugPerfSnapshot('runtime.home.start', this.runtime);
@@ -165,14 +171,14 @@ export class GameSceneRuntimeController {
         if (getBrowserLevelPreview().error) {
             this.runtime.showRemoteLoadFatalError('level', 'invalid_preview_level', getBrowserLevelPreview().error);
             appRoot.completeAppTransitionAfterDraw('Home');
+            appRoot.startupLoading?.hide();
             return;
         }
         this.runtime.showMainMenu();
         if (startupHomeFromLocalProgress) {
             void this.runtime.beginStartupCloudRestore(true);
         }
-        appRoot.completeAppTransitionAfterDraw('Home');
-        this.observeStartupPlayable('Home');
+        void this.finishHomePresentation(appRoot);
         this.runtime.startRenderResourceDiagnostics?.('home-start');
         appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:afterShowMainMenu', {
             hasMainMenuNode: !!this.runtime.mainMenuNode,
@@ -184,6 +190,40 @@ export class GameSceneRuntimeController {
             debugPerfSnapshot('runtime.home.backgroundServices.start', this.runtime);
             this.startHomeBackgroundServices(startupHomeFromLocalProgress);
         }, 0);
+    }
+
+    private async finishHomePresentation(appRoot: AppRoot): Promise<void> {
+        // A cloud restore can replace the chapter while its first batch is loading.
+        let batch: Promise<Error | null>;
+        let error: Error | null;
+        do {
+            batch = this.runtime._homeChapterReady;
+            error = batch ? await batch : new Error('首页图案加载任务缺失');
+            if (!this.runtime.node?.isValid) return;
+        } while (batch !== this.runtime._homeChapterReady);
+        if (error) {
+            console.error('[home-chapter] Home preparation failed', error);
+            this.runtime.showRemoteLoadFatalError('home', 'home_artwork_load_failed', error.message);
+        }
+        // Both the startup cover and the route transition wait for an actual draw.
+        director.once(Director.EVENT_AFTER_DRAW, () => {
+            if (!this.runtime.node?.isValid) return;
+            appRoot.homePresentationReady = !error;
+            appRoot.startupLoading?.hide();
+            this.runtime.scheduleOnce(reveal, 0);
+        });
+        appRoot.completeAppTransitionAfterDraw('Home', error);
+        const reveal = () => {
+            if (!this.runtime.node?.isValid) return;
+            if (appRoot.isAppTransitionTargeting('Home')) {
+                this.runtime.scheduleOnce(reveal, 0);
+                return;
+            }
+            this.runtime._homeChapterEntryPending = false;
+            if (!error) this.runtime._revealHomeChapter?.();
+            if (!error) ensureGameplayVoiceController(this.runtime).homeShown();
+            this.observeStartupPlayable('Home');
+        };
     }
 
     startBootSceneRuntime(): void {
@@ -332,6 +372,12 @@ export class GameSceneRuntimeController {
             AudioMgr.inst.play('button');
             this.runtime.openSettingsPanel();
         }, this.runtime);
+        const helpButton = this.runtime.requireUiChild(topBar, 'GameplayHelpButton', 'TopBarGroup/GameplayHelpButton');
+        helpButton.targetOff(this.runtime);
+        helpButton.on(Button.EventType.CLICK, () => {
+            AudioMgr.inst.play('button');
+            openGameplayHelp(this.runtime);
+        }, this.runtime);
     }
 
     private async bindExistingGameLoadingOverlay(showOverlay: boolean = true): Promise<void> {
@@ -392,6 +438,7 @@ export class GameSceneRuntimeController {
     }
 
     update(dt: number): void {
+        this.runtime._gameplayVoiceController?.update(dt);
         debugPerfFrameStep(this.runtime, dt);
         this.runtime.vigorTick(dt);
         this.runtime.updateCoopClock?.(dt);
@@ -400,6 +447,11 @@ export class GameSceneRuntimeController {
     }
 
     destroy(): void {
+        this.runtime._gameplayVoiceController?.dispose();
+        this.runtime._cancelHomeChapterLoad?.();
+        if (this.runtime._homeChapterEntryPending) {
+            AppRoot.tryGet()?.completeAppTransitionAfterDraw('Home', new Error('首页加载已取消'));
+        }
         if (this.runtime._gameplayTransitionPromise) {
             AppRoot.tryGet()?.completeAppTransitionAfterDraw('Game', new Error('[AppTransition] gameplay runtime destroyed'));
         }

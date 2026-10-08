@@ -4,6 +4,7 @@ import { COLOR_HEX } from './LevelConfig';
 export type PixelPosterPreviewMode = 'list' | 'poster' | 'win';
 
 export type PixelPosterPreviewOptions = {
+    hideLoadingStatus?: boolean;
     name?: string;
     offsetX?: number;
     offsetY?: number;

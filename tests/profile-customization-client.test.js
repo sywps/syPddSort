@@ -313,7 +313,7 @@ test('chapter browser receipt recovers interrupted delivery without duplicating 
   const recovered = await h.mgr.claimChapterRewards(h.runtime);
   assert.equal(gold, 50); assert.equal(brush, 0); assert.equal(recovered.granted.length, 0);
   assert(!h.mgr.owned(1009)); assert.equal(h.mgr.snapshot.equippedAvatarId, 1001);
-  assert(beans.has(2001));
+  assert(beans.has(2004));
   await h.mgr.claimChapterRewards(h.runtime);
   assert.equal(gold, 50); assert.equal(brush, 0); assert.equal(h.calls.length, 0);
 });

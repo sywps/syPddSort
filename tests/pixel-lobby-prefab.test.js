@@ -49,7 +49,7 @@ assert.equal(component(rootNode, 'cc.Widget')._alignFlags, 45, 'full-screen shie
 assert.equal(component(rootNode, 'cc.Sprite')._spriteFrame.__uuid__, sharedBackground, 'reuse the transition background without copying or packing it again');
 assert(!prefab.some(n => n.__type__ === 'cc.Node' && n._name === 'LobbyBackdropDecor'));
 const transition = read('assets/GameAssetsBundle/UI/Prefabs/Panels/AppTransition.prefab');
-assert(transition.some(c => c.__type__ === 'cc.Sprite' && c._spriteFrame?.__uuid__ === sharedBackground));
+assert(!transition.some(c => c.__type__ === 'cc.Sprite' && c._spriteFrame?.__uuid__ === sharedBackground), 'transition redesign must leave the lobby background asset unchanged');
 const header = component(find(rootNode, 'Content/Header'), 'cc.Widget');
 const body = component(find(rootNode, 'Content/ModeArea'), 'cc.Widget');
 const footer = component(find(rootNode, 'Content/Footer'), 'cc.Widget');

@@ -13,7 +13,9 @@ function writeExport(outputRoot, collection, records) {
     const outputDir = path.join(outputRoot, collection);
     fs.mkdirSync(outputDir, { recursive: true });
     const filePath = path.join(outputDir, `database_export-fixture-${collection}-${date}.json`);
-    fs.writeFileSync(filePath, records.map((record) => JSON.stringify(record)).join('\n') + (records.length ? '\n' : ''));
+    // These fixtures are explicitly mainline; unlabelled real records must still route to unknown.
+    fs.writeFileSync(filePath, records.map((record) => JSON.stringify(Number(record.levelId) > 0
+        ? { ...record, gameplayEntryMode: 'main' } : record)).join('\n') + (records.length ? '\n' : ''));
 }
 
 function roundMeta(openid, roundId, logicalLevelId, bucket) {

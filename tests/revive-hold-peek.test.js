@@ -44,6 +44,7 @@ const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule
 
 assert.ok(controller.includes("const REVIVE_HOLD_TO_PEEK_HINT_NAME = 'HoldToPeekHint';"));
 assert.ok(controller.includes('const REVIVE_HOLD_TO_PEEK_DURATION_SECONDS = 0.18;'));
+assert.ok(controller.includes('const REVIVE_HOLD_TO_PEEK_DELAY_SECONDS = 0.5;'));
 assert.ok(
     controller.includes("new Set(['ContinueBtn', 'ShareBtn', 'CloseBtn', 'GiveUpBtn'])"),
     'all revive CTA roots must be excluded from the peek gesture',
@@ -83,6 +84,86 @@ assert.ok(
 );
 
 const timeoutFactory = extractMethod(controller, 'createReviveSettlementPanel(): Node');
+const ts = require('typescript');
+const compiledPeek = ts.transpileModule(`class PeekHarness { ${bindPeek} }`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2020 },
+}).outputText;
+let now = 0;
+const jobs = [];
+const tweenMock = target => {
+    let delay = 0;
+    let callback;
+    const chain = {
+        delay(seconds) { delay += seconds; return chain; },
+        to(seconds, props) { delay += seconds; callback = () => Object.assign(target, props); return chain; },
+        call(fn) { callback = fn; return chain; },
+        start() { jobs.push({ target, at: now + delay, callback, cancelled: false }); return chain; },
+    };
+    return chain;
+};
+const TweenMock = { stopAllByTarget(target) { jobs.forEach(job => { if (job.target === target) job.cancelled = true; }); } };
+function advance(seconds) {
+    const until = now + seconds;
+    while (true) {
+        jobs.sort((a, b) => a.at - b.at);
+        const index = jobs.findIndex(job => !job.cancelled && job.at <= until);
+        if (index < 0) break;
+        const job = jobs.splice(index, 1)[0];
+        now = job.at;
+        job.callback();
+    }
+    now = until;
+}
+const Harness = new Function('Tween', 'tween', 'Node', 'Label', 'UIOpacity',
+    'REVIVE_HOLD_TO_PEEK_HINT_NAME', 'REVIVE_HOLD_TO_PEEK_DURATION_SECONDS',
+    'REVIVE_HOLD_TO_PEEK_DELAY_SECONDS', 'REVIVE_HOLD_TO_PEEK_INTERACTIVE_NODE_NAMES',
+    compiledPeek + '; return PeekHarness;')(
+    TweenMock, tweenMock, { EventType: { TOUCH_START: 'start', TOUCH_END: 'end', TOUCH_CANCEL: 'cancel' } },
+    class Label {}, class UIOpacity {}, 'HoldToPeekHint', .18, .5,
+    new Set(['ContinueBtn', 'ShareBtn', 'CloseBtn', 'GiveUpBtn']),
+);
+const boxOpacity = { opacity: 255, isValid: true };
+const shadeOpacity = { opacity: 255, isValid: true };
+const handlers = {};
+const box = { name: 'Box', getComponent: () => boxOpacity, getChildByName: () => ({ getComponent: () => ({}) }) };
+const overlay = { isValid: true, activeInHierarchy: true,
+    getChildByName: () => ({ getComponent: () => shadeOpacity }),
+    on: (type, handler) => { handlers[type] = handler; } };
+new Harness().bindReviveHoldToPeek(overlay, box);
+const touch = target => ({ target, propagationStopped: false });
+handlers.start(touch(box));
+advance(.49);
+assert.equal(boxOpacity.opacity, 255, 'short touch must not hide the panel');
+handlers.end(touch(box));
+advance(1);
+assert.equal(boxOpacity.opacity, 255, 'release must cancel delayed peek');
+handlers.start(touch(box));
+advance(.5);
+assert.ok(jobs.some(job => !job.cancelled && job.target === boxOpacity), 'fade must begin after 0.5 seconds');
+advance(.19);
+assert.equal(boxOpacity.opacity, 0);
+assert.equal(shadeOpacity.opacity, 0);
+handlers.end(touch(box));
+advance(.19);
+assert.equal(boxOpacity.opacity, 255);
+for (const name of ['ContinueBtn', 'ShareBtn', 'CloseBtn']) {
+    handlers.start(touch({ name, parent: box }));
+    advance(1);
+    assert.equal(boxOpacity.opacity, 255, `${name} must not trigger peek`);
+}
+handlers.start(touch(box));
+handlers.cancel(touch(box));
+advance(1);
+assert.equal(boxOpacity.opacity, 255);
+handlers.start(touch(box));
+box.__reviveHoldToPeekReset();
+advance(1);
+assert.equal(boxOpacity.opacity, 255, 'panel reset must cancel an outstanding hold');
+handlers.start(touch(box));
+overlay.activeInHierarchy = false;
+advance(1);
+assert.equal(boxOpacity.opacity, 255, 'closed panel must not be hidden by a stale callback');
+console.log('revive-hold-peek delayed interaction checks passed');
 const bufferFactory = extractMethod(controller, 'createBufferFullSettlementPanel(): Node');
 for (const factory of [timeoutFactory, bufferFactory]) {
     assert.ok(factory.includes('box.addComponent(BlockInputEvents)'), 'revive Box must remain a modal input blocker');

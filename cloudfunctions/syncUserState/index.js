@@ -266,9 +266,16 @@ function isCollectionMissing(error) {
   return /collection/i.test(message) && /(not exist|does not exist|不存在)/i.test(message);
 }
 
+// Requires a unique index on user_profile.openid in the deployed database.
+function isDuplicateProfileError(error) {
+  const message = String(error?.message || error?.errMsg || '');
+  return Number(error?.code) === 11000 || /\bE11000\b|duplicate key/i.test(message);
+}
+
 async function findUserProfile(openid) {
   try {
-    const res = await db.collection(USER_PROFILE_COLLECTION).where({ openid }).limit(1).get();
+    const res = await db.collection(USER_PROFILE_COLLECTION).where({ openid }).limit(2).get();
+    if (res.data?.length > 1) throw new Error('duplicate user profiles; repair required');
     return Array.isArray(res.data) && res.data.length > 0 ? res.data[0] : null;
   } catch (error) {
     if (isCollectionMissing(error)) {
@@ -634,11 +641,14 @@ exports.main = async (event = {}) => {
     const timestamp = Date.now();
     if (!current) {
       const profile = buildBaseProfile(openid, timestamp);
-      const addResult = await collection.add({ data: profile });
-      current = {
-        _id: addResult?._id,
-        ...profile,
-      };
+      try {
+        const addResult = await collection.add({ data: profile });
+        current = { _id: addResult?._id, ...profile };
+      } catch (error) {
+        if (!isDuplicateProfileError(error)) throw error;
+        current = await findUserProfile(openid);
+        if (!current) throw error;
+      }
     }
 
     return await db.runTransaction(async transaction => {

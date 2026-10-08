@@ -742,6 +742,43 @@ export class GameplayViewController {
         return { minRow, maxRow, minCol, maxCol };
     }
 
+    private getHudSafeInitialScale(scale: number, centerX: number, centerY: number,
+        targetCenterX: number, targetCenterY: number): number {
+        const runtime = this.runtime;
+        const { boardWidth, boardHeight, correctColorArr } = runtime.levelData;
+        const step = runtime.cellSize + runtime.cellGap;
+        const rows: Array<{ left: number; right: number; top: number; bottom: number }> = [];
+        for (let row = 0; row < boardHeight; row++) {
+            let first = boardWidth;
+            let last = -1;
+            for (let col = 0; col < boardWidth; col++) {
+                if (correctColorArr[row]?.[col] > 0) { first = Math.min(first, col); last = col; }
+            }
+            if (last >= 0) rows.push({
+                left: (first - boardWidth / 2) * step - targetCenterX,
+                right: (last + 1 - boardWidth / 2) * step - targetCenterX,
+                top: (boardHeight / 2 - row) * step - targetCenterY,
+                bottom: (boardHeight / 2 - row - 1) * step - targetCenterY,
+            });
+        }
+        const obstacles = runtime.getBoardInitialFitObstacles();
+        const collides = (candidate: number) => rows.some(row => obstacles.some(obstacle =>
+            centerX + row.left * candidate - 2 < obstacle.right + 12
+            && centerX + row.right * candidate + 2 > obstacle.left - 12
+            && centerY + row.bottom * candidate - 2 < obstacle.top + 12
+            && centerY + row.top * candidate + 2 > obstacle.bottom - 12));
+        if (!collides(scale)) return scale;
+        if (collides(0)) throw new Error('[board-fit] HUD covers the initial board center');
+        let low = 0;
+        let high = scale;
+        for (let i = 0; i < 24; i++) {
+            const mid = (low + high) / 2;
+            if (collides(mid)) high = mid;
+            else low = mid;
+        }
+        return low;
+    }
+
     private fitBoardViewportToSafeRect(boardWidth: number, boardHeight: number, padding: number): void {
         const runtime = this.runtime;
         const initialFitRect = runtime.getBoardInitialFitRect();
@@ -755,7 +792,7 @@ export class GameplayViewController {
         const targetW = targetCols * step - runtime.cellGap + padding;
         const targetH = targetRows * step - runtime.cellGap + padding;
         const maxDim = Math.max(boardWidth, boardHeight);
-        const widthFitRatio = 0.985;
+        const widthFitRatio = runtime.shouldUseContentAwareInitialFit() ? 1 : 0.985;
         const heightFitRatio = 0.985;
         const widthScale = availableW * widthFitRatio / Math.max(1, targetW);
         const heightScale = availableH * heightFitRatio / Math.max(1, targetH);
@@ -780,7 +817,7 @@ export class GameplayViewController {
             : 0;
         const initMinScale = minScale + zoomHintScaleHeadroom;
         const initMaxScale = maxScale - zoomHintScaleHeadroom;
-        const initScale = Math.max(
+        let initScale = Math.max(
             initMinScale,
             Math.min(initMaxScale, baseInitScale * starterInitialScaleMultiplier),
         );
@@ -789,6 +826,12 @@ export class GameplayViewController {
         const viewportCenterX = (initialFitRect.left + initialFitRect.right) / 2;
         const viewportCenterY = (initialFitRect.bottom + initialFitRect.top) / 2
             + (runtime.isRankedPvpMode?.() === true ? RANKED_PVP_BOARD_CENTER_OFFSET_Y : 0);
+        if (runtime.shouldUseContentAwareInitialFit()) {
+            initScale = this.getHudSafeInitialScale(Math.min(initScale, rawInitScale),
+                viewportCenterX, viewportCenterY, targetCenterX, targetCenterY);
+            // Very large patterns must still fit completely, even below the usual gesture minimum.
+            runtime.boardViewport.setScaleBounds(Math.min(minScale, initScale), maxScale);
+        }
         runtime.boardViewport.setViewTransformClamped(
             initScale,
             new Vec2(

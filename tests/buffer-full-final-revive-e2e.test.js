@@ -302,13 +302,14 @@ async function main() {
         showCapacityBurst(added) { events.push(`burst:+${added}`); },
         resumeAfterSettlement() { this.settlementPaused = false; },
         updateSphereFlyEffects() {},
+        updateOrdinaryReturnQueue() {},
         updateExitArrowAnimation() {},
         updateCapacityHint() {},
         maybeShowCapacityPressureGuide() {},
         getEffectiveBeltSpeedMultiplier: () => 1,
         didCarrierCrossProgress: () => false,
         handleCarrierAtEntrance() {},
-        handleCarrierAtExit() {},
+        handleCarriersAtExit() {},
         updateBeltPositions() { events.push('belt-updated'); },
         expandCapacity() {
             return runExpandCapacity.call(this, 12, { inst: { play() {} } });

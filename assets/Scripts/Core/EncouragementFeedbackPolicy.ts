@@ -8,5 +8,5 @@ export function resolveEncouragementBucket(mode: string, level: number, multipla
 }
 
 export function isEncouragementEnabled(_runtime: any): boolean {
-    return true; // Retired experiment: keep both voice and text for everyone.
+    return false; // Temporarily disable encouragement voice and text together.
 }

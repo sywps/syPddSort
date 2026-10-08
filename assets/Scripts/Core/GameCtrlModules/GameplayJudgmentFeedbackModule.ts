@@ -189,7 +189,11 @@ export function installGameplayJudgmentFeedbackMethods(target: any): void {
             this._gameplayJudgmentPlaySeq = playSeq;
             this._gameplayJudgmentVoiceLockedUntilMs = Date.now() + GAMEPLAY_JUDGMENT_VOICE_LOCK_MS;
             this._gameplayJudgmentVisualEndsAtMs = Date.now() + GAMEPLAY_JUDGMENT_DURATION_SECONDS * 1000;
-            AudioMgr.inst.play(entry.voice);
+            const voiceLevelSeq = this._gameplayInitSeq;
+            AudioMgr.inst.playVoice(entry.voice, 'judgment', {
+                isCurrent: () => this.isValid && this._gameplayInitSeq === voiceLevelSeq
+                    && !this.isGameEnd && !this._gameplayTransitionPromise,
+            });
 
             const wordStartSeconds = entry.key === 'awesome' || entry.key === 'amazing'
                 ? GAMEPLAY_JUDGMENT_DELAYED_WORD_START_SECONDS

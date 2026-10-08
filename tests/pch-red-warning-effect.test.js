@@ -87,7 +87,7 @@ assert.ok(bootstrapModule.includes('requireWarningMaskSpriteFrame'), 'mask must 
 assert.ok(bootstrapPatch.includes("'GameUI/Atlases/BoardEffects/pdpx_eff_Mask_01'"), 'mask must remain in the Bootstrap image allowlist');
 assert.ok(
     !controller.includes('this.syncCapacityWarning(')
-        && controller.includes('PCH_RED_WARNING_MAX_OPACITY = 255')
+        && controller.includes('PCH_RED_WARNING_MAX_OPACITY = 153')
         && controller.includes("this.runtime.requireCanvasUiRoot?.('FxRoot')")
         && controller.includes('transform.setContentSize(effectTransform.contentSize)')
         && controller.includes('this.syncWarningOverlay(Math.max(0, this.rules.bufferCapacity - this.rules.bufferCount))'),
@@ -163,12 +163,12 @@ assert.equal(jobs.length, 1);
 assert.equal(h.warningOverlayOpacity.opacity, 0);
 assert.equal(jobs[0].target, h.warningOverlayOpacity);
 assert.deepEqual(jobs[0].steps.map(s => s.seconds), [.6, .6]);
-assert.deepEqual(jobs[0].steps.map(s => s.props), [{ opacity: 255 }, { opacity: 0 }]);
+assert.deepEqual(jobs[0].steps.map(s => s.props), [{ opacity: 153 }, { opacity: 0 }]);
 assert.deepEqual(jobs[0].steps.map(s => s.options.easing), ['sineInOut', 'sineInOut']);
 assert.equal(h.countLabel.enableOutline, true);
 assert.deepEqual(h.countLabel.outlineColor, Color.WHITE);
 assert.deepEqual(h.countLabel.color, new Color(255, 180, 180));
-for (const [opacity, green] of [[127.5, 90], [255, 0], [127.5, 90], [0, 180]]) {
+for (const [opacity, green] of [[76.5, 90], [153, 0], [76.5, 90], [0, 180]]) {
     h.warningOverlayOpacity.opacity = opacity;
     jobs[0].steps[opacity === 0 ? 1 : 0].options.onUpdate();
     assert.deepEqual(h.countLabel.color, new Color(255, green, green), 'digits follow actual overlay opacity');

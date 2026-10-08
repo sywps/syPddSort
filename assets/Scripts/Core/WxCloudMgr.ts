@@ -4,7 +4,7 @@ import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePla
 
 const { ccclass } = _decorator;
 
-export const WECHAT_CLOUD_ENV_ID = 'cloud1-d5gzq8ia0c404ee3e';
+export const WECHAT_CLOUD_ENV_ID = 'cloud1-d4gzxk7ooc414ad98';
 
 type WeChatRuntime = {
     cloud?: {

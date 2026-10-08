@@ -178,8 +178,10 @@ export class AppRoot extends Component {
         this.router.logTransitionTrace('[SceneSplitTrace] routeCover:clear', { source });
     }
 
+    homePresentationReady = false;
+
     markHomeVisible(sceneName: AppSceneName = 'Game'): void {
-        this.startupLoading?.hide();
+        if (this.homePresentationReady) this.startupLoading?.hide();
         this.router.attachCurrentScene(sceneName);
         this.session.markVisualState('home');
         this.session.clearGameplayContext();
@@ -188,6 +190,7 @@ export class AppRoot extends Component {
     async requestHomeRoute(source: string = 'unknown', coverMode: AppRouteCoverMode = 'none'): Promise<void> {
         this.router.logTransitionTrace('[SceneSplitTrace] requestHomeRoute:start', { source, coverMode });
         const route = async () => {
+            this.homePresentationReady = false;
             await this.router.toHome();
             this.markHomeVisible('Home');
             this.router.logTransitionTrace('[SceneSplitTrace] requestHomeRoute:afterMarkHomeVisible', { source, coverMode });

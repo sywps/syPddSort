@@ -146,7 +146,7 @@ export function installBoardInputViewportModule(target: any): void {
             }
         },
 
-        getBottomHudAvoidTopY(): number | null {
+        getBottomHudAvoidTopY(initialFit: boolean = false): number | null {
             let bounds: { bottom: number; top: number } | null = null;
             const conveyorActive = this._pchConveyorGameplayController?.isActive?.() === true;
             if (!conveyorActive && this.shouldShowSlotArea?.() && this.slotAreaNode?.isValid) {
@@ -158,7 +158,9 @@ export function installBoardInputViewportModule(target: any): void {
                     bounds = this.mergeVerticalBounds(bounds, this.getGameplayChildrenVerticalBounds(skillRoot));
                 } catch {}
             }
-            const conveyorTop = this._pchConveyorGameplayController?.getAvoidTopY?.();
+            const conveyorTop = initialFit
+                ? this._pchConveyorGameplayController?.getInitialFitAvoidTopY()
+                : this._pchConveyorGameplayController?.getAvoidTopY?.();
             if (Number.isFinite(conveyorTop)) {
                 bounds = this.mergeVerticalBounds(bounds, { bottom: conveyorTop, top: conveyorTop });
             }
@@ -185,16 +187,40 @@ export function installBoardInputViewportModule(target: any): void {
             };
         },
 
-        getBoardSafeViewportRect(): { left: number; right: number; bottom: number; top: number } {
+        shouldUseContentAwareInitialFit(): boolean {
+            return this._pchConveyorGameplayController?.isActive?.() === true
+                && !this.isPvpMode?.() && !this.isCoopMode?.()
+                && (!this._activeGameplayGuideLayoutMode || this._activeGameplayGuideLayoutMode === 'none');
+        },
+
+        getBoardInitialFitObstacles(): Array<{ left: number; right: number; bottom: number; top: number; sideControl: boolean }> {
+            const obstacles = [];
+            const visit = (node: Node, sideControl: boolean) => {
+                if (!node?.activeInHierarchy) return;
+                const bounds = this.getGameplayNodeBoundsInFixedRoot(node);
+                if (bounds) obstacles.push({ ...bounds, sideControl });
+                for (const child of node.children) visit(child, sideControl);
+            };
+            const topBar = this.getGameplayFixedGroup('TopBarGroup');
+            for (const child of topBar.children) visit(child, child.name === 'PchSpeedButton');
+            return obstacles;
+        },
+
+        getBoardSafeViewportRect(initialFit: boolean = false): { left: number; right: number; bottom: number; top: number } {
             const gap = 12;
-            const marginX = 18;
+            const contentAware = initialFit && this.shouldUseContentAwareInitialFit();
             const viewSize = view.getVisibleSize();
             const visibleW = Math.max(viewSize.width || 0, (this.constructor as any).VIEWPORT_WIDTH);
             const visibleH = Math.max(viewSize.height || 0, (this.constructor as any).VIEWPORT_HEIGHT);
+            // First proposal's fitted width +5%, capped at the screen. The fill ratio
+            // is included here so the scene-owned fit area remains a hard boundary.
+            const marginX = contentAware ? Math.max(0, (visibleW - (visibleW - 24) * 0.985 * 1.05) / 2) : 18;
             const left = -visibleW / 2 + marginX;
             const right = visibleW / 2 - marginX;
             let top = this.getTopBarY() - 30 - gap;
-            const topBarBottom = this.getTopBarAvoidBottomY();
+            const topBarBottom = contentAware
+                ? Math.min(...this.getBoardInitialFitObstacles().filter(item => !item.sideControl).map(item => item.bottom))
+                : this.getTopBarAvoidBottomY();
             if (topBarBottom !== null) {
                 top = Math.min(top, topBarBottom - gap);
             }
@@ -212,7 +238,7 @@ export function installBoardInputViewportModule(target: any): void {
             } else {
                 bottom = -visibleH / 2 + 120;
             }
-            const bottomHudTop = this.getBottomHudAvoidTopY();
+            const bottomHudTop = this.getBottomHudAvoidTopY(contentAware);
             if (bottomHudTop !== null) {
                 bottom = Math.max(bottom, bottomHudTop + gap);
             }
@@ -258,7 +284,7 @@ export function installBoardInputViewportModule(target: any): void {
             if (!sceneRect || sceneRect.right <= sceneRect.left || sceneRect.top <= sceneRect.bottom) {
                 throw new Error('[GameplayScene] Game.scene is missing a valid GameplayFixedRoot/BoardInitialFitArea');
             }
-            const safeRect = this.getBoardSafeViewportRect();
+            const safeRect = this.getBoardSafeViewportRect(true);
             const left = Math.max(sceneRect.left, safeRect.left);
             const right = Math.min(sceneRect.right, safeRect.right);
             const bottom = Math.max(sceneRect.bottom, safeRect.bottom);

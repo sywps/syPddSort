@@ -48,7 +48,7 @@ const fitMethodEnd = gameplayView.indexOf('refitBoardViewportToSafeRect(): void'
 const fitMethod = gameplayView.slice(fitMethodStart, fitMethodEnd);
 assert.ok(fitMethod.includes('const initialFitRect = runtime.getBoardInitialFitRect();'));
 assert.ok(fitMethod.includes('const viewportCenterX = (initialFitRect.left + initialFitRect.right) / 2;'));
-assert.ok(fitMethod.includes('const viewportCenterY = (initialFitRect.bottom + initialFitRect.top) / 2;'));
+assert.ok(fitMethod.includes('const viewportCenterY = (initialFitRect.bottom + initialFitRect.top) / 2'));
 assert.ok(!fitMethod.includes('starterBoardLift'), 'initial board fit must not lift level 1 or 2');
 assert.ok(!fitMethod.includes('getBoardSafeViewportRect()'), 'initial fit must not bypass the scene-owned area');
 

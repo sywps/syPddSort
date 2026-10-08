@@ -28,6 +28,14 @@ assert.equal(child(badge,'CapacityCount')._lpos.x,0,'capacity number stays at fu
 assert.ok(!bar._children.some(r=>scene[r.__id__]._name==='TrackSprite'));
 assert.ok(comp(bar,'cc.UITransform')._contentSize.width>400);
 const btn=child(v2,'PchCapacityAdButton');assert.ok(btn._lpos.x>150);assert.ok(comp(btn,'cc.Button'));
+const fill=child(bar,'FillSprite'), authoredFill=comp(fill,'cc.Sprite');
+assert.equal(authoredFill._type,3);assert.equal(authoredFill._fillType,0);assert.equal(authoredFill._fillStart,0);
+assert.equal(fill._lscale.x,1);assert.equal(fill._lscale.y,1);
+assert.deepEqual(comp(fill,'cc.UITransform')._contentSize,{__type__:'cc.Size',width:436,height:78});
+const order=v2._children.map(r=>scene[r.__id__]._name);
+assert.ok(order.indexOf('PchCapacityBadge')<order.indexOf('TrackSkinV2'),'original rim overlays fill');
+assert.ok(order.indexOf('TrackSkinV2')<order.indexOf('CarrierLayer'),'beans remain above rim');
+assert.ok(!bar._components.some(r=>['cc.Mask','cc.Graphics'].includes(scene[r.__id__].__type__)));
 const geoSource=fs.readFileSync(path.join(root,'assets/Scripts/Core/PchConveyorGeometry.ts'),'utf8');
 const mod={exports:{}};new Function('exports','module',ts.transpileModule(geoSource,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(mod.exports,mod);
 const geom=mod.exports, belt=geom.createRoundedConveyorPath(2,.6);
@@ -39,6 +47,25 @@ assert.equal(gradient.width,oldFill.width);assert.equal(gradient.height,oldFill.
 for(let i=3;i<gradient.data.length;i+=4)assert.equal(gradient.data[i],oldFill.data[i],'fill alpha/rounded shape must remain unchanged');
 const rgb=x=>Array.from(gradient.data.subarray((36*gradient.width+x)*4,(36*gradient.width+x)*4+3));
 assert.deepEqual(rgb(0),[155,232,123]);assert.deepEqual(rgb(gradient.width-1),[251,165,113]);
+// Flood the actual transparent opening, not an assumed rounded rectangle.
+// Every opening pixel must have opaque gradient behind it at full progress.
+const centre=Math.floor(png.height/2)*png.width+Math.floor(png.width/2);
+const visited=new Set([centre]),queue=[centre],fillSize=comp(fill,'cc.UITransform')._contentSize;
+for(let head=0;head<queue.length;head++){
+ const index=queue[head],x=index%png.width,y=Math.floor(index/png.width);
+ assert.ok(x>0&&x<png.width-1&&y>0&&y<png.height-1,'opening must not connect to outer background');
+ const worldX=skin._lpos.x+((x+.5)/png.width-.5)*skinSize.width;
+ const worldY=skin._lpos.y+(.5-(y+.5)/png.height)*skinSize.height;
+ const u=(worldX-badge._lpos.x-fill._lpos.x)/fillSize.width+.5;
+ const v=.5-(worldY-badge._lpos.y-fill._lpos.y)/fillSize.height;
+ assert.ok(u>=0&&u<1&&v>=0&&v<1,'fixed colour field covers opening bounds');
+ const alpha=gradient.data[(Math.floor(v*gradient.height)*gradient.width+Math.floor(u*gradient.width))*4+3];
+ assert.ok(alpha>=250,`uncovered opening pixel ${x},${y}: alpha ${alpha}`);
+ for(const next of [index-1,index+1,index-png.width,index+png.width]){
+  if(!visited.has(next)&&png.data[next*4+3]<8){visited.add(next);queue.push(next);}
+ }
+}
+assert.ok(queue.length>20000,'validated the entire inner opening');
 let bad=0; const p={x:0,y:0};
 for(let i=0;i<1000;i++){
  geom.sampleRoundedConveyorPath(belt,i/1000,p);
@@ -60,17 +87,15 @@ const trackNode=spriteNode(),fillNode=spriteNode();
 const stencil={clear(){this.rect=null;},roundRect(...args){this.rect=args;},fill(){}};
 let mask=null;
 const capacity={isValid:true,parent:{parent:{name:'NormalLayoutV2'}},getComponent(t){return t===Mask?mask:t===Graphics?stencil:{contentSize:{width:412,height:62}};},addComponent(t){assert.equal(t,Mask);return mask={};},getChildByName(name){return name==='TrackSprite'?trackNode:fillNode;}};
-for(const ratio of [0,.01,.25,.4,.5,.6,1,0]){
+for(const ratio of [0,.01,.25,.4,.5,.6,1,0,-1,2,NaN]){
  new H().renderNormalCapacityTrack(capacity,ratio);
- assert.equal(fillNode.active,ratio>0);
- assert.equal(mask.type,Mask.Type.GRAPHICS_STENCIL);
- if(ratio>0){
-  assert.ok(Math.abs(fillNode.getComponent(UITransform).contentSize.width*fillNode.scale.x-414)<1e-6,'gradient includes left overlap and never shrinks with progress');
-  assert.ok(Math.abs(fillNode.getComponent(UITransform).contentSize.height*fillNode.scale.y-62)<1e-6,'fill must use full slot height');
-  assert.equal(fillNode.position.x,-1,'only the left edge expands; colour field stays fixed');
-  assert.deepEqual(stencil.rect,[-208,-31,412*ratio+2,62,Math.min(412*ratio+2,62)/2]);
-  assert.ok(Math.abs(stencil.rect[0]+stencil.rect[2]-(-206+412*ratio))<1e-6,'progress endpoint stays unchanged');
- }else assert.equal(stencil.rect,null,'zero progress clears old mask');
+ const expected=Math.min(1,Math.max(0,Number(ratio)||0));
+ assert.equal(fillNode.active,expected>0);
+ assert.equal(fillNode.getComponent(Sprite).fillRange,expected);
+ assert.equal(mask,null,'V2 never creates a mask');
+ assert.deepEqual(fillNode.getComponent(UITransform).contentSize,{},'runtime preserves authored size');
+ assert.equal(fillNode.position,undefined,'runtime preserves authored position');
+ assert.equal(fillNode.scale,undefined,'runtime preserves authored scale');
 }
 capacity.parent.parent.name='NormalLayout';
 new H().renderNormalCapacityTrack(capacity,.25);

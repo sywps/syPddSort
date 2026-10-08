@@ -102,7 +102,7 @@ const FOREGROUND_CDN_RETRY_DELAY_MS = 300;
 const LEVEL_PACK_STORAGE_KEY = 'pdd.cdn.levelPackCache.v1';
 const DEFAULT_LEVEL_PREFIX = 'level_';
 const THEME_LEVEL_PREFIX = 'zt_level_';
-const DEFAULT_WECHAT_LEVEL_DATA_CDN_URL = 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
+const DEFAULT_WECHAT_LEVEL_DATA_CDN_URL = 'https://game-pdd-v4.oss-cn-beijing.aliyuncs.com/syGame/pdd_v4/remote_wechat/levels/';
 
 function runtimeLevelDataBaseUrl(): string {
     const g: any = typeof globalThis !== 'undefined' ? globalThis : null;

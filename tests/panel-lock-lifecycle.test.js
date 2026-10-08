@@ -113,7 +113,7 @@ function createSettingsOverlay() {
         box.addChild(new FakeNode(name));
     }
     box.getChildByName('Restart').addChild(new FakeNode('VigorCostBadge'));
-    for (let index = 0; index < 3; index += 1) {
+    for (let index = 0; index < 4; index += 1) {
         const row = new FakeNode(`SettingsRow${index}`);
         const toggle = new FakeNode('ToggleWrap');
         toggle.addChild(new FakeNode('ToggleOnState'));
@@ -134,6 +134,9 @@ const audio = {
         setVibrateEnabled() {},
         isBgmEnabled: () => true,
         setBgmEnabled() {},
+        voiceEnabled: true,
+        isVoiceEnabled() { return this.voiceEnabled; },
+        setVoiceEnabled(on) { this.voiceEnabled = on; },
     },
 };
 const moduleRef = { exports: {} };
@@ -288,6 +291,15 @@ const closeController = new SettingsPanelController(closeRuntime);
 closeController.open();
 const overlay = closeRuntime.popupRoot.getChildByName('SettingsOverlay');
 assert.ok(overlay);
+const voiceToggle = overlay.getChildByName('Box').getChildByName('SettingsRow3').getChildByName('ToggleWrap');
+assert.equal(voiceToggle.getChildByName('ToggleOnState').active, true);
+voiceToggle.emit(Button.EventType.CLICK);
+assert.equal(audio.inst.isVoiceEnabled(), false, 'new row must bind the voice setter');
+assert.equal(voiceToggle.getChildByName('ToggleOnState').active, false);
+assert.equal(voiceToggle.getChildByName('ToggleOffState').active, true);
+assert.equal(audio.inst.isSfxEnabled(), true, 'voice toggle must not touch the SFX setting');
+voiceToggle.emit(Button.EventType.CLICK);
+assert.equal(audio.inst.isVoiceEnabled(), true);
 const xButton = overlay.getChildByName('Box').getChildByName('XBtn');
 xButton.emit(Button.EventType.CLICK);
 xButton.emit(Button.EventType.CLICK);

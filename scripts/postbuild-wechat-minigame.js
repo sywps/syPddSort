@@ -1333,7 +1333,7 @@ function assertDnSdkIntegration(sdkRoot, label) {
         console.error('[DN SDK] ' + label + ' 禁止在客户端配置中硬编码数据源ID或密钥');
         process.exit(1);
     }
-    if (config.APP_ID !== 'wxbb6160c828f380ca') {
+    if (config.APP_ID !== 'wxcacf359488bc4db6') {
         console.error('[DN SDK] ' + label + ' APP_ID 与目标小游戏不一致');
         process.exit(1);
     }
@@ -1629,7 +1629,7 @@ if (fs.existsSync(projectConfigPath)) {
         console.log('[3.5/7] urlCheck 已关闭 ✓');
     }
     // 添加关卡数据 CDN 域名到下载/请求白名单
-    var cdnDomain = 'game-pdd-v2.oss-cn-beijing.aliyuncs.com';
+    var cdnDomain = 'game-pdd-v4.oss-cn-beijing.aliyuncs.com';
     try {
         cdnDomain = new URL(LEVEL_DATA_CDN_URL).host || cdnDomain;
     } catch (e) {}

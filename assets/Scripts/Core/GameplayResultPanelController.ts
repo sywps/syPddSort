@@ -31,6 +31,7 @@ import {
 } from './GameCtrlShared';
 import { isMiniGameRuntime } from './MiniGamePlatform';
 import { ensurePchConveyorGameplayController } from './PchConveyorGameplayController';
+import { WinShareBadgeSway } from './WinShareBadgeSway';
 
 const RESULT_PANEL_PREFAB_PATHS = {
     win: 'UI/Prefabs/Panels/WinPanel',
@@ -46,8 +47,6 @@ const WIN_BANNER_FX_PREFIX = 'WinBannerStableFx';
 const WIN_BANNER_ENTRANCE_Y = 34;
 const WIN_BANNER_ENTRANCE_SCALE = 0.86;
 const WIN_BANNER_ENTRANCE_OVERSHOOT = 1.055;
-const WIN_BANNER_IDLE_JELLY_INITIAL_DELAY = 0.5;
-const WIN_BANNER_IDLE_JELLY_REPEAT_DELAY = 1.5;
 const WIN_BANNER_LIGHT_NODE_NAME = '\u6a2a\u5e45\u5149\u6548';
 const WIN_BANNER_LIGHT_ROTATION_SECONDS = 12;
 const WIN_CONFETTI_FX_NAME = 'WinConfettiFx';
@@ -56,8 +55,13 @@ const WIN_CONFETTI_PIECE_COUNT = 48;
 const WIN_CONFETTI_BURST_COUNT = 32;
 const WIN_CONFETTI_EMISSION_SECONDS = 0.35;
 const WIN_CONFETTI_RAIN_START_SECONDS = 1.05;
-const WIN_CONFETTI_RAIN_INTERVAL_MIN = 0.22;
-const WIN_CONFETTI_RAIN_INTERVAL_RANGE = 0.12;
+const WIN_CONFETTI_RAIN_INTERVAL_MIN = 0.5;
+const WIN_CONFETTI_RAIN_INTERVAL_RANGE = 0.2;
+const WIN_CONFETTI_RAIN_END_SECONDS = 3;
+const WIN_CONFETTI_END_SECONDS = 5;
+const WIN_CONFETTI_FINAL_FADE_SECONDS = 1.2;
+const WIN_CONFETTI_REWARD_MARGIN = 24;
+const WIN_CONFETTI_EDGE_FADE_DISTANCE = 64;
 const WIN_CONFETTI_HORIZONTAL_COVERAGE = 0.9;
 const WIN_CONFETTI_LANE_COUNT = 12;
 const WIN_CONFETTI_COLORS = ['#FF5B68', '#FFD34E', '#43C6F1', '#66D36E', '#A878F5', '#FF8E45'];
@@ -74,6 +78,7 @@ const REVIVE_SHARE_LEVEL_INTERVAL = 3;
 const REVIVE_SHARE_MIN_LOGICAL_LEVEL = 7;
 const REVIVE_HOLD_TO_PEEK_HINT_NAME = 'HoldToPeekHint';
 const REVIVE_HOLD_TO_PEEK_DURATION_SECONDS = 0.18;
+const REVIVE_HOLD_TO_PEEK_DELAY_SECONDS = 0.5;
 const REVIVE_HOLD_TO_PEEK_INTERACTIVE_NODE_NAMES = new Set(['ContinueBtn', 'ShareBtn', 'CloseBtn', 'GiveUpBtn']);
 
 type ReviveShareState = {
@@ -112,6 +117,7 @@ type WinConfettiParticle = {
     red: number;
     green: number;
     blue: number;
+    radius: number;
     delay: number;
     age: number;
     life: number;
@@ -146,6 +152,13 @@ class WinConfettiFx extends Component {
     private viewportHeight = 0;
     private rainSequence = 0;
     private nextRainAt = WIN_CONFETTI_RAIN_START_SECONDS;
+    private rewardArea: UITransform | null = null;
+
+    private getProtectedTop(): number {
+        const bounds = this.rewardArea!.getBoundingBoxToWorld();
+        return this.node.getComponent(UITransform)!.convertToNodeSpaceAR(new Vec3(bounds.x, bounds.yMax, 0)).y
+            + WIN_CONFETTI_REWARD_MARGIN;
+    }
 
     private sample(index: number, channel: number): number {
         const raw = Math.sin((index + 1) * 12.9898 + channel * 78.233) * 43758.5453;
@@ -165,7 +178,7 @@ class WinConfettiFx extends Component {
         particle.delay = 0;
         particle.age = 0;
         particle.life = 6.2 + sample(30) * 1.2;
-        particle.x = this.getStratifiedX(sequence, 31);
+        particle.x = (sequence % 2 === 0 ? -1 : 1) * this.viewportWidth * (0.34 + sample(31) * 0.1);
         particle.y = this.viewportHeight * (0.515 + sample(32) * 0.035);
         particle.velocityX = (sample(33) - 0.5) * 26;
         particle.velocityY = -(70 + sample(34) * 50);
@@ -189,13 +202,18 @@ class WinConfettiFx extends Component {
         particle.node.active = true;
     }
 
-    play(frames: SpriteFrame[], width: number, height: number): void {
+    play(frames: SpriteFrame[], width: number, height: number, rewardArea: UITransform, artwork: UITransform): void {
         this.elapsed = 0;
         this.viewportWidth = width;
         this.viewportHeight = height;
         this.rainSequence = 0;
         this.nextRainAt = WIN_CONFETTI_RAIN_START_SECONDS;
+        this.rewardArea = rewardArea;
         this.particles = [];
+        const artworkBounds = artwork.getBoundingBoxToWorld();
+        const launchY = this.node.getComponent(UITransform)!.convertToNodeSpaceAR(
+            new Vec3(artworkBounds.x, artworkBounds.y + artworkBounds.height * 0.65, 0),
+        ).y;
         for (let index = 0; index < WIN_CONFETTI_PIECE_COUNT; index += 1) {
             const sample = (channel: number) => this.sample(index, channel);
             const shapeSlot = index % 6;
@@ -205,17 +223,16 @@ class WinConfettiFx extends Component {
             const piece = new Node(`${WIN_CONFETTI_FX_NAME}-Piece-${index}`);
             piece.layer = this.node.layer;
             this.node.addChild(piece);
-            piece.addComponent(UITransform).setContentSize(
-                shape.minWidth + sample(1) * shape.widthRange,
-                shape.minHeight + sample(2) * shape.heightRange,
-            );
+            const pieceWidth = shape.minWidth + sample(1) * shape.widthRange;
+            const pieceHeight = shape.minHeight + sample(2) * shape.heightRange;
+            piece.addComponent(UITransform).setContentSize(pieceWidth, pieceHeight);
             const sprite = piece.addComponent(Sprite);
             sprite.sizeMode = Sprite.SizeMode.CUSTOM;
             sprite.spriteFrame = frames[shapeIndex];
             const baseColor = new Color(WIN_CONFETTI_COLORS[index % WIN_CONFETTI_COLORS.length]);
             const x = side * (width * 0.43 + sample(5) * 20);
-            const y = -height * (0.31 - sample(6) * 0.07);
-            const apexY = height * (0.40 + sample(20) * 0.07);
+            const y = launchY + sample(6) * 24;
+            const apexY = Math.max(y + 48, height * (0.40 + sample(20) * 0.07));
             const launchGravity = 2100 + sample(21) * 260;
             const apexTime = Math.sqrt(2 * (apexY - y) / launchGravity);
             const targetX = this.getStratifiedX(index, 22);
@@ -229,6 +246,7 @@ class WinConfettiFx extends Component {
                 red: baseColor.r,
                 green: baseColor.g,
                 blue: baseColor.b,
+                radius: Math.hypot(pieceWidth, pieceHeight) * 0.5,
                 delay: sample(8) * WIN_CONFETTI_EMISSION_SECONDS,
                 age: 0,
                 life: 5 + sample(9) * 0.45,
@@ -258,14 +276,22 @@ class WinConfettiFx extends Component {
     update(deltaTime: number): void {
         if (this.particles.length === 0) return;
         const dt = Math.max(0, Math.min(0.05, deltaTime));
-        this.elapsed += dt;
-        if (this.elapsed >= this.nextRainAt) {
+        this.elapsed += Math.max(0, deltaTime);
+        if (this.elapsed >= WIN_CONFETTI_END_SECONDS) {
+            for (const particle of this.particles) particle.node.active = false;
+            this.enabled = false;
+            return;
+        }
+        const protectedTop = this.getProtectedTop();
+        const finalFade = Math.min(1, (WIN_CONFETTI_END_SECONDS - this.elapsed) / WIN_CONFETTI_FINAL_FADE_SECONDS);
+        if (this.elapsed < WIN_CONFETTI_RAIN_END_SECONDS && this.elapsed >= this.nextRainAt) {
             const available = this.particles.find((particle) => particle.complete);
             if (available) {
                 this.configureRainParticle(available, this.rainSequence);
                 this.rainSequence += 1;
                 this.nextRainAt = this.elapsed
                     + WIN_CONFETTI_RAIN_INTERVAL_MIN
+                    + 0.4 * (this.elapsed - WIN_CONFETTI_RAIN_START_SECONDS) / (WIN_CONFETTI_RAIN_END_SECONDS - WIN_CONFETTI_RAIN_START_SECONDS)
                     + this.sample(this.rainSequence, 47) * WIN_CONFETTI_RAIN_INTERVAL_RANGE;
             } else {
                 this.nextRainAt = this.elapsed + 0.08;
@@ -313,6 +339,16 @@ class WinConfettiFx extends Component {
             particle.node.setPosition(particle.x, particle.y, 0);
             particle.node.angle += particle.spin * dt;
 
+            // Account for each rotating piece's full footprint before it reaches rewards.
+            const edgeFade = Math.max(0, Math.min(1,
+                (particle.y - particle.radius - protectedTop) / WIN_CONFETTI_EDGE_FADE_DISTANCE,
+            ));
+            if (edgeFade === 0) {
+                particle.complete = true;
+                particle.node.active = false;
+                continue;
+            }
+
             const flip = Math.abs(Math.cos(particle.tilt));
             particle.node.setScale(0.16 + flip * 0.84, 1, 1);
             const brightness = 0.72 + flip * 0.28;
@@ -322,7 +358,7 @@ class WinConfettiFx extends Component {
                 Math.round(particle.red * brightness),
                 Math.round(particle.green * brightness),
                 Math.round(particle.blue * brightness),
-                Math.round(255 * fadeIn * fadeOut),
+                Math.round(255 * fadeIn * fadeOut * edgeFade * finalFade),
             );
             particle.sprite.color = particle.color;
         }
@@ -711,6 +747,7 @@ export class GameplayResultPanelController {
             });
             if (kind !== 'lose') this.syncReviveSharePanel(overlay);
         }
+        if (kind === 'win') AnalyticsMgr.inst.settlement.shown(runtime._settlementAnalyticsId, 'basic_win_panel');
         return overlay;
     }
 
@@ -819,10 +856,6 @@ export class GameplayResultPanelController {
         return new Vec3(base.x * ratio, base.y * ratio, base.z);
     }
 
-    private scaleWinBannerVec3XY(base: Vec3, scaleX: number, scaleY: number): Vec3 {
-        return new Vec3(base.x * scaleX, base.y * scaleY, base.z);
-    }
-
     private createWinBannerFxNode(parent: Node, name: string, width: number, height: number): Node {
         const node = new Node(name);
         node.layer = parent.layer;
@@ -863,68 +896,6 @@ export class GameplayResultPanelController {
         bannerOpacity.opacity = 255;
 
         return banner;
-    }
-
-    private startWinBannerIdleJelly(banner: Node): void {
-        const state = this.getWinBannerBaseState(banner);
-        const basePosition = state.position.clone();
-        const baseScale = state.scale.clone();
-        const squashPosition = new Vec3(basePosition.x, basePosition.y - 1, basePosition.z);
-        const stretchPosition = new Vec3(basePosition.x, basePosition.y + 2, basePosition.z);
-        const settlePosition = new Vec3(basePosition.x, basePosition.y, basePosition.z);
-        const squashScale = this.scaleWinBannerVec3XY(baseScale, 1.025, 0.975);
-        const stretchScale = this.scaleWinBannerVec3XY(baseScale, 0.986, 1.018);
-        const settleScale = this.scaleWinBannerVec3XY(baseScale, 1.008, 0.994);
-
-        banner.angle = state.angle;
-        banner.setPosition(basePosition.x, basePosition.y, basePosition.z);
-        banner.setScale(baseScale.x, baseScale.y, baseScale.z);
-        tween(banner)
-            .delay(WIN_BANNER_IDLE_JELLY_INITIAL_DELAY)
-            .call(() => {
-                tween(banner)
-                    .to(0.08, {
-                        position: squashPosition,
-                        scale: squashScale,
-                    }, { easing: 'sineOut' })
-                    .to(0.1, {
-                        position: stretchPosition,
-                        scale: stretchScale,
-                    }, { easing: 'sineInOut' })
-                    .to(0.12, {
-                        position: settlePosition,
-                        scale: settleScale,
-                    }, { easing: 'sineInOut' })
-                    .to(0.1, {
-                        position: basePosition,
-                        scale: baseScale,
-                    }, { easing: 'sineOut' })
-                    .to(0.08, {
-                        position: squashPosition,
-                        scale: squashScale,
-                    }, { easing: 'sineOut' })
-                    .to(0.1, {
-                        position: stretchPosition,
-                        scale: stretchScale,
-                    }, { easing: 'sineInOut' })
-                    .to(0.12, {
-                        position: settlePosition,
-                        scale: settleScale,
-                    }, { easing: 'sineInOut' })
-                    .to(0.1, {
-                        position: basePosition,
-                        scale: baseScale,
-                    }, { easing: 'sineOut' })
-                    .delay(WIN_BANNER_IDLE_JELLY_REPEAT_DELAY)
-                    .union()
-                    .repeatForever()
-                    .start();
-            })
-            .start();
-    }
-
-    private startWinBannerIdleFx(banner: Node): void {
-        this.startWinBannerIdleJelly(banner);
     }
 
     private clearWinConfettiFx(panel: Node): void {
@@ -994,6 +965,13 @@ export class GameplayResultPanelController {
             if (!frames || playSeq !== this.winConfettiPlaySeq || !panel.isValid || !panel.activeInHierarchy) return;
             const panelTransform = panel.getComponent(UITransform);
             if (!panelTransform || panelTransform.width <= 0 || panelTransform.height <= 0) return;
+            const box = panel.getChildByName('Box');
+            const rewardArea = box?.getChildByName('BottomGroup')?.getComponent(UITransform);
+            const artwork = box?.getChildByName('MiddleGroup')?.getChildByName('PreviewFrame')?.getComponent(UITransform);
+            if (!rewardArea || !artwork) {
+                console.error('[WinConfettiFx] missing reward/artwork layout bounds');
+                return;
+            }
             const layer = this.createWinBannerFxNode(
                 panel,
                 WIN_CONFETTI_FX_NAME,
@@ -1003,7 +981,7 @@ export class GameplayResultPanelController {
             layer.setPosition(0, 0, 0);
             const topHud = panel.getChildByName('SettlementTopHud');
             if (topHud) layer.setSiblingIndex(topHud.getSiblingIndex());
-            layer.addComponent(WinConfettiFx).play(frames, panelTransform.width, panelTransform.height);
+            layer.addComponent(WinConfettiFx).play(frames, panelTransform.width, panelTransform.height, rewardArea, artwork);
         });
     }
 
@@ -1012,6 +990,10 @@ export class GameplayResultPanelController {
         const targetPanel = panel ?? this.runtime?.panelWin ?? null;
         const box = targetPanel?.getChildByName('Box') ?? null;
         if (!box) return;
+        const shareBadge = box.getChildByName('BottomGroup')?.getChildByName('ShareBonusBtn')?.getChildByName('ShareBadge');
+        if (shareBadge && !shareBadge.getComponent(WinShareBadgeSway)) {
+            shareBadge.addComponent(WinShareBadgeSway);
+        }
         this.playWinConfettiFx(targetPanel!);
         this.startWinBannerLightRotation(box);
         const banner = this.prepareWinBannerStableFx(box);
@@ -1039,7 +1021,6 @@ export class GameplayResultPanelController {
             .to(0.2, { position: overshootPosition, scale: overshootScale }, { easing: 'sineOut' })
             .to(0.16, { position: settlePosition, scale: settleScale }, { easing: 'sineInOut' })
             .to(0.14, { position: finalPosition, scale: finalScale }, { easing: 'sineOut' })
-            .call(() => this.startWinBannerIdleFx(banner))
             .start();
     }
 
@@ -1077,9 +1058,13 @@ export class GameplayResultPanelController {
         this.bindPanelButton(homeBtn, () => {
             if (homeRoutePending || runtime._gameplayTransitionPromise || runtime._settlementNextTransitioning || runtime._shareShowing) return;
             homeRoutePending = true;
+            const attempt = AnalyticsMgr.inst.settlement.action(runtime._settlementAnalyticsId, 'home', null);
             runtime.setWinPrimaryButtonInteractable(false);
             AudioMgr.inst.play('button');
-            void Promise.resolve().then(() => runtime.requestHomeRoute('win_panel_home', 'auto')).catch((error) => {
+            void Promise.resolve().then(() => runtime.requestHomeRoute('win_panel_home', 'auto')).then(() => {
+                AnalyticsMgr.inst.settlement.finish(attempt, 'returned_home', 'win_panel_home');
+            }).catch((error) => {
+                AnalyticsMgr.inst.settlement.finish(attempt, 'failed', 'home_route_failed', String(error));
                 homeRoutePending = false;
                 if (overlay.isValid) runtime.setWinPrimaryButtonInteractable(true);
                 console.error('[win-panel] home route failed:', error);
@@ -1258,6 +1243,8 @@ export class GameplayResultPanelController {
         const boxOpacity = box.getComponent(UIOpacity) || box.addComponent(UIOpacity);
         const shadeOpacity = shade.getComponent(UIOpacity) || shade.addComponent(UIOpacity);
         let peeking = false;
+        let holding = false;
+        const holdDelayTarget = {};
 
         const setOpacity = (opacity: number, immediate: boolean): void => {
             Tween.stopAllByTarget(boxOpacity);
@@ -1271,6 +1258,8 @@ export class GameplayResultPanelController {
             tween(shadeOpacity).to(REVIVE_HOLD_TO_PEEK_DURATION_SECONDS, { opacity }).start();
         };
         const restore = (immediate: boolean = false): void => {
+            Tween.stopAllByTarget(holdDelayTarget);
+            holding = false;
             peeking = false;
             setOpacity(255, immediate);
         };
@@ -1283,12 +1272,16 @@ export class GameplayResultPanelController {
         const onTouchStart = (event: EventTouch): void => {
             if (!overlay.activeInHierarchy || isInteractiveTarget(event.target as Node | null)) return;
             event.propagationStopped = true;
-            if (peeking) return;
-            peeking = true;
-            setOpacity(0, false);
+            if (holding || peeking) return;
+            holding = true;
+            tween(holdDelayTarget).delay(REVIVE_HOLD_TO_PEEK_DELAY_SECONDS).call(() => {
+                if (!holding || !overlay.isValid || !overlay.activeInHierarchy || !boxOpacity.isValid || !shadeOpacity.isValid) return;
+                peeking = true;
+                setOpacity(0, false);
+            }).start();
         };
         const onTouchEndOrCancel = (event: EventTouch): void => {
-            if (!peeking) return;
+            if (!holding && !peeking) return;
             event.propagationStopped = true;
             restore();
         };
@@ -1353,7 +1346,7 @@ export class GameplayResultPanelController {
             query: () => `level=${levelId}`,
             shareFailToast: '分享未完成，未复活',
             grantFailToast: kind === 'buffer-full' ? '豆豆归位失败，请重试' : '复活失败，请重试',
-            successToast: kind === 'buffer-full' ? '传送带豆豆已全部归位' : '已获得120秒和12个位置',
+            successToast: kind === 'buffer-full' ? '传送带已清空' : '已获得120秒和12个位置',
             onFinally: () => this.refreshReviveShareButtons(),
         });
     }
@@ -1450,7 +1443,7 @@ export class GameplayResultPanelController {
             markLevelRevive: true,
             adFailToast: '广告未完成，未复活',
             grantFailToast: '豆豆归位失败，请重试',
-            successToast: '传送带豆豆已全部归位',
+            successToast: '传送带已清空',
         });
     }
 

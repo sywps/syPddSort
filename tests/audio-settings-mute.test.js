@@ -80,6 +80,7 @@ class MockAudioSource {
     play() {
         this.playCount += 1;
         this.playing = true;
+        this.node.emit(MockAudioSource.EventType.STARTED, this);
     }
 
     stop() {
@@ -139,6 +140,7 @@ const ccMock = {
         },
     },
     assetManager: {
+        getBundle: () => null,
         loadBundle: () => {
             throw new Error('unexpected bundle load in audio mute regression');
         },
@@ -165,6 +167,8 @@ const audioManifestMock = {
         select: 'Audio/select',
         button: 'Audio/ui',
         settle: 'Audio/settle',
+        conveyorEnter: 'Audio/pindd/sfx_bead_placesnap',
+        conveyorReturn: 'Audio/pindd/sfx_bead_patternsnap',
         fly: 'Audio/fly',
         tick: 'Audio/tick',
         lose: 'Audio/lose',
@@ -180,7 +184,7 @@ const audioManifestMock = {
         judgmentUnbelievable: 'Audio/judgment-unbelievable',
     },
     AUDIO_SFX_VOLUME: {
-        select: 0.55, button: 0.52, place: 0.72, settle: 0.72, fly: 0.4, return: 0.22,
+        select: 0.55, button: 0.52, place: 0.72, settle: 0.32, conveyorEnter: 1, conveyorReturn: 1, fly: 0.4, return: 0.22,
         tick: 0.4, coin: 0.42, win: 0.52, lose: 0.44, winColor: 0.5,
         winAll: 0.5, winSettlement: 0.62, revivePop: 0.32,
         judgmentGreat: 0.56, judgmentExcellent: 0.56, judgmentAwesome: 0.56,
@@ -223,7 +227,7 @@ assert.ok(gameSceneAllowlistMatch, 'AudioMgr must declare an explicit Game-scene
 assert.deepStrictEqual(
     [...gameSceneAllowlistMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1]),
     [
-        'settle', 'button', 'tick', 'winColor', 'winAll', 'winSettlement', 'lose', 'revivePop',
+        'settle', 'conveyorEnter', 'conveyorReturn', 'button', 'tick', 'winColor', 'winAll', 'winSettlement', 'lose', 'revivePop',
         'judgmentGreat', 'judgmentExcellent', 'judgmentAwesome',
         'judgmentAmazing', 'judgmentPerfect', 'judgmentUnbelievable',
     ],
@@ -264,17 +268,12 @@ staleUntrackedSource.loop = true;
 staleUntrackedSource.play();
 audioMgr.sfxSources[0].isValid = false;
 audioMgr.init(host);
-assert.ok(
-    originalSources.every((source) => !ccMock.isValid(source, true)),
-    'reinitialization must invalidate every obsolete tracked AudioSource',
-);
-assert.strictEqual(ccMock.isValid(staleUntrackedSource, true), false, 'reinitialization must remove stale untracked AudioSources from PddAudioRoot');
-assert.strictEqual(staleUntrackedSource.playing, false, 'stale BGM-like playback must stop before replacement sources are created');
-assert.strictEqual(
-    audioMgr.audioRoot.getComponents(MockAudioSource).filter((source) => ccMock.isValid(source, true)).length,
-    9,
-    'PddAudioRoot must contain exactly eight live SFX sources and one live BGM source',
-);
+assert.ok(originalSources.slice(1).every(source => ccMock.isValid(source, true)), 'healthy sources survive partial SFX repair');
+assert.strictEqual(audioMgr.bgmSrc, originalSources.at(-1), 'SFX repair retains BGM identity');
+assert.strictEqual(ccMock.isValid(staleUntrackedSource, true), true, 'unknown source is preserved');
+assert.strictEqual(staleUntrackedSource.playing, true, 'unknown playback is not touched');
+assert.strictEqual(audioMgr.sfxSources.length, 8, 'only missing SFX capacity is replenished');
+staleUntrackedSource.destroy(); // Test-owned fixture cleanup, not manager ownership inference.
 const sourceComponentCountBeforeSameFrameInit = audioMgr.audioRoot.getComponents(MockAudioSource).length;
 audioMgr.init(host);
 assert.strictEqual(
@@ -283,7 +282,7 @@ assert.strictEqual(
     'a second init in the destruction frame must not create another replacement generation',
 );
 
-const rogueLoopSource = audioMgr.audioRoot.addComponent(MockAudioSource);
+const rogueLoopSource = audioMgr.sfxSources[0];
 rogueLoopSource.loop = true;
 rogueLoopSource.clip = { _nativeAsset: { url: 'stale-bgm.mp3' } };
 rogueLoopSource.play();
@@ -300,6 +299,7 @@ assert.strictEqual(
     'AudioMgr must leave exactly one playing loop source',
 );
 rogueLoopSource.destroy();
+audioMgr.init(host);
 
 const flyClip = { _nativeAsset: { url: 'fly.mp3' }, loadMode: 0 };
 audioMgr.sfxClips.set('fly', flyClip);
@@ -310,8 +310,9 @@ assert.ok(audioMgr.sfxSources.every((source) => source.playing), 'all eight over
 const firstSource = audioMgr.sfxSources[0];
 const firstStopCount = firstSource.stopCount;
 audioMgr.play('fly');
-assert.strictEqual(firstSource.playCount, 2, 'the ninth sound must reclaim the oldest round-robin channel');
-assert.ok(firstSource.stopCount > firstStopCount, 'reclaimed channels must be stopped before reuse');
+assert.strictEqual(firstSource.playCount, 1, 'the ninth sound must grow the pool without interrupting existing sounds');
+assert.strictEqual(audioMgr.sfxSources.length, 9);
+assert.strictEqual(firstSource.stopCount, firstStopCount, 'busy channels must not be stopped');
 
 firstSource.complete();
 assert.ok(!audioMgr.busySfxSources.has(firstSource), 'an ended channel must return to the available pool');
@@ -345,30 +346,64 @@ assert.ok(audioMgr.sfxSources.some((source) => source.playing), 'SFX playback mu
 
 const settleClip = { _nativeAsset: { url: 'settle.mp3' } };
 audioMgr.sfxClips.set('settle', settleClip);
-audioClockMs = 10_000;
-for (let i = 0; i < 10; i++) {
-    audioMgr.play('settle');
-    audioClockMs += 50;
-}
-const settleSources = [...audioMgr.placeOneShotSources];
-assert.strictEqual(settleSources.length, 10, 'ten arrivals at 50ms intervals must all start a sound');
-assert.ok(settleSources.every(source => source.playCount === 1 && source.playing && source.stopCount === 0), 'later arrivals must not interrupt previous sounds');
-for (let i = 0; i < 3; i++) audioMgr.play('settle');
-assert.strictEqual(audioMgr.placeOneShotSources.size, 13, 'arrivals sharing a frame must not be dropped');
-settleSources[0].complete();
-assert.strictEqual(audioMgr.placeOneShotSources.size, 12, 'completion must release only its own source');
-assert.strictEqual(settleSources[0].destroyCount, 1);
-assert.strictEqual(settleSources[0].node.isValid, false);
-assert.ok(settleSources.slice(1).every(source => source.playing && source.stopCount === 0));
-const remainingSettleSources = [...audioMgr.placeOneShotSources];
+audioMgr.stopSfx();
+for (let i = 0; i < 30; i++) audioMgr.play('settle');
+assert.equal(audioMgr.busySfxSources.size, 22, 'reserve two of 24 engine channels');
+assert.equal(audioMgr.sfxSources.length, 22);
+const voices = [...audioMgr.busySfxSources];
+const counts = voices.map(s => s.playCount);
+audioMgr.play('button');
+assert.deepStrictEqual(voices.map(s => s.playCount), counts, 'full pool skips without stealing');
+voices[0].complete();
+assert.equal(audioMgr.busySfxSources.size, 21);
+assert.equal(voices[0].destroyCount, 0, 'ended source remains reusable');
+audioMgr.play('settle');
+assert.equal(voices[0].playCount, counts[0] + 1);
+assert.equal(audioMgr.sfxSources.length, 22);
 audioMgr.setSfxEnabled(false);
-assert.strictEqual(audioMgr.placeOneShotSources.size, 0, 'mute must release all overlapping sources');
-assert.ok(remainingSettleSources.every(source => !source.playing && source.destroyCount === 1 && !source.node.isValid));
-audioMgr.play('settle');
-assert.strictEqual(audioMgr.placeOneShotSources.size, 0, 'muted arrivals must stay silent');
+assert.equal(audioMgr.busySfxSources.size, 0);
+assert.equal(audioMgr.sfxSources.length, 10, 'stopping all effects retains at most ten idle sources');
+assert.ok(voices.every(s => !s.playing));
+assert.equal(voices.filter(s => s.destroyCount === 1).length, 12);
 audioMgr.setSfxEnabled(true);
+for (let i = 0; i < 22; i++) audioMgr.play('settle');
+assert.equal(audioMgr.busySfxSources.size, 22, 'idle retention limit must not limit simultaneous playback');
+const expandedVoices = [...audioMgr.sfxSources];
+expandedVoices.forEach(source => source.complete());
+assert.equal(audioMgr.busySfxSources.size, 0);
+assert.equal(audioMgr.sfxSources.length, 10, 'natural completion also trims idle sources');
+assert.equal(expandedVoices.filter(s => s.destroyCount === 1).length, 12);
+audioMgr.setSfxEnabled(false);
 audioMgr.play('settle');
-assert.strictEqual(audioMgr.placeOneShotSources.size, 1, 'reenabling sound must allow next arrival');
+assert.equal(audioMgr.busySfxSources.size, 0);
+audioMgr.setSfxEnabled(true);
+// Each pending arrival consumes one slot, even when sharing a resource load.
+audioMgr.sfxClips.delete('settle');
+audioMgr._ensureSfxLoaded = () => {};
+for (let i = 0; i < 30; i++) audioMgr.play('settle');
+assert.equal(audioMgr.pendingAutoplaySfx.get('settle'), 22);
+audioMgr.play('button');
+assert.equal(audioMgr.busySfxSources.size, 0, 'pending loads reserve shared capacity');
+audioMgr._finishSfxLoad('settle', settleClip);
+assert.equal(audioMgr.busySfxSources.size, 22);
+assert.equal(audioMgr.pendingAutoplaySfx.size, 0);
+audioMgr.stopSfx();
+audioMgr.sfxClips.delete('settle');
+audioMgr.play('settle');
+audioMgr.stopSfx();
+audioMgr._finishSfxLoad('settle', settleClip);
+assert.equal(audioMgr.busySfxSources.size, 0, 'late load cannot replay a cancelled request');
+
+// Background transitions cancel both playing and loading requests.
+audioMgr.play('settle');
+audioMgr.suspendForBackground();
+assert.equal(audioMgr.busySfxSources.size, 0);
+assert.equal(audioMgr.pendingAutoplaySfx.size, 0);
+audioMgr.play('settle');
+assert.equal(audioMgr.busySfxSources.size, 0);
+audioMgr.resumeFromBackground();
+audioMgr.play('settle');
+assert.equal(audioMgr.busySfxSources.size, 1);
 audioMgr.stopSfx();
 
 const toggleHandler = settingsSource.match(/toggle\.on\(Button\.EventType\.CLICK, \(\) => \{([\s\S]*?)\n    \}, runtime\);/);
@@ -407,12 +442,11 @@ assert.strictEqual(
     'gameplay startup must have one authoritative BGM start after UI readiness',
 );
 
-const getTotalSfxPlayCount = () => audioMgr.sfxSources.reduce((sum, source) => sum + source.playCount, 0)
-    + [...audioMgr.placeOneShotSources].reduce((sum, source) => sum + source.playCount, 0);
+const getTotalSfxPlayCount = () => audioMgr.sfxSources.reduce((sum, source) => sum + source.playCount, 0);
 audioMgr.sfxClips.set('button', { _nativeAsset: { url: 'button.mp3' } });
 audioMgr.sfxClips.set('uiPanel', { _nativeAsset: { url: 'ui-panel.mp3' } });
 const allowedGameSfxNames = [
-    'settle', 'button', 'tick', 'winColor', 'winAll',
+    'settle', 'conveyorEnter', 'conveyorReturn', 'button', 'tick', 'winColor', 'winAll',
     'winSettlement', 'lose', 'revivePop',
     'judgmentGreat', 'judgmentExcellent', 'judgmentAwesome',
     'judgmentAmazing', 'judgmentPerfect', 'judgmentUnbelievable',
@@ -475,4 +509,143 @@ assert.strictEqual(
     'non-Game scenes must keep their existing SFX behavior',
 );
 
+// Full-class lifecycle regressions for dynamic pools and local repair.
+const mgr = new AudioMgr();
+mgr.init(host);
+mgr.bgmClip = { name: 'continuity' };
+mgr.bgmAutoplayRequested = true;
+mgr.ensureBgmPlaying();
+const music = mgr.bgmSrc;
+music.currentTime = 12.5;
+let clipWrites = 0;
+let timeWrites = 0;
+let musicClip = music.clip;
+let musicTime = music.currentTime;
+Object.defineProperty(music, 'clip', { get: () => musicClip, set: value => { clipWrites++; musicClip = value; } });
+Object.defineProperty(music, 'currentTime', { get: () => musicTime, set: value => { timeWrites++; musicTime = value; } });
+const before = [music.playCount, music.stopCount, music.pauseCount, music.destroyCount];
+for (let i = 0; i < 16; i++) {
+    const source = mgr._acquireSfxSource();
+    mgr.busySfxSources.add(source);
+    source.play();
+    mgr.init(host);
+    assert.strictEqual(mgr.bgmSrc, music);
+}
+assert.strictEqual(mgr.sfxSources.length, 16);
+assert.deepStrictEqual([music.playCount, music.stopCount, music.pauseCount, music.destroyCount], before);
+assert.equal(clipWrites, 0);
+assert.equal(timeWrites, 0);
+assert.equal(music.currentTime, 12.5);
+mgr.playBgm(mgr.bgmResourcePath, mgr.bgmVolume);
+assert.equal(clipWrites, 0, 'same-track request after init must not reassign clip');
+assert.equal(timeWrites, 0);
+assert.deepStrictEqual([music.playCount, music.stopCount, music.pauseCount, music.destroyCount], before);
+
+for (const source of [...mgr.sfxSources]) source.complete();
+assert.equal(mgr.sfxSources.length, 10);
+mgr.init(host);
+assert.strictEqual(mgr.bgmSrc, music);
+assert.equal(clipWrites, 0);
+const broken = mgr.sfxSources[0];
+broken.destroy();
+mgr.busySfxSources.add(broken);
+mgr.sfxSources.push(mgr.sfxSources[1], music);
+mgr.init(host);
+assert.equal(mgr.sfxSources.length, 9);
+assert.equal(new Set(mgr.sfxSources).size, 9);
+assert.ok(!mgr.busySfxSources.has(broken));
+assert.ok(!mgr.sfxSources.includes(music));
+assert.deepStrictEqual([music.playCount, music.stopCount, music.pauseCount, music.destroyCount], before);
+assert.equal(clipWrites, 0);
+const unknown = mgr.audioRoot.addComponent(MockAudioSource);
+unknown.loop = true; unknown.play();
+const voice = new MockNode('voice').addComponent(MockAudioSource);
+mgr.guideVoiceSource = voice; voice.play();
+mgr.init(host);
+assert.equal(unknown.stopCount, 0);
+assert.equal(unknown.destroyCount, 0);
+assert.strictEqual(mgr.guideVoiceSource, voice);
+assert.equal(voice.stopCount, 0);
+for (const field of ['bgmEnabled', 'suspended', 'externalInterruptionRefs']) {
+    mgr[field] = field === 'bgmEnabled' ? false : 1;
+    const currentMusic = mgr.bgmSrc;
+    const priorPlays = currentMusic.playCount;
+    mgr.init(host);
+    assert.strictEqual(mgr.bgmSrc, currentMusic);
+    assert.equal(currentMusic.playCount, priorPlays, `${field}: valid source is not restarted`);
+    const healthySfx = [...mgr.sfxSources];
+    mgr.bgmSrc.destroy();
+    mgr.init(host);
+    assert.equal(mgr.bgmSrc.playCount, 0, `${field}: recovery must not autoplay`);
+    assert.deepStrictEqual([...mgr.sfxSources], healthySfx);
+    mgr[field] = field === 'bgmEnabled' ? true : 0;
+}
+mgr.bgmSrc.destroy();
+mgr.init(host);
+assert.equal(mgr.bgmSrc.playCount, 1, 'rebuild missing BGM when playback is allowed');
+assert.equal(unknown.stopCount, 0, 'BGM recovery must not stop unknown loops');
+assert.equal(unknown.destroyCount, 0);
+const retiredRoot = mgr.audioRoot;
+retiredRoot.destroy();
+mgr.init(host);
+assert.notStrictEqual(mgr.audioRoot, retiredRoot);
+assert.equal(mgr.bgmSrc.playCount, 1);
+assert.equal(mgr.sfxSources.length, 8);
+assert.ok(mgr.sfxSources.every(source => source.node === mgr.audioRoot));
+assert.equal(mgr.audioRoot.listeners.get(MockAudioSource.EventType.ENDED).length, 1);
+const channelLimit = MockAudioSource.maxAudioChannel;
+MockAudioSource.maxAudioChannel = 6;
+const small = new AudioMgr(); small.init(host);
+const smallMusic = small.bgmSrc;
+assert.equal(small.sfxSources.length, 4);
+small.init(host);
+assert.strictEqual(small.bgmSrc, smallMusic, 'platform with fewer than 8 channels initializes idempotently');
+MockAudioSource.maxAudioChannel = channelLimit;
+
+// The narrator switch owns only speech. Ordinary SFX, music and vibration stay independent.
+const independent = new AudioMgr();
+independent.init(host);
+independent.setSfxEnabled(true);
+independent.setVoiceEnabled(true);
+independent.sfxClips.set('judgmentGreat', {});
+independent.sfxClips.set('button', {});
+independent.bgmSrc.playing = true;
+independent.playVoice('judgmentGreat', 'judgment');
+const narration = independent.guideVoiceSource;
+assert.ok(narration?.playing);
+independent.play('button');
+independent.setSfxEnabled(false);
+assert.equal(narration.playing, true, 'SFX switch must leave narration playing');
+assert.equal(independent.canPlayVoice(), true);
+assert.equal(independent.busySfxSources.size, 0);
+independent.stopVoice();
+independent.playVoice('judgmentGreat', 'judgment');
+assert.ok(independent.guideVoiceSource?.playing, 'speech can start with SFX disabled');
+independent.setSfxEnabled(true);
+independent.play('button');
+const effectSource = [...independent.busySfxSources][0];
+independent.setVoiceEnabled(false);
+assert.equal(storage.get('pdd.setting.voice'), '0');
+assert.equal(independent.guideVoiceSource, null);
+assert.ok(effectSource.playing, 'voice switch must leave ordinary effects playing');
+assert.ok(independent.bgmSrc.playing, 'voice switch must leave music playing');
+assert.equal(new AudioMgr().isVoiceEnabled(), false, 'voice mute survives reopening');
+independent.setSfxEnabled(false);
+independent.setSfxEnabled(true);
+assert.equal(independent.canPlayVoice(), false, 'SFX changes must not re-enable speech');
+independent.setVoiceEnabled(true);
+assert.equal(independent.guideVoiceSource, null, 'enabling speech must not replay interrupted speech');
+assert.equal(new AudioMgr().isVoiceEnabled(), true);
+independent.stopSfx();
+
+storage.delete('pdd.setting.voice');
+storage.set('pdd.setting.sfx', '0');
+const legacyMuted = new AudioMgr();
+assert.equal(legacyMuted.isVoiceEnabled(), false, 'existing muted users remain silent during migration');
+assert.equal(storage.get('pdd.setting.voice'), '0', 'migration saves an independent preference');
+legacyMuted.setSfxEnabled(true);
+assert.equal(new AudioMgr().isVoiceEnabled(), false, 'migration is not repeated after the user changes SFX');
+storage.delete('pdd.setting.voice');
+storage.delete('pdd.setting.sfx');
+assert.equal(new AudioMgr().isVoiceEnabled(), true, 'new users have speech enabled by default');
 console.log('audio-settings-mute.test.js passed');

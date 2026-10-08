@@ -43,7 +43,7 @@ if(apply){
     const before=remote('level_live.json');
     assert.equal(before.dataVersion,baseline.dataVersion,'Online changed after backup; refusing to overwrite');
     assert.deepEqual(before.packs,baseline.packs,'Online packs changed after backup');
-    const upload=(local,remotePath)=>cp.execFileSync(process.env.PDD_OSSUTIL_BIN||'ossutil',['cp','--acl','public-read','--force','--endpoint','https://oss-cn-beijing.aliyuncs.com',local,'oss://game-pdd-v2/'+target.levelDataOssPath+remotePath],{stdio:'inherit'});
+    const upload=(local,remotePath)=>cp.execFileSync(process.env.PDD_OSSUTIL_BIN||'ossutil',['cp','--acl','public-read','--force','--endpoint','https://oss-cn-beijing.aliyuncs.com',local,'oss://game-pdd-v4/'+target.levelDataOssPath+remotePath],{stdio:'inherit'});
     upload(path.join(out,url),url);
     const readPack=remote(url);delete readPack.dataVersion;
     assert.equal(crypto.createHash('sha256').update(JSON.stringify(readPack)).digest('hex'),hash,'Uploaded pack checksum mismatch');

@@ -29,10 +29,10 @@ const EXPECTED_DEFAULT_SOURCE_FRAME_COUNT = 144;
 const EXPECTED_DEFAULT_SOURCE_BYTES = 862339;
 const EXPECTED_DEFAULT_SOURCE_BUNDLE_SHA256 = '01f55cb9c82cb2ff5c991f039fb1edb0c6c9d0b486c9d22120a1d8abb7b2d86e';
 const NEW_SKINS = [
-    { sourceSkinId: 2001, id: 2001, key: 'bean_skin_02', directory: 'skin_02', previewColorId: 4 },
-    { sourceSkinId: 2002, id: 2002, key: 'bean_skin_03', directory: 'skin_03', previewColorId: 6 },
-    { sourceSkinId: 2003, id: 2003, key: 'bean_skin_04', directory: 'skin_04', previewColorId: 9 },
-    { sourceSkinId: 2004, id: 2004, key: 'bean_skin_05', directory: 'skin_05', previewColorId: 13 },
+    { sourceSkinId: 2001, id: 2001, key: 'bean_skin_02', directory: 'skin_02', previewColorId: 4, sort: 5, unlockValue: 117 },
+    { sourceSkinId: 2002, id: 2002, key: 'bean_skin_03', directory: 'skin_03', previewColorId: 6, sort: 3, unlockValue: 45 },
+    { sourceSkinId: 2003, id: 2003, key: 'bean_skin_04', directory: 'skin_04', previewColorId: 9, sort: 4, unlockValue: 81 },
+    { sourceSkinId: 2004, id: 2004, key: 'bean_skin_05', directory: 'skin_05', previewColorId: 13, sort: 2, unlockValue: 9 },
 ];
 const NEW_SKIN_COLOR_IDS_TO_DEFAULT = new Set([15, 16, 18]);
 const DEFAULT_COLOR_ID_TO_NEW_SKINS = 10;
@@ -553,10 +553,10 @@ const catalog = {
             unlockValue: 0,
             enabled: true,
         },
-        ...NEW_SKINS.map((skin, index) => ({
+        ...NEW_SKINS.map((skin) => ({
             id: skin.id,
             key: skin.key,
-            sort: index + 2,
+            sort: skin.sort,
             isDefault: false,
             resourceMode: 'game_assets_atlas',
             atlasDataKey: `BeanSkins/${skin.directory}/bean-atlas-data`,
@@ -564,7 +564,7 @@ const catalog = {
             iconKey: `BeanSkins/icons/${skin.key}`,
             previewColorId: skin.previewColorId,
             unlockType: 'chapter',
-            unlockValue: (index * 4 + 1) * 9,
+            unlockValue: skin.unlockValue,
             enabled: true,
         })),
     ],

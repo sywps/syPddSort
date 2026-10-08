@@ -109,7 +109,7 @@ const irisMaskNode = appTransitionPrefabJson.find((entry) => entry?.__type__ ===
 const contentNode = appTransitionPrefabJson[irisMaskNode?._children?.[0]?.__id__];
 assert.equal(contentNode?._name, 'Content', 'the circular mask must own one fixed-size themed content root');
 const contentChildNames = contentNode._children.map((ref) => appTransitionPrefabJson[ref.__id__]?._name);
-assert.deepStrictEqual(contentChildNames, ['Background', 'Illustration', 'Tip'], 'themed content must stay fully prefab-owned');
+assert.deepStrictEqual(contentChildNames, ['Background', 'Pattern', 'Illustration', 'Tip'], 'themed content must stay fully prefab-owned');
 const irisMask = irisMaskNode._components
     .map((ref) => appTransitionPrefabJson[ref.__id__])
     .find((component) => component?.__type__ === 'cc.Mask');
@@ -120,13 +120,14 @@ const spriteFrameFor = (nodeName) => {
         .map((ref) => appTransitionPrefabJson[ref.__id__])
         .find((component) => component?.__type__ === 'cc.Sprite')?._spriteFrame?.__uuid__;
 };
-assert.equal(spriteFrameFor('Background'), '8e8f0bea-1f21-4ca8-bc0f-e2ba4cd62432@f9941', 'transition must use the imported bright island-blue background with broad flowing tonal bands');
+assert.equal(spriteFrameFor('Background'), '7f48c11a-adff-4f6e-bd5d-8e97122d0b2e@f9941', 'transition uses a solid tinted base');
+assert.equal(spriteFrameFor('Pattern'), 'a127c7dd-39ec-4eb4-ab3d-d76dcc713970@f9941', 'transition uses approved star tile');
 assert.equal(spriteFrameFor('Illustration'), '123c4ced-f82b-4826-9499-1d90c53d8478@f9941', 'transition must reuse revive_timeout_illustration');
 const illustrationNode = appTransitionPrefabJson.find((entry) => entry?.__type__ === 'cc.Node' && entry._name === 'Illustration');
 const illustrationSize = illustrationNode?._components
     .map((ref) => appTransitionPrefabJson[ref.__id__])
     .find((component) => component?.__type__ === 'cc.UITransform')?._contentSize;
-assert.deepStrictEqual([illustrationSize?.width, illustrationSize?.height], [500, 452], 'revive illustration must preserve its trimmed sprite aspect');
+assert.deepStrictEqual([illustrationSize?.width, illustrationSize?.height], [500, 353.125], 'revive illustration preserves the full 640x452 image aspect');
 const tipNode = appTransitionPrefabJson.find((entry) => entry?.__type__ === 'cc.Node' && entry._name === 'Tip');
 const tipLabel = tipNode?._components
     .map((ref) => appTransitionPrefabJson[ref.__id__])

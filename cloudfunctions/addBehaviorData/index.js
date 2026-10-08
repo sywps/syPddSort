@@ -100,9 +100,16 @@ function isCollectionMissing(error) {
   return /collection/i.test(message) && /(not exist|does not exist|不存在)/i.test(message);
 }
 
+// Requires a unique index on user_profile.openid in the deployed database.
+function isDuplicateProfileError(error) {
+  const message = String(error?.message || error?.errMsg || '');
+  return Number(error?.code) === 11000 || /\bE11000\b|duplicate key/i.test(message);
+}
+
 async function findUserProfile(openid) {
   try {
-    const res = await db.collection(USER_PROFILE_COLLECTION).where({ openid }).limit(1).get();
+    const res = await db.collection(USER_PROFILE_COLLECTION).where({ openid }).limit(2).get();
+    if (res.data?.length > 1) throw new Error('duplicate user profiles; repair required');
     return Array.isArray(res.data) && res.data.length > 0 ? res.data[0] : null;
   } catch (error) {
     if (isCollectionMissing(error)) {
@@ -114,24 +121,30 @@ async function findUserProfile(openid) {
 
 async function touchUserProfile(openid, timestamp, eventName) {
   const collection = db.collection(USER_PROFILE_COLLECTION);
-  const current = await findUserProfile(openid);
+  let current = await findUserProfile(openid);
 
   if (!current) {
-    await collection.add({
-      data: {
-        openid,
-        channel: '',
-        device: '',
-        system: '',
-        firstLoginTime: timestamp,
-        lastLoginTime: timestamp,
-        totalPlayTimes: eventName === 'game_start' ? 1 : 0,
-        isPay: false,
-        createTime: timestamp,
-        ...buildInventoryFields(),
-      },
-    });
-    return;
+    try {
+      await collection.add({
+        data: {
+          openid,
+          channel: '',
+          device: '',
+          system: '',
+          firstLoginTime: timestamp,
+          lastLoginTime: timestamp,
+          totalPlayTimes: eventName === 'game_start' ? 1 : 0,
+          isPay: false,
+          createTime: timestamp,
+          ...buildInventoryFields(),
+        },
+      });
+      return;
+    } catch (error) {
+      if (!isDuplicateProfileError(error)) throw error;
+      current = await findUserProfile(openid);
+      if (!current) throw error;
+    }
   }
 
   const patch = {

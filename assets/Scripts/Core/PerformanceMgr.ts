@@ -28,6 +28,7 @@ export class PerformanceMgr {
     private _currentFps = 0;
     private _activeFpsTimer: ReturnType<typeof setTimeout> | null = null;
     private _activeFpsDeadlineAt = 0;
+    private _pendingActiveHoldMs = 0;
 
     private constructor() {}
 
@@ -48,6 +49,7 @@ export class PerformanceMgr {
 
     markUserActivity(holdMs: number = ACTIVE_HOLD_MS): void {
         if (this._hidden) {
+            this._pendingActiveHoldMs = Math.max(this._pendingActiveHoldMs, holdMs);
             return;
         }
         this.applyFrameRate(ACTIVE_FPS);
@@ -69,6 +71,7 @@ export class PerformanceMgr {
 
     private handleHide(): void {
         this._hidden = true;
+        this._pendingActiveHoldMs = 0;
         this.clearActiveFrameRateTimer();
         AudioMgr.inst.suspendForBackground();
         this.applyFrameRate(BACKGROUND_FPS);
@@ -84,11 +87,14 @@ export class PerformanceMgr {
         if (this._renderScaleApplied) {
             this.applyRenderScale();
         }
-        this.applyFrameRate(IDLE_FPS);
+        // Ad completion can arrive before, during, or after EVENT_SHOW.
+        const holdMs = Math.max(ACTIVE_HOLD_MS, this._pendingActiveHoldMs);
+        this._pendingActiveHoldMs = 0;
+        this.markUserActivity(holdMs);
     }
 
     private scheduleIdleFrameRate(holdMs: number): void {
-        this._activeFpsDeadlineAt = Date.now() + Math.max(0, holdMs);
+        this._activeFpsDeadlineAt = Math.max(this._activeFpsDeadlineAt, Date.now() + Math.max(0, holdMs));
         if (this._activeFpsTimer) return;
         this.armIdleFrameRateTimer(Math.max(0, holdMs));
     }

@@ -39,8 +39,8 @@ assert.ok(wandDump.includes('.delay(i * STAGGER)'), 'wand slot returns must keep
 assert.ok(/\.to\(FLY_DURATION, \{[\s\S]*?position:[\s\S]*?scale:[\s\S]*?\}, \{ easing: 'sineOut' \}\)/.test(wandDump), 'wand slot returns must move and scale in one sineOut flight');
 assert.ok(!wandDump.includes("{ easing: 'circOut' }"), 'wand slot returns must not retain the old circOut travel');
 
-assert.ok(pch.includes('const PCH_RETURN_TRANSFER_SECONDS = 0.2;'), 'PCH automatic returns must use the approved 0.20-second flight');
-assert.ok(pch.includes('const PCH_RETURN_STAGGER_SECONDS = 0.11;'), 'PCH automatic returns must use the approved 0.11-second launch cadence');
+assert.ok(pch.includes('const PCH_RETURN_TRANSFER_SECONDS = 0.5;'), 'PCH automatic returns must use the approved 0.50-second flight');
+assert.ok(pch.includes('const PCH_RETURN_STAGGER_SECONDS = 0.07;'), 'PCH automatic returns must use the approved 0.07-second launch cadence');
 assert.ok(pch.includes('const PCH_RETURN_COMPLETE_DELAY_SECONDS = 0.01;'), 'PCH automatic returns must keep the package 0.01-second completion delay');
 assert.ok(pch.includes('const PCH_RETURN_SETTLE_FX_DURATION_SECONDS = 0.7;'), 'PCH final win must wait for the visible a1 settle feedback');
 assert.ok(pch.includes('const PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS = Math.max('), 'PCH color completion must wait only for the triggering bean a1 remainder');
@@ -81,7 +81,7 @@ assert.ok(pchReturn.includes('const flightDelay = staggerIndex * PCH_RETURN_STAG
 assert.ok(pchReturn.includes('this.attachSphereFlyEffect(bean, sourceBeanSize, flightDelay);'), 'PCH automatic returns must attach the pooled Star/Trail effect with the same launch delay');
 assert.ok(pchReturn.includes('.delay(flightDelay)'), 'PCH automatic returns must apply the indexed launch delay');
 assert.ok(!pchReturn.includes('.parallel('), 'PCH automatic returns must move and scale directly without a parallel rotation tween');
-assert.ok(/\.to\(PCH_RETURN_TRANSFER_SECONDS, \{[\s\S]*?position: targetLocal,[\s\S]*?scale: new Vec3\(targetScale, targetScale, 1\),[\s\S]*?\}, \{ easing: 'quadOut' \}\)/.test(pchReturn), 'PCH automatic return position and scale must use package-equivalent OutQuad easing');
+assert.ok(pchReturn.includes('const progress = 1 - (1 - ratio) * (1 - ratio);'), 'automatic return must preserve manual quadOut while tracking moving targets');
 assert.ok(!pchReturn.includes('eulerAngles:'), 'PCH automatic returns must not rotate while flying');
 assert.ok(!pchReturn.includes('playReturnTargetPulse'), 'PCH automatic returns must not play the local 230ms landing pulse');
 const hideIndex = pchReturn.indexOf('bean.active = false;');
@@ -93,7 +93,7 @@ const completeReturnIndex = pchReturn.indexOf('const completeReturn = () => {');
 const destroyIndex = pchReturn.indexOf('this.destroyFlyBean(bean);', completeReturnIndex);
 const finishIndex = pchReturn.indexOf('this.finishReturnAnimation(target, colorBatch);', destroyIndex);
 const completionScheduleIndex = pchReturn.indexOf('this.runtime.scheduleOnce(completeReturn, PCH_RETURN_COMPLETE_DELAY_SECONDS);');
-assert.ok(pchReturn.indexOf('.delay(flightDelay)') < audioIndex && vibrateIndex < pchReturn.indexOf('.to(PCH_RETURN_TRANSFER_SECONDS'), 'each bean must emit feedback after its stagger delay and before movement');
+assert.ok(pchReturn.indexOf('.delay(flightDelay)') < audioIndex && audioIndex < pchReturn.indexOf('.to(PCH_RETURN_TRANSFER_SECONDS'), 'each bean must emit feedback after its stagger delay and before movement');
 assert.ok(
     completeReturnIndex >= 0
         && completeReturnIndex < destroyIndex
@@ -101,9 +101,10 @@ assert.ok(
         && finishIndex < hideIndex
         && audioIndex < hideIndex
         && audioIndex < vibrateIndex
-        && vibrateIndex < renderIndex
+        && renderIndex < vibrateIndex
         && renderIndex < settleIndex
-        && settleIndex < completionScheduleIndex,
+        && settleIndex < vibrateIndex
+        && vibrateIndex < completionScheduleIndex,
     'PCH launch must play feedback before arrival visuals and delayed completion',
 );
 assert.strictEqual((pchReturn.match(/AudioMgr\.inst\.play\('settle'\);/g) || []).length, 1, 'each individual PCH return must use the dedicated settlement cue once');
@@ -126,7 +127,7 @@ assert.ok(colorFx.includes('playColorCompleteMatchFxForColor(colorId: number, on
 assert.ok(colorFx.includes('this.playPinddSpineFxOnBeansSameFrame('), 'all beans of a completed color must start b1 in the same frame');
 
 const pchSkill = section(pch, '    private runConveyorSkill(', '    private resolveSkillSourceVisual(');
-assert.ok(pchSkill.includes('.delay(index * PCH_SKILL_STAGGER_SECONDS)'), 'PCH prop returns must use fixed indexed launch timing');
+assert.ok(pchSkill.includes(".delay(index * (kind === 'magnet' ? PCH_SKILL_STAGGER_SECONDS : PCH_CLEAR_RETURN_STAGGER_SECONDS))"), 'PCH prop returns must use fixed indexed launch timing');
 assert.ok(/\.to\(PCH_SKILL_TRANSFER_SECONDS, \{[\s\S]*?position:[\s\S]*?scale:[\s\S]*?\}, \{ easing: 'sineOut' \}\)/.test(pchSkill), 'PCH prop returns must move and scale in one sineOut flight');
 assert.ok(pchSkill.includes("AudioMgr.inst.play('settle');"), 'PCH prop landings must use the dedicated settlement cue');
 assert.ok(!pchSkill.includes('skillStaggerSeconds'), 'PCH prop returns must not compress large batches');

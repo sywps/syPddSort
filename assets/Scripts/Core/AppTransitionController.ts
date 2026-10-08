@@ -18,7 +18,10 @@ const APP_TRANSITION_LAYER = 1 << 28;
 const COVER_DURATION = 0.32;
 const REVEAL_DURATION = 0.34;
 const IRIS_OVERSCAN = 2;
-const BACKGROUND_ASPECT = 960 / 1280;
+// Match the approved 150px tile / 10px per second at a 390px preview width.
+const PATTERN_TILE_SIZE = 150 * 720 / 390;
+const PATTERN_SPEED = 10 * 720 / 390;
+const PATTERN_SCALE = PATTERN_TILE_SIZE / 256;
 
 type AppTransitionState = 'idle' | 'covering' | 'covered' | 'revealing';
 type AppTransitionDirection = 'forward' | 'reverse';
@@ -43,6 +46,8 @@ export class AppTransitionController extends Component {
     private irisMask!: UITransform;
     private content!: UITransform;
     private background!: UITransform;
+    private pattern!: UITransform;
+    private patternOffset = 0;
     private blocker!: BlockInputEvents;
     private state: AppTransitionState = 'idle';
     private progress = 0;
@@ -59,12 +64,14 @@ export class AppTransitionController extends Component {
         const irisMask = irisMaskNode?.getComponent(UITransform);
         const content = contentNode?.getComponent(UITransform);
         const background = backgroundNode?.getComponent(UITransform);
-        if (!canvas || !camera || !irisMaskNode?.getComponent(Mask) || !irisMask || !content || !background) {
-            throw new Error('[AppTransition] prefab is missing Canvas, Camera, IrisMask, Content or Background');
+        const pattern = contentNode?.getChildByName('Pattern')?.getComponent(UITransform);
+        if (!canvas || !camera || !irisMaskNode?.getComponent(Mask) || !irisMask || !content || !background || !pattern) {
+            throw new Error('[AppTransition] prefab is missing Canvas, Camera, IrisMask, Content, Background or Pattern');
         }
         this.irisMask = irisMask;
         this.content = content;
         this.background = background;
+        this.pattern = pattern;
         this.blocker = this.node.getComponent(BlockInputEvents) || this.node.addComponent(BlockInputEvents);
         camera.visibility = APP_TRANSITION_LAYER;
         camera.priority = 110;
@@ -145,6 +152,8 @@ export class AppTransitionController extends Component {
 
     update(dt: number): void {
         if (!this.transaction) return;
+        this.patternOffset = (this.patternOffset + Math.max(0, dt) * PATTERN_SPEED) % PATTERN_TILE_SIZE;
+        this.pattern.node.setPosition(this.patternOffset, -this.patternOffset, 0);
         if (this.state === 'covering') {
             this.progress = Math.min(1, this.progress + Math.max(0, dt) / COVER_DURATION);
             this.render();
@@ -215,8 +224,13 @@ export class AppTransitionController extends Component {
         const size = view.getVisibleSize();
         this.node.getComponent(UITransform)?.setContentSize(size.width, size.height);
         this.content?.setContentSize(size.width, size.height);
-        const backgroundWidth = Math.max(size.width, size.height * BACKGROUND_ASPECT);
-        this.background?.setContentSize(backgroundWidth, backgroundWidth / BACKGROUND_ASPECT);
+        this.background?.setContentSize(size.width, size.height);
+        // Whole tiles plus one on each edge keep wrapping seamless, including tall screens.
+        this.pattern?.setContentSize(
+            (Math.ceil(size.width / PATTERN_TILE_SIZE) + 2) * 256,
+            (Math.ceil(size.height / PATTERN_TILE_SIZE) + 2) * 256,
+        );
+        this.pattern?.node.setScale(PATTERN_SCALE, PATTERN_SCALE, 1);
         if (this.node.active) this.render();
     }
 

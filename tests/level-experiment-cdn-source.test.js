@@ -15,9 +15,9 @@ const stableDir = path.join(root, stableRelDir);
 const expectedOverrideLevelIds = [2, 3, 4, 5, 6, 7, 8, 9];
 const expectedTutorialContracts = {};
 const expectedCdnUrl =
-    'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat_b/0722_levels/front10_v1/treatment/';
+    'https://game-pdd-v4.oss-cn-beijing.aliyuncs.com/syGame/pdd_v4/remote_wechat_b/0722_levels/front10_v1/treatment/';
 const expectedOssPath =
-    'syGame/pdd_v2/remote_wechat_b/0722_levels/front10_v1/treatment/';
+    'syGame/pdd_v4/remote_wechat_b/0722_levels/front10_v1/treatment/';
 
 function read(relPath) {
     return fs.readFileSync(path.join(root, relPath), 'utf8');
@@ -194,7 +194,7 @@ try {
     assert.strictEqual(dryRun.status, 0, dryRunOutput);
     assert.match(dryRunOutput, /Dry-run 校验完成，未上传/);
     assert.ok(dryRunOutput.includes(`CDN URL: ${expectedCdnUrl}`));
-    assert.ok(dryRunOutput.includes(`OSS 路径: oss://game-pdd-v2/${expectedOssPath}`));
+    assert.ok(dryRunOutput.includes(`OSS 路径: oss://game-pdd-v4/${expectedOssPath}`));
 
     const manifest = JSON.parse(fs.readFileSync(path.join(outputDir, 'level_live.json'), 'utf8'));
     assert.strictEqual(manifest.cdnSlot, undefined, 'experiment artifacts must ignore an inherited stable A/B slot');

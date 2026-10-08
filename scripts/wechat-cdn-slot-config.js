@@ -1,7 +1,7 @@
 'use strict';
 
-const CDN_ORIGIN = 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com';
-const OSS_ROOT = 'syGame/pdd_v2';
+const CDN_ORIGIN = 'https://game-pdd-v4.oss-cn-beijing.aliyuncs.com';
+const OSS_ROOT = 'syGame/pdd_v4';
 const SLOT_REMOTE_DIRS = Object.freeze({
     A: 'remote_wechat',
     B: 'remote_wechat_b',

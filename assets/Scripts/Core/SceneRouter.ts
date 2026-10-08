@@ -9,6 +9,7 @@ import {
 import { debugPerfTrace } from './DebugPerfTrace';
 import { runtimeLog } from './RuntimeLog';
 import { markStartupTrace } from './StartupTrace';
+import { AudioMgr } from './AudioMgr';
 
 function isSceneTraceEnabled(): boolean {
     try {
@@ -283,6 +284,7 @@ export class SceneRouter {
             return;
         }
         this._transitioning = true;
+        AudioMgr.inst.stopVoice();
         this._transitionTargetSceneName = sceneName;
         const startedAt = Date.now();
         debugPerfTrace('scene.load.start', {

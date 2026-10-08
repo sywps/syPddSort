@@ -32,6 +32,9 @@ const RAINBOW_CONVEYOR_ROUNDED_CORNERS = {
 };
 exports.RAINBOW_CONVEYOR_CORNER_RADIUS = 40;
 const PATH_EPSILON = 1e-6;
+const SMOOTH_CORNER_TRIM = 48;
+const TURN_RAMP_FRACTION = 0.15;
+const TURN_SAMPLES = 256;
 function pointDistance(a, b) {
     return Math.hypot(b.x - a.x, b.y - a.y);
 }
@@ -89,13 +92,56 @@ function createRoundedCorner(points, index, radius, rounded) {
         },
     };
 }
-function createRoundedConveyorPath(tableType = 2, scale = 1) {
+// Integrate a heading whose curvature ramps up/down at the straight joins.
+// Sampling is by accumulated distance, not by curve parameter or a time tween.
+function smoothCorner(corner) {
+    const arc = corner.arc;
+    if (!arc || arc.kind !== 'arc')
+        return corner;
+    const startAngle = arc.startAngle + Math.sign(arc.sweepAngle) * Math.PI / 2;
+    const heading = (t) => {
+        const ramp = TURN_RAMP_FRACTION;
+        const fraction = t < ramp ? t * t / (2 * ramp * (1 - ramp))
+            : t > 1 - ramp ? 1 - (1 - t) ** 2 / (2 * ramp * (1 - ramp))
+                : (t - ramp / 2) / (1 - ramp);
+        return startAngle + arc.sweepAngle * fraction;
+    };
+    const integrated = [{ x: 0, y: 0, angle: startAngle }];
+    for (let i = 1; i <= TURN_SAMPLES; i++) {
+        const previous = integrated[i - 1];
+        const angle = heading(i / TURN_SAMPLES);
+        integrated.push({
+            x: previous.x + (Math.cos(previous.angle) + Math.cos(angle)) / (2 * TURN_SAMPLES),
+            y: previous.y + (Math.sin(previous.angle) + Math.sin(angle)) / (2 * TURN_SAMPLES),
+            angle,
+        });
+    }
+    const end = integrated[TURN_SAMPLES];
+    const scale = pointDistance(corner.entry, corner.exit) / Math.hypot(end.x, end.y);
+    let length = 0;
+    const samples = integrated.map((point, index) => {
+        const position = index === TURN_SAMPLES ? corner.exit : {
+            x: corner.entry.x + point.x * scale,
+            y: corner.entry.y + point.y * scale,
+        };
+        if (index > 0)
+            length += Math.hypot(point.x - integrated[index - 1].x, point.y - integrated[index - 1].y) * scale;
+        return { ...position, distance: length, angle: point.angle };
+    });
+    return { entry: corner.entry, exit: corner.exit, arc: { kind: 'smooth', length, samples } };
+}
+function buildConveyorPath(tableType = 2, scale = 1, smoothTrimBeforeExit = 0, smoothTrimAfterExit = smoothTrimBeforeExit) {
     if (!Number.isFinite(scale) || scale <= 0)
         throw new Error('invalid conveyor path scale');
     const points = exports.RAINBOW_CONVEYOR_PATHS[tableType]
         .map(([x, y]) => ({ x: x * scale, y: y * scale }));
     const roundedCorners = RAINBOW_CONVEYOR_ROUNDED_CORNERS[tableType];
-    const corners = points.map((_, index) => createRoundedCorner(points, index, exports.RAINBOW_CONVEYOR_CORNER_RADIUS * scale, roundedCorners.has(index)));
+    const corners = points.map((_, index) => {
+        const trim = index < exports.RAINBOW_CONVEYOR_EXIT_POINT_INDEX[tableType]
+            ? smoothTrimBeforeExit : smoothTrimAfterExit;
+        const corner = createRoundedCorner(points, index, (trim || exports.RAINBOW_CONVEYOR_CORNER_RADIUS) * scale, roundedCorners.has(index));
+        return trim ? smoothCorner(corner) : corner;
+    });
     const segments = [];
     const waypointDistances = new Array(points.length).fill(0);
     let totalLength = 0;
@@ -127,6 +173,29 @@ function createRoundedConveyorPath(tableType = 2, scale = 1) {
         throw new Error(`invalid conveyor path for table type ${tableType}`);
     return { segments, totalLength, waypointDistances };
 }
+function createRoundedConveyorPath(tableType = 2, scale = 1) {
+    // Only table 2 is used by the active layout; leave the retired table 3 unchanged.
+    if (tableType !== 2)
+        return buildConveyorPath(tableType, scale);
+    const legacy = buildConveyorPath(tableType, scale);
+    const exitIndex = exports.RAINBOW_CONVEYOR_EXIT_POINT_INDEX[tableType];
+    const exitProgress = legacy.waypointDistances[exitIndex] / legacy.totalLength;
+    const base = buildConveyorPath(tableType, scale, SMOOTH_CORNER_TRIM);
+    const probe = buildConveyorPath(tableType, scale, SMOOTH_CORNER_TRIM, SMOOTH_CORNER_TRIM + 1);
+    // Corner lengths vary linearly with trim here. Balance the return side so
+    // old replay exit crossings stay identical while the entire path is uniform-speed.
+    const wantedLength = base.waypointDistances[exitIndex] / exitProgress;
+    const afterTrim = SMOOTH_CORNER_TRIM + (wantedLength - base.totalLength)
+        / (probe.totalLength - base.totalLength);
+    if (!Number.isFinite(afterTrim) || afterTrim < 40 || afterTrim > 72) {
+        throw new Error('smooth conveyor trim cannot preserve replay exit');
+    }
+    const result = buildConveyorPath(tableType, scale, SMOOTH_CORNER_TRIM, afterTrim);
+    if (Math.abs(result.waypointDistances[exitIndex] / result.totalLength - exitProgress) > 1e-12) {
+        throw new Error('smooth conveyor replay exit mismatch');
+    }
+    return result;
+}
 function sampleRoundedConveyorPath(path, progress, outPosition) {
     const wrappedProgress = ((progress % 1) + 1) % 1;
     const distance = wrappedProgress * path.totalLength;
@@ -141,6 +210,24 @@ function sampleRoundedConveyorPath(path, progress, outPosition) {
             outPosition.y = segment.start.y + (segment.end.y - segment.start.y) * ratio;
             return segment.angle * 180 / Math.PI;
         }
+        if (segment.kind === 'smooth') {
+            const target = ratio * segment.length;
+            let low = 0;
+            let high = segment.samples.length - 1;
+            while (high - low > 1) {
+                const middle = (low + high) >>> 1;
+                if (segment.samples[middle].distance <= target)
+                    low = middle;
+                else
+                    high = middle;
+            }
+            const a = segment.samples[low];
+            const b = segment.samples[high];
+            const mix = (target - a.distance) / (b.distance - a.distance);
+            outPosition.x = a.x + (b.x - a.x) * mix;
+            outPosition.y = a.y + (b.y - a.y) * mix;
+            return (a.angle + (b.angle - a.angle) * mix) * 180 / Math.PI;
+        }
         const angle = segment.startAngle + segment.sweepAngle * ratio;
         outPosition.x = segment.center.x + Math.cos(angle) * segment.radius;
         outPosition.y = segment.center.y + Math.sin(angle) * segment.radius;
@@ -150,6 +237,7 @@ function sampleRoundedConveyorPath(path, progress, outPosition) {
     throw new Error('failed to sample conveyor path');
 }
 function conveyorExitProgress(tableType = 2) {
-    const path = createRoundedConveyorPath(tableType);
+    // This is a replay protocol boundary. Do not change historical gate timing.
+    const path = buildConveyorPath(tableType);
     return path.waypointDistances[exports.RAINBOW_CONVEYOR_EXIT_POINT_INDEX[tableType]] / path.totalLength;
 }

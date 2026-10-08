@@ -2,11 +2,15 @@
 
 const fs = require("fs");
 const path = require("path");
+const { StringDecoder } = require('node:string_decoder');
 const CloudBase = require("@cloudbase/manager-node");
+const { REPORT_MODES, reportGameplayMode } = require('./report-gameplay-mode');
 const { buildFirstLevelExperimentReport } = require('./first-level-experiment-report');
 const { buildBeanSelectionExperimentReport } = require('./bean-selection-experiment-report');
 const { buildThirdLevelExperimentReport } = require('./third-level-experiment-report');
 const { buildAnalyticsV2Report, renderAnalyticsV2, compatibleFunnelRecords } = require('./analytics-v2-report');
+const DailyReportQuality = require('./daily-report-quality');
+const { buildReportContext } = require('./daily-report-context');
 
 const DEFAULT_COLLECTION = "user_behavior";
 const DEFAULT_DAILY_COLLECTIONS = [
@@ -763,17 +767,35 @@ function writeCsv(filePath, headers, rows) {
 }
 
 function loadNdjsonRecords(inputPath) {
-  const raw = fs.readFileSync(inputPath, "utf8");
-  return raw
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((line) => {
-      try {
-        return JSON.parse(line);
-      } catch (error) {
-        throw new Error(`Failed to parse NDJSON line in ${inputPath}: ${error.message}`);
+  // A day's export can exceed V8's maximum string length. Decode bounded
+  // chunks while preserving UTF-8 characters and rows across read boundaries.
+  const records = [];
+  const decoder = new StringDecoder('utf8');
+  const buffer = Buffer.alloc(1024 * 1024);
+  const fd = fs.openSync(inputPath, 'r');
+  let pending = '', lineNumber = 0;
+  const parseLine = line => {
+    lineNumber++;
+    if (line.endsWith('\r')) line = line.slice(0, -1);
+    if (!line) return;
+    try { records.push(JSON.parse(line)); }
+    catch { throw new Error(`Failed to parse NDJSON line ${lineNumber} in ${inputPath}`); }
+  };
+  try {
+    let bytes;
+    while ((bytes = fs.readSync(fd, buffer, 0, buffer.length, null)) > 0) {
+      const text = pending + decoder.write(buffer.subarray(0, bytes));
+      let start = 0, end;
+      while ((end = text.indexOf('\n', start)) !== -1) {
+        parseLine(text.slice(start, end));
+        start = end + 1;
       }
-    });
+      pending = text.slice(start);
+    }
+    pending += decoder.end();
+    if (pending) parseLine(pending);
+  } finally { fs.closeSync(fd); }
+  return records;
 }
 
 function sortObjectByValueDesc(map) {
@@ -817,6 +839,7 @@ function clampNumber(value, min, max) {
 }
 
 function percentText(value) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '无样本／未知';
   return `${(numberValue(value) * 100).toFixed(1)}%`;
 }
 
@@ -1555,8 +1578,9 @@ function analyzeUserBehaviorFile({
   dateLabel,
   collection,
   envId,
+  records: suppliedRecords,
 }) {
-  const records = loadNdjsonRecords(inputPath);
+  const records = suppliedRecords ?? loadNdjsonRecords(inputPath);
   const eventCounts = new Map();
   const pageCounts = new Map();
   const enterPv = new Map();
@@ -1822,8 +1846,9 @@ function analyzeLevelRecordFile({
   dateLabel,
   collection,
   envId,
+  records: suppliedRecords,
 }) {
-  const records = loadNdjsonRecords(inputPath);
+  const records = suppliedRecords ?? loadNdjsonRecords(inputPath);
   const uniqueUsers = new Set();
   const passUsers = new Set();
   const adReviveUsers = new Set();
@@ -2210,8 +2235,9 @@ function analyzeFirstLevelFunnelFile({
   dateLabel,
   collection,
   envId,
+  records: suppliedRecords,
 }) {
-  const records = loadNdjsonRecords(inputPath);
+  const records = suppliedRecords ?? loadNdjsonRecords(inputPath);
   const rawTotals = summarizeFunnelRawTotals(records);
   const summary = buildFirstLevelFunnelSummary({
     records,
@@ -2286,8 +2312,9 @@ function analyzeAdStatFile({
   dateLabel,
   collection,
   envId,
+  records: suppliedRecords,
 }) {
-  const records = loadNdjsonRecords(inputPath);
+  const records = suppliedRecords ?? loadNdjsonRecords(inputPath);
   const rows = records.map((record) => {
     const showNum = Number(record.showNum) || 0;
     const clickNum = Number(record.clickNum) || 0;
@@ -2432,8 +2459,9 @@ function analyzeDailyStatFile({
   dateLabel,
   collection,
   envId,
+  records: suppliedRecords,
 }) {
-  const records = loadNdjsonRecords(inputPath);
+  const records = suppliedRecords ?? loadNdjsonRecords(inputPath);
   const nullableNumber = (value) => {
     if (value === null || value === undefined || value === '') return null;
     const number = Number(value);
@@ -2818,6 +2846,8 @@ function loadLevelStructure(levelId) {
 }
 
 function findLevelDurationMatrix(combinedSummary) {
+  // Historical matrices have no verified environment/mode attribution.
+  if (combinedSummary.reportMode) return null;
   const reportRoot = getDailyReportRoot(combinedSummary);
   const artifactsRoot = reportRoot ? path.dirname(reportRoot) : path.resolve("artifacts");
   const matrixRoot = path.join(artifactsRoot, "level-duration-matrix");
@@ -3455,6 +3485,7 @@ function getCollectionExportPath(combinedSummary, collection) {
 }
 
 function loadCollectionRecords(combinedSummary, collection) {
+  if (combinedSummary._records) return combinedSummary._records[collection] || [];
   const filePath = getCollectionExportPath(combinedSummary, collection);
   if (!filePath || !fs.existsSync(filePath)) {
     return [];
@@ -3476,10 +3507,12 @@ function loadNextDayActiveUsers(combinedSummary) {
   const summaryPath = path.join(reportRoot, nextDate, "combined_summary.json");
   if (!fs.existsSync(summaryPath)) return null;
   const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+  if (summary.envId !== combinedSummary.envId) return null;
   const behaviorPath = summary.collections?.user_behavior?.exportInfo?.localPath || "";
   if (!behaviorPath || !fs.existsSync(behaviorPath)) return null;
   const users = new Set();
   for (const record of loadNdjsonRecords(behaviorPath)) {
+    if (combinedSummary.reportMode && reportGameplayMode(record) !== combinedSummary.reportMode) continue;
     if (record.openid) users.add(record.openid);
   }
   return users;
@@ -4275,83 +4308,8 @@ function buildLevelNetValue({ combinedSummary, userBehaviorSummary, levelRecordS
   };
 }
 
-function buildRecommendations({ coreMetrics, funnelRows, guideTapBreakdown, mainlineBottlenecks, highRetryLevels, adPerformance, levelAdRelationship, levelNetValue }) {
-  const recommendations = [];
-  const firstStore = funnelRows.find((row) => row.eventName === "pch_first_store_success");
-  const firstReturn = funnelRows.find((row) => row.eventName === "pch_first_return_success");
-  const topTapMiss = guideTapBreakdown.find((row) => !String(row.key || "").endsWith("|completed"));
-
-  if (coreMetrics.l1UvPassRate < 0.3) {
-    recommendations.push({
-      priority: "P0",
-      topic: "首关漏斗通过率",
-      finding: `App启动到L1通过UV率 ${percentText(coreMetrics.l1UvPassRate)}，低于 30%。`,
-      action: "优先评审首关 PCH 引导、可点击范围、首次存入和首次归位节奏。",
-    });
-  }
-  if (firstStore && firstReturn && ratio(firstReturn.sessions, firstStore.sessions) < 0.6) {
-    recommendations.push({
-      priority: "P0",
-      topic: "PCH 首次归位",
-      finding: `前三关首次存入到首次归位转化 ${percentText(ratio(firstReturn.sessions, firstStore.sessions))}。`,
-      action: "检查传送带入口、出口归位节奏和首次操作引导是否让玩家理解等待与归位规则。",
-    });
-  }
-  if (topTapMiss) {
-    recommendations.push({
-      priority: "P1",
-      topic: "PCH 引导结果",
-      finding: `最高频引导点击结果为 ${topTapMiss.key}，PV ${topTapMiss.records}。`,
-      action: "优先复查对应关卡的引导步骤、目标判定和视觉暗示。",
-    });
-  }
-  if (mainlineBottlenecks[0]) {
-    recommendations.push({
-      priority: "P1",
-      topic: "主线卡点",
-      finding: `最大流失关卡 L${mainlineBottlenecks[0].levelId}，进入未通过UV ${mainlineBottlenecks[0].enterNotPassUv}。`,
-      action: "按该关的布局、颜色组合、槽位压力和时间配置做关卡复盘。",
-    });
-  }
-  if (highRetryLevels[0] && highRetryLevels[0].avgTryCount >= 1.2) {
-    recommendations.push({
-      priority: "P1",
-      topic: "高重试关卡",
-      finding: `L${highRetryLevels[0].levelId} 平均尝试 ${highRetryLevels[0].avgTryCount}。`,
-      action: "检查是否存在局部形状识别难、颜色混淆或槽位不足导致的重复尝试。",
-    });
-  }
-  if (adPerformance.overall.finishRate > 0 && adPerformance.overall.finishRate < 0.4) {
-    recommendations.push({
-      priority: "P2",
-      topic: "广告完成率",
-      finding: `广告完成率 ${percentText(adPerformance.overall.finishRate)}。`,
-      action: "按广告位检查触发时机、奖励承诺、加载失败和中途退出。",
-    });
-  }
-  const focusPureLoss = (levelAdRelationship || [])
-    .filter((row) => row.focus && row.enterUv >= 10)
-    .sort((a, b) => b.notPassWithoutAdFinishUv - a.notPassWithoutAdFinishUv)[0];
-  if (focusPureLoss && focusPureLoss.notPassWithoutAdFinishUv > 0) {
-    recommendations.push({
-      priority: "P1",
-      topic: "重点关卡纯流失",
-      finding: `L${focusPureLoss.levelId} 未通过且无广告完成 UV ${focusPureLoss.notPassWithoutAdFinishUv}。`,
-      action: "优先区分“难但有广告补偿”和“难且无收益流失”，对纯流失关卡降低阻力或提前给出道具/广告入口。",
-    });
-  }
-  const netRisk = (levelNetValue?.rows || [])
-    .filter((row) => row.sampleQuality !== "low_sample" && row.actionTag.includes("高压变现"))
-    .sort((a, b) => a.levelNetScore - b.levelNetScore)[0];
-  if (netRisk) {
-    recommendations.push({
-      priority: "P1",
-      topic: "关卡净价值",
-      finding: `L${netRisk.levelId} 净价值 ${netRisk.levelNetScore}，体验分 ${netRisk.userExperienceScore}，广告摩擦 ${netRisk.adFrictionScore}。`,
-      action: "优先拆分该关的结构难度、行为阻力、广告触发和广告后未通关问题，避免用用户挫败换广告完成。",
-    });
-  }
-  return recommendations;
+function buildRecommendations(input) {
+  return DailyReportQuality.recommendations(input);
 }
 
 function buildDailyDiagnosis(combinedSummary) {
@@ -4463,12 +4421,23 @@ function writeCombinedOutputs({
   dateLabel,
   envId,
   resultByCollection,
+  reportMode = null,
+  recordsByCollection = null,
 }) {
   const combinedSummary = {
     date: dateLabel,
     envId,
     collections: {},
+    ...(reportMode ? { reportMode, reportModeLabel: REPORT_MODES[reportMode], modeSchemaVersion: 1 } : {}),
   };
+  if (recordsByCollection) Object.defineProperty(combinedSummary, '_records', { value: recordsByCollection });
+  if (recordsByCollection) {
+    combinedSummary.scopedEventCounts = Object.fromEntries(Object.entries(recordsByCollection).map(([name, rows]) => {
+      const counts = {};
+      for (const row of rows) { const event = row.eventName || '(无事件名)'; counts[event] = (counts[event] || 0) + 1; }
+      return [name, counts];
+    }));
+  }
 
   for (const [collection, result] of Object.entries(resultByCollection)) {
     combinedSummary.collections[collection] = {
@@ -4487,21 +4456,28 @@ function writeCombinedOutputs({
     userBehaviorSummary: combinedSummary.collections.user_behavior?.summary || null,
     adStatSummary: combinedSummary.collections.ad_stat?.summary || null,
   });
-  combinedSummary.dailyDiagnosis = buildDailyDiagnosis(combinedSummary);
+  combinedSummary.dailyDiagnosis = DailyReportQuality.normalizeDiagnosis(buildDailyDiagnosis(combinedSummary));
   const experimentRecords = collection => {
+    if (recordsByCollection) return recordsByCollection[collection] || [];
     const file = getCollectionExportPath(combinedSummary, collection);
     return file && fs.existsSync(file) ? loadNdjsonRecords(file) : null;
   };
-  combinedSummary.analyticsV2 = buildAnalyticsV2Report({
+  const analyticsRecords = {
     behaviorRecords: experimentRecords('user_behavior'), funnelRecords: experimentRecords('first_level_funnel'),
-    levelRecords: experimentRecords('level_record') });
+    levelRecords: experimentRecords('level_record') };
+  combinedSummary.reportContext = buildReportContext(combinedSummary, {
+    user_behavior: analyticsRecords.behaviorRecords, first_level_funnel: analyticsRecords.funnelRecords,
+    level_record: analyticsRecords.levelRecords });
+  combinedSummary.analyticsV2 = buildAnalyticsV2Report({ ...analyticsRecords,
+    asOf: combinedSummary.reportContext.dataCutoff || Date.now() });
   fs.writeFileSync(path.join(rootOutputDir, 'analytics_v2.md'), renderAnalyticsV2(combinedSummary.analyticsV2));
   const nextExperimentSummaryPath = path.join(getDailyReportRoot(combinedSummary), addDays(dateLabel, 1), 'combined_summary.json');
   let nextExperimentRecords = null;
   if (Date.now() >= new Date(`${addDays(dateLabel, 2)}T00:00:00+08:00`).getTime() && fs.existsSync(nextExperimentSummaryPath)) {
     const nextSummary = JSON.parse(fs.readFileSync(nextExperimentSummaryPath, 'utf8'));
     const nextFile = getCollectionExportPath(nextSummary, 'user_behavior');
-    if (nextFile && fs.existsSync(nextFile)) nextExperimentRecords = loadNdjsonRecords(nextFile);
+    if (nextSummary.envId === envId && nextFile && fs.existsSync(nextFile)) nextExperimentRecords = loadNdjsonRecords(nextFile)
+      .filter(record => !reportMode || reportGameplayMode(record) === reportMode);
   }
   combinedSummary.firstLevelExperiment = buildFirstLevelExperimentReport({ date: dateLabel,
     funnelRecords: experimentRecords('first_level_funnel'), behaviorRecords: experimentRecords('user_behavior'),
@@ -4891,6 +4867,16 @@ async function main() {
       collection,
       envId,
     });
+    if (args.reuseExisting && exportInfo) {
+      const rawCount = analysis.summary.rawTotals?.records ?? analysis.summary.totalRecords;
+      if (exportInfo.totalRecords !== rawCount) {
+        // A previous export may have completed downloading but failed during
+        // analysis, leaving an older combined-summary count behind.
+        delete exportInfo.pageCount;
+        exportInfo.recordCountReconciledFromFile = true;
+      }
+      exportInfo.totalRecords = rawCount;
+    }
 
     resultByCollection[collection] = {
       exportInfo,
@@ -4906,6 +4892,38 @@ async function main() {
       envId,
       resultByCollection,
     });
+    const rawRecords = Object.fromEntries(Object.entries(resultByCollection).map(([name, result]) =>
+      [name, loadNdjsonRecords(result.exportInfo.localPath)]));
+    const modeIndex = { schemaVersion: 1, date: dateLabel, envId, defaultMode: 'main', modes: {} };
+    for (const [mode, label] of Object.entries(REPORT_MODES)) {
+      const modeDir = path.join(rootOutputDir, 'modes', mode);
+      const scopedRecords = {};
+      const scopedResults = {};
+      for (const [name, result] of Object.entries(resultByCollection)) {
+        const records = rawRecords[name].filter(record => reportGameplayMode(record) === mode);
+        scopedRecords[name] = records;
+        const outputDir = path.join(modeDir, name);
+        ensureDir(outputDir);
+        scopedResults[name] = {
+          exportInfo: { ...result.exportInfo, sourceTotalRecords: result.exportInfo.totalRecords, totalRecords: records.length, reportMode: mode },
+          analysis: COLLECTION_CONFIGS[name].analyze({ records, inputPath: result.exportInfo.localPath, outputDir, dateLabel, collection: name, envId }),
+        };
+      }
+      writeCombinedOutputs({ rootOutputDir: modeDir, dateLabel, envId, resultByCollection: scopedResults, reportMode: mode, recordsByCollection: scopedRecords });
+      modeIndex.modes[mode] = { label, counts: Object.fromEntries(Object.entries(scopedRecords).map(([name, rows]) => [name, rows.length])) };
+    }
+    fs.writeFileSync(path.join(rootOutputDir, 'mode_index.json'), JSON.stringify(modeIndex, null, 2));
+    // Existing consumers also get mainline by default. Preserve all-mode export
+    // metadata separately; raw collection exports are never rewritten.
+    fs.copyFileSync(path.join(rootOutputDir, 'combined_summary.json'), path.join(rootOutputDir, 'raw_combined_summary.json'));
+    const mainSummary = JSON.parse(fs.readFileSync(path.join(rootOutputDir, 'modes', 'main', 'combined_summary.json'), 'utf8'));
+    for (const item of Object.values(mainSummary.collections)) {
+      item.exportInfo.scopedRecords = item.summary.totalRecords;
+      item.exportInfo.totalRecords = item.exportInfo.sourceTotalRecords;
+    }
+    fs.writeFileSync(path.join(rootOutputDir, 'combined_summary.json'), JSON.stringify(mainSummary, null, 2));
+    fs.copyFileSync(path.join(rootOutputDir, 'modes', 'main', 'combined_report.md'), path.join(rootOutputDir, 'combined_report.md'));
+    fs.copyFileSync(path.join(rootOutputDir, 'modes', 'main', 'analytics_v2.md'), path.join(rootOutputDir, 'analytics_v2.md'));
   }
 
   console.log(
@@ -4933,7 +4951,7 @@ async function main() {
   );
 }
 
-module.exports = { shanghaiDayRange, createApiKeyBundle, parseDatabaseValue };
+module.exports = { shanghaiDayRange, createApiKeyBundle, parseDatabaseValue, loadNdjsonRecords };
 
 if (require.main === module) main().catch((error) => {
   console.error(error.stack || error.message || String(error));

@@ -18,7 +18,7 @@
     {
       "id": 2001,
       "key": "bean_skin_02",
-      "sort": 2,
+      "sort": 5,
       "isDefault": false,
       "resourceMode": "game_assets_atlas",
       "atlasDataKey": "BeanSkins/skin_02/bean-atlas-data",
@@ -26,7 +26,7 @@
       "iconKey": "BeanSkins/icons/bean_skin_02",
       "previewColorId": 4,
       "unlockType": "chapter",
-      "unlockValue": 9,
+      "unlockValue": 117,
       "enabled": true
     },
     {
@@ -60,7 +60,7 @@
     {
       "id": 2004,
       "key": "bean_skin_05",
-      "sort": 5,
+      "sort": 2,
       "isDefault": false,
       "resourceMode": "game_assets_atlas",
       "atlasDataKey": "BeanSkins/skin_05/bean-atlas-data",
@@ -68,7 +68,7 @@
       "iconKey": "BeanSkins/icons/bean_skin_05",
       "previewColorId": 13,
       "unlockType": "chapter",
-      "unlockValue": 117,
+      "unlockValue": 9,
       "enabled": true
     }
   ]

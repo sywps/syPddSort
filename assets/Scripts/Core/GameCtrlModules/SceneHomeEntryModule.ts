@@ -132,6 +132,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 task();
             })).then(() => true, (error) => {
                 console.error('[AppTransition] gameplay transition failed:', key, error);
+                AnalyticsMgr.inst.settlement.failTransition('gameplay_transition_failed', String(error));
                 if (this.isValid) {
                     this.endSettlementNextTransition?.();
                     if (!this._levelDataLoadStopped) {
@@ -1240,6 +1241,7 @@ export function installSceneHomeEntryModule(target: any): void {
         _stopGameplayEntryWithFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
             if (isWorkbenchPreviewRequested()) WorkbenchPreviewService.inst.reportFailure(`${errorCode}: ${errorMessage}`);
             if (this._levelDataLoadStopped) return;
+            AnalyticsMgr.inst.settlement.failTransition(errorCode, errorMessage);
             this._levelDataLoadStopped = true;
             this._preloadingBundle = false;
             AppRoot.tryGet()?.clearRouteCover('level-data-error');

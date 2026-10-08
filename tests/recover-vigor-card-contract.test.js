@@ -39,6 +39,9 @@ function loadPlayerMetaStateInstaller() {
         module,
         exports: module.exports,
         require(id) {
+            if (id === '../BrowserLevelPreview') return { getBrowserLevelPreview: () => ({ active: false }) };
+            if (id === '../PreviewRewardSave') return { PreviewRewardSave: {} };
+            if (id === '../UserStateSyncMgr') return { PVP_ECONOMY_REVISION_KEY: 'pdd.pvpEconomyRevision' };
             if (id === '../GameCtrlShared') {
                 return {
                     Color: TestColor,
@@ -265,4 +268,38 @@ testVideoCardNeverRequestsLimitLabel();
 testShareCardRequiresLimitLabel();
 testActionTextStaysPrefabOwned();
 testOpenFailureReportsOnceAndStillThrows();
+{
+    const { runtime } = createCardRuntime();
+    runtime.getRecoverVigorShareRemaining = () => 3;
+    const rewards = [];
+    runtime.syncRecoverVigorRewardCard = (_box, name, _x, amount) => {
+        rewards.push([name, amount]);
+        return { button: {}, limitLabel: null };
+    };
+    runtime.syncRecoverVigorDualRewardPanel({ getChildByName() { return null; } });
+    assert.deepStrictEqual(rewards, [['RecoverVigorVideoCard', 5], ['RecoverVigorShareCard', 3]]);
+}
+{
+    const runtime = {};
+    loadPlayerMetaStateInstaller()(runtime);
+    const priceLabel = { string: '' };
+    const nodes = Object.fromEntries(['ActionIcon', 'ActionLabel', 'CoinIcon', 'CoinPrice'].map(name => [name, {
+        name, active: true, getComponent(type) { return type === TestLabel ? priceLabel : null; },
+    }]));
+    runtime.requirePanelChild = (_button, name) => {
+        assert.ok(nodes[name], `missing mode node: ${name}`);
+        return nodes[name];
+    };
+    runtime.syncRecoverVigorShareAction({}, false);
+    assert.equal(nodes.ActionIcon.active, false);
+    assert.equal(nodes.ActionLabel.active, false);
+    assert.equal(nodes.CoinIcon.active, true);
+    assert.equal(nodes.CoinPrice.active, true);
+    assert.equal(priceLabel.string, '300');
+    runtime.syncRecoverVigorShareAction({}, true);
+    assert.equal(nodes.ActionIcon.active, true);
+    assert.equal(nodes.ActionLabel.active, true);
+    assert.equal(nodes.CoinIcon.active, false);
+    assert.equal(nodes.CoinPrice.active, false);
+}
 console.log('recover-vigor-card-contract.test.js passed');

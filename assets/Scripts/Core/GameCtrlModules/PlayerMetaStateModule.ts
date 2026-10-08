@@ -36,8 +36,9 @@ import { PVP_ECONOMY_REVISION_KEY, rebaseWechatGiftState, WECHAT_GIFT_TOTALS_KEY
 
 const RECOVER_VIGOR_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/RecoverVigorPanel';
 const DEBUG_RECOVER_VIGOR_LAYOUT = false;
-const RECOVER_VIGOR_AD_REWARD = 4;
-const RECOVER_VIGOR_SHARE_REWARD = 2;
+const RECOVER_VIGOR_AD_REWARD = 5;
+const RECOVER_VIGOR_SHARE_REWARD = 3;
+const RECOVER_VIGOR_GOLD_COST = 300;
 const RECOVER_VIGOR_SHARE_DAILY_LIMIT = 3;
 const RECOVER_VIGOR_SHARE_STATE_KEY = 'pdd.recoverVigor.shareState.v1';
 
@@ -352,15 +353,19 @@ export function installPlayerMetaStateModule(target: any): void {
             return Math.max(0, Math.ceil(firstMs / 1000));
         },
 
+        getVigorRecoveryText(vigor: number): string {
+            if (vigor >= (this.constructor as any).VIGOR_CEILING) return '体力已满';
+            const sec = this.getVigorCountdownSec(vigor);
+            const mm = Math.floor(sec / 60), ss = sec % 60;
+            return `${mm < 10 ? '0' : ''}${mm}:${ss < 10 ? '0' : ''}${ss}`;
+        },
+
         /** 刷新体力 UI */
         refreshVigorUI(): void {
             const vigor = this.updateVigor();
-            if (this._vigorCountLbl) this._vigorCountLbl.string = `${vigor}/${(this.constructor as any).VIGOR_CEILING}`;
+            if (this._vigorCountLbl) this._vigorCountLbl.string = `${vigor}`;
             if (this._vigorTimeLbl) {
-                const sec = this.getVigorCountdownSec(vigor);
-                if (vigor >= (this.constructor as any).VIGOR_CEILING) this._vigorTimeLbl.string = '05:00';
-                else if (sec <= 0) this._vigorTimeLbl.string = '00:00';
-                else { const mm = Math.floor(sec / 60), ss = sec % 60; this._vigorTimeLbl.string = `${mm < 10 ? '0' : ''}${mm}:${ss < 10 ? '0' : ''}${ss}`; }
+                this._vigorTimeLbl.string = this.getVigorRecoveryText(vigor);
             }
             this.refreshRecoverVigorModalUI?.(vigor);
         },
@@ -422,6 +427,37 @@ export function installPlayerMetaStateModule(target: any): void {
                 dateKey: state.dateKey,
                 count: Math.min(RECOVER_VIGOR_SHARE_DAILY_LIMIT, state.count + 1),
             });
+        },
+
+        buyRecoverVigorWithGold(): number {
+            if (this.canRecoverVigorByShare()) return 0;
+            const vigorBefore = this.updateVigor();
+            if (vigorBefore >= (this.constructor as any).VIGOR_CEILING) {
+                this.showToast('体力已经满了');
+                return 0;
+            }
+            const goldBefore = this.getGold();
+            if (goldBefore < RECOVER_VIGOR_GOLD_COST) {
+                this.showToast('金币不足');
+                return 0;
+            }
+            const timeBefore = this.getVigorTime();
+            try {
+                if (!this.spendGold(RECOVER_VIGOR_GOLD_COST)) {
+                    this.showToast('金币不足');
+                    return 0;
+                }
+                const granted = this.grantVigorByAmount(RECOVER_VIGOR_SHARE_REWARD);
+                if (granted <= 0) throw new Error('[recover-vigor] gold purchase granted no vigor');
+                return granted;
+            } catch (error) {
+                this.setVigor(vigorBefore);
+                this.setVigorTime(timeBefore);
+                this.setGold(goldBefore);
+                this.refreshVigorUI();
+                this.showToast('体力购买失败，请重试');
+                throw error;
+            }
         },
 
         grantVigorByAmount(amount: number): number {
@@ -533,7 +569,7 @@ export function installPlayerMetaStateModule(target: any): void {
             this.syncRecoverVigorSprite(icon, 'popup_vigor_icon', 94, 94);
 
             const amountLabel = this.ensureRecoverVigorUiNode(card, 'AmountLabel', 120, 46, 0, -10);
-            this.syncRecoverVigorLabel(amountLabel, `${amount}`, 36, new Color(61, 73, 116, 255), true);
+            this.syncRecoverVigorLabel(amountLabel, `+${amount}`, 36, new Color(255, 255, 255, 255), true);
 
             const button = this.ensureRecoverVigorUiNode(card, 'ActionButton', 168, 64, 0, -94);
             this.syncRecoverVigorButton(button, buttonFill, buttonStroke, interactable);
@@ -548,7 +584,7 @@ export function installPlayerMetaStateModule(target: any): void {
                     interactable ? new Color(71, 93, 132, 255) : new Color(168, 72, 72, 255),
                     false,
                 );
-                limitNode.active = true;
+                limitNode.active = false;
             }
             return { card, button, limitLabel };
         },
@@ -592,13 +628,27 @@ export function installPlayerMetaStateModule(target: any): void {
             };
         },
 
+        syncRecoverVigorShareAction(button: Node, shareAvailable: boolean): void {
+            this.requirePanelChild(button, 'ActionIcon').active = shareAvailable;
+            this.requirePanelChild(button, 'ActionLabel').active = shareAvailable;
+            this.requirePanelChild(button, 'CoinIcon').active = !shareAvailable;
+            const priceNode = this.requirePanelChild(button, 'CoinPrice');
+            priceNode.active = !shareAvailable;
+            const priceLabel = priceNode.getComponent(Label);
+            if (!priceLabel) throw new Error('[recover-vigor-prefab] missing CoinPrice label');
+            priceLabel.string = `${RECOVER_VIGOR_GOLD_COST}`;
+        },
+
         refreshRecoverVigorModalUI(vigor?: number): void {
             const statusLabel = this._recoverVigorStatusLbl as Label | null;
             if (!statusLabel?.node?.isValid) return;
             const ceiling = (this.constructor as any).VIGOR_CEILING;
             const currentVigor = vigor ?? this.getVigor();
             const hasCapacity = currentVigor < ceiling;
-            statusLabel.string = `当前体力 ${currentVigor}/${ceiling}`;
+            const recoveryText = this.getVigorRecoveryText(currentVigor);
+            statusLabel.string = hasCapacity ? `${recoveryText} 后恢复1体力` : recoveryText;
+            const countLabel = this._recoverVigorCountLbl as Label | null;
+            if (countLabel?.node?.isValid) countLabel.string = `${currentVigor}`;
 
             const busy = !!this._recoverVigorBusy;
             const videoButton = this._recoverVigorVideoButton as Node | null;
@@ -617,20 +667,15 @@ export function installPlayerMetaStateModule(target: any): void {
             if (shareButton?.isValid) {
                 this.syncRecoverVigorButton(
                     shareButton,
-                    shareAvailable ? new Color(58, 214, 116, 255) : new Color(170, 170, 170, 255),
-                    shareAvailable ? new Color(25, 156, 79, 255) : new Color(120, 120, 120, 255),
-                    hasCapacity && shareAvailable && !busy,
+                    new Color(58, 214, 116, 255),
+                    new Color(25, 156, 79, 255),
+                    hasCapacity && !busy,
                 );
+                this.syncRecoverVigorShareAction(shareButton, shareAvailable);
             }
             const shareRemainingLabel = this._recoverVigorShareRemainingLbl as Label | null;
             if (shareRemainingLabel?.node?.isValid) {
-                shareRemainingLabel.node.active = true;
-                shareRemainingLabel.string = shareAvailable
-                    ? `\u4eca\u65e5\u5269\u4f59 ${remaining}/${RECOVER_VIGOR_SHARE_DAILY_LIMIT}`
-                    : '\u4eca\u65e5\u5df2\u7528\u5b8c';
-                shareRemainingLabel.color = shareAvailable
-                    ? new Color(71, 93, 132, 255)
-                    : new Color(168, 72, 72, 255);
+                shareRemainingLabel.node.active = false;
             }
 
             const closeButton = this._recoverVigorCloseButton as Node | null;
@@ -649,6 +694,7 @@ export function installPlayerMetaStateModule(target: any): void {
 
         clearRecoverVigorModalRuntimeState(): void {
             this._recoverVigorStatusLbl = null;
+            this._recoverVigorCountLbl = null;
             this._recoverVigorVideoButton = null;
             this._recoverVigorShareButton = null;
             this._recoverVigorShareRemainingLbl = null;
@@ -771,9 +817,14 @@ export function installPlayerMetaStateModule(target: any): void {
                                 if (!statusLabel) {
                                     throw new Error('[recover-vigor-prefab] missing RecoverVigorStatus label');
                                 }
+                                const countLabel = this.requirePanelChild(box, 'RecoverVigorCurrent').getComponent(Label);
+                                if (!countLabel) {
+                                    throw new Error('[recover-vigor-prefab] missing RecoverVigorCurrent label');
+                                }
                                 const rewardPanel = this.syncRecoverVigorDualRewardPanel(box);
                                 const closeButton = this.requirePanelChild(box, 'XBtn');
                                 this._recoverVigorStatusLbl = statusLabel;
+                                this._recoverVigorCountLbl = countLabel;
                                 this._recoverVigorVideoButton = rewardPanel.videoButton;
                                 this._recoverVigorShareButton = rewardPanel.shareButton;
                                 this._recoverVigorShareRemainingLbl = rewardPanel.shareRemainingLabel;
@@ -871,7 +922,8 @@ export function installPlayerMetaStateModule(target: any): void {
                                 });
 
                                 this.bindPanelButton(rewardPanel.shareButton, () => {
-                                    const transactionId = beginAttempt('share');
+                                    const shareAvailable = this.canRecoverVigorByShare();
+                                    const transactionId = beginAttempt(shareAvailable ? 'share' : 'gold');
                                     if (!transactionId) return;
                                     AudioMgr.inst.play('button');
                                     if (this.getVigor() >= (this.constructor as any).VIGOR_CEILING) {
@@ -879,9 +931,14 @@ export function installPlayerMetaStateModule(target: any): void {
                                         finishAttempt(transactionId, 0);
                                         return;
                                     }
-                                    if (!this.canRecoverVigorByShare()) {
-                                        this.showToast('\u4eca\u65e5\u5206\u4eab\u6b21\u6570\u5df2\u7528\u5b8c');
-                                        finishAttempt(transactionId, 0);
+                                    if (!shareAvailable) {
+                                        let granted = 0;
+                                        try {
+                                            granted = this.buyRecoverVigorWithGold();
+                                            if (granted > 0) this.showToast(`获得${granted}点体力`);
+                                        } finally {
+                                            finishAttempt(transactionId, granted);
+                                        }
                                         return;
                                     }
                                     let grantedAmount = 0;
