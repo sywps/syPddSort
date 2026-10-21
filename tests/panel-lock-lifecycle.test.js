@@ -33,6 +33,7 @@ class BlockInputEvents {
 }
 
 class Button {}
+Button.Transition = { SCALE: 3 };
 Button.EventType = { CLICK: 'click' };
 
 class Vec3 {
@@ -116,6 +117,7 @@ function createSettingsOverlay() {
     for (let index = 0; index < 4; index += 1) {
         const row = new FakeNode(`SettingsRow${index}`);
         const toggle = new FakeNode('ToggleWrap');
+        toggle.addComponent(Button);
         toggle.addChild(new FakeNode('ToggleOnState'));
         toggle.addChild(new FakeNode('ToggleOffState'));
         row.addChild(toggle);
@@ -141,10 +143,12 @@ const audio = {
 };
 const moduleRef = { exports: {} };
 let feedbackReturn;
+let creatorMode = false;
 vm.runInNewContext(output, {
     module: moduleRef,
     exports: moduleRef.exports,
     require(id) {
+        if (id === '../CreatorWeb') return { isCreatorWeb: () => creatorMode };
         if (id === './FeedbackPanelController') return {
             openFeedbackPanel(runtime, onClosed) { feedbackReturn = onClosed; },
         };
@@ -445,4 +449,9 @@ feedbackSettings.dispose();
 feedbackReturn();
 assert.strictEqual(settingsOverlay.active, false, 'late feedback close must not resurrect disposed settings');
 assert.strictEqual(feedbackEvents.filter(e=>e==='resume-conveyor').length,1);
+creatorMode = true;
+const creatorRuntime = createBaseRuntime([]);
+creatorRuntime._withGameAssetsBundle = homeRuntime._withGameAssetsBundle;
+new SettingsPanelController(creatorRuntime).open();
+assert.equal(creatorRuntime.popupRoot.getChildByName('SettingsOverlay').getChildByName('Box').getChildByName('FeedbackEntry').active, false);
 console.log('panel-lock-lifecycle.test.js passed');

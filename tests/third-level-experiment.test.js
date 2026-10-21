@@ -6,11 +6,11 @@ function compile(file, deps = {}, globals = {}) {
   const out = {}; const js = ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'), { compilerOptions: {module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020} }).outputText;
   new Function('exports','require',...Object.keys(globals),js)(out,id=>{assert.ok(id in deps,id);return deps[id]},...Object.values(globals)); return out;
 }
-const deps = {'cc/env':{PREVIEW:true},'./MiniGamePlatform':{isMiniGameRuntime:()=>false}};
+const deps = {'cc/env':{PREVIEW:true},'./MiniGamePlatform':{isMiniGameRuntime:()=>false,isWeChatMiniGameRuntime:()=>false},'./CreatorWeb':{isCreatorWeb:()=>false,getCreatorWebConfig:()=>null}};
 const retiredSelection=compile('assets/Scripts/Core/BeanSelectionPreview.ts',{}, {window:{location:{search:'?pick=B'}}});
 assert.equal(retiredSelection.getBeanSelectionPreview('main',3),'A');
 const retiredEncouragement=compile('assets/Scripts/Core/EncouragementFeedbackPolicy.ts',{}, {window:{location:{search:'?encourage=B'}}});
-assert.equal(retiredEncouragement.isEncouragementEnabled({}),true);
+assert.equal(retiredEncouragement.isEncouragementEnabled({}),false,'temporarily disabled encouragement stays disabled');
 for(const [file,key]of [['bean-selection','beanSelectionExperiment'],['encouragement','encouragementExperiment']]){
  const old=require('../cloudfunctions/getOpenid/'+file+'-experiment');
  const historical={id:old.ID,status:'enrolled',content:'B',enrolledAt:10,reason:'new_user'};

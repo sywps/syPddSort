@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>抖音合作与 PVP · dev 发布文件</title>
+<style>body{max-width:900px;margin:35px auto;padding:20px;font:16px/1.7 system-ui;color:#263445;background:#f5f7fa}section{background:white;padding:24px;border-radius:12px;margin:20px 0}button,select{font:inherit;padding:10px;margin:6px}textarea{box-sizing:border-box;width:100%;height:280px;font:12px/1.5 monospace}small{overflow-wrap:anywhere}code{background:#eef1f5;padding:3px}#status{min-height:30px}</style>
+<h1>合作与 PVP：发布到现有 dev</h1>
+<p>环境 <code>env-nvk6FNcrq5</code>，服务 <code>1m0ub3f29wtv7</code>。不导入微信玩家或回放。此页只帮助复制文件，不连接云端、不自动发布。</p>
+<section><h2>1．更新完整文件</h2>
+<p>选择文件后点“复制完整文件”。在云控制台同名文件中全选替换；没有该文件就新建。全部放在原业务代码同一层。</p>
+<select id="file" aria-label="文件"></select><button id="copy">复制完整文件</button><button id="select">全选代码</button>
+<p id="status" role="status"></p><textarea id="code" readonly aria-label="完整代码" spellcheck="false"></textarea><small id="hash"></small>
+<p><code>businessCommon.js</code> 是替换；其余文件若已存在则替换，否则新增。包含 <code>chapterRewardSync.js</code> 依赖。<code>multiplayerRuntime.js</code> 已经包含全部规则和关卡，不用复制几百个小文件。</p>
+<p>保留原 package.json（mongodb 4.17.2）、数据库连接、adminAuth.js 和 businessRules.js。不填写新的管理员密钥。</p></section>
+<section><h2>2．发布 dev 并准备数据库</h2>
+<p>给 <code>/coopService</code> 和 <code>/pvpService</code> 配置与现有存档接口相同的小游戏访问方式，然后发布到 dev。</p>
+<p>在后台调试 <code>multiplayerSetup</code>，参数填 <code>{}</code>。看到下面几个结果再测试新游戏包：</p>
+<pre>{"ok":true,"reason":"MULTIPLAYER_READY","transactionsVerified":true,"replaySource":"douyin-only"}</pre>
+<p>重复调试不会清空存档。若失败，保留完整错误，不继续上传审核。玩家登录不会自动初始化数据库。</p></section>
+<section><h2>3．两账号扫码验收</h2><p>A 完成半张，B 从分享加入完成，检查双方图鉴；再测排位、重复进入不重复扣费、完整广告补票、切后台恢复。空回放池出现机器人正常，后续逐渐积累抖音真人成绩。</p>
+<p>好友挑战和段位奖品暂不新增开放；具体测试顺序见同目录《操作说明.md》。本地自动测试不能代替真实数据库和手机验收。</p></section>
+<script>
+const files=/* FILES */[];
+const select=document.getElementById('file'),code=document.getElementById('code'),status=document.getElementById('status');
+for(const file of files){const option=document.createElement('option');option.textContent=file.name;select.appendChild(option);}
+function show(){const file=files[select.selectedIndex];code.value=file.code;document.getElementById('hash').textContent='SHA-256：'+file.sha256;status.textContent='';}
+select.onchange=show;show();
+document.getElementById('select').onclick=()=>{code.focus();code.select();status.textContent='已全选，按 Ctrl+C 复制。';};
+document.getElementById('copy').onclick=async()=>{try{await navigator.clipboard.writeText(code.value);status.textContent='已复制 '+files[select.selectedIndex].name+' 的完整内容。';}catch(_){code.focus();code.select();status.textContent='浏览器未允许自动复制，代码已全选，请按 Ctrl+C。';}};
+</script></html>

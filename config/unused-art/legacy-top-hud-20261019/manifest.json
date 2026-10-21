@@ -1,0 +1,250 @@
+{
+  "status": "source_retired_and_verified",
+  "backup": "config/unused-art/legacy-top-hud-20261019",
+  "registrar": "assets/Scripts/Core/installGameCtrlModules.ts",
+  "targets": [
+    {
+      "path": "assets/HomeAssetsBundle/GameUI/爱心框.png",
+      "uuid": "8885ec69-f7f4-bb71-8fd7-e110a5061a63",
+      "compact": "88hexp9/S7cY/X4RClBhpj"
+    },
+    {
+      "path": "assets/HomeAssetsBundle/GameUI/金币框 (2).png",
+      "uuid": "47b2f68a-ec42-b2e7-59e3-7ceba831b196",
+      "compact": "47svaK7EKy51njfOuoMbGW"
+    },
+    {
+      "path": "assets/GameAssetsBundle/UI/Prefabs/Panels/TopHud.prefab",
+      "uuid": "b8dc3148-9d1a-47f5-8f7d-fb2f9d717e4a",
+      "compact": "b83DFInRpH9Y99+y+dcX5K"
+    },
+    {
+      "path": "assets/Scripts/Core/GameCtrlModules/TopHudModule.ts",
+      "uuid": "40befb20-1106-4f70-807f-035283fb77e3",
+      "compact": "40vvsgEQZPcIB/A1KD+3fj"
+    }
+  ],
+  "records": [
+    {
+      "path": "assets/HomeAssetsBundle/GameUI/爱心框.png",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/assets/HomeAssetsBundle/GameUI/爱心框.png",
+      "bytes": 26668,
+      "sha256": "90b9a82a4e71bf25fd8a6523f9a4469ee9cc7247a493cc2af849fc14a2c656b2",
+      "retire": true
+    },
+    {
+      "path": "assets/HomeAssetsBundle/GameUI/爱心框.png.meta",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/assets/HomeAssetsBundle/GameUI/爱心框.png.meta",
+      "bytes": 2844,
+      "sha256": "7fe8d4925f332181d9411bdbb2b2da42e9a78138586bed444f4cca8402167c4f",
+      "retire": true
+    },
+    {
+      "path": "assets/HomeAssetsBundle/GameUI/金币框 (2).png",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/assets/HomeAssetsBundle/GameUI/金币框 (2).png",
+      "bytes": 24084,
+      "sha256": "c431493e2c661631d272dc38948b850ad2cf480d8e9a9a077f5aad88e8f6dcf1",
+      "retire": true
+    },
+    {
+      "path": "assets/HomeAssetsBundle/GameUI/金币框 (2).png.meta",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/assets/HomeAssetsBundle/GameUI/金币框 (2).png.meta",
+      "bytes": 2852,
+      "sha256": "bf61dffcca57dbf56a19fd414675f08736032bcff120ad7305a1f20e41183a28",
+      "retire": true
+    },
+    {
+      "path": "assets/GameAssetsBundle/UI/Prefabs/Panels/TopHud.prefab",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/assets/GameAssetsBundle/UI/Prefabs/Panels/TopHud.prefab",
+      "bytes": 32907,
+      "sha256": "2bc6e75678bbbc55adb03c519b47a86288550a1f9e0b7940b7d40a8a1a05b4fc",
+      "retire": true
+    },
+    {
+      "path": "assets/GameAssetsBundle/UI/Prefabs/Panels/TopHud.prefab.meta",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/assets/GameAssetsBundle/UI/Prefabs/Panels/TopHud.prefab.meta",
+      "bytes": 227,
+      "sha256": "8f0c2d83b41fa276a2d8ad1859251d9914e302bbfaac09e3cb57b61ee8176101",
+      "retire": true
+    },
+    {
+      "path": "assets/Scripts/Core/GameCtrlModules/TopHudModule.ts",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/assets/Scripts/Core/GameCtrlModules/TopHudModule.ts",
+      "bytes": 16768,
+      "sha256": "f0b1fade4741eca6129f20a54d5d99a7c39b0dde4c0b91b796057d43abe85e5b",
+      "retire": true
+    },
+    {
+      "path": "assets/Scripts/Core/GameCtrlModules/TopHudModule.ts.meta",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/assets/Scripts/Core/GameCtrlModules/TopHudModule.ts.meta",
+      "bytes": 180,
+      "sha256": "61f85a69625202b1bce257f7d0c7f6f1e426fe9e643eb338d33687742edea183",
+      "retire": true
+    },
+    {
+      "path": "assets/Scripts/Core/installGameCtrlModules.ts",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/assets/Scripts/Core/installGameCtrlModules.ts",
+      "bytes": 4537,
+      "sha256": "ce05d8707028cb075ed89eb6e872ac93c5623bd4622b60376e57b4e129a22d69",
+      "retire": false
+    },
+    {
+      "path": "tests/gameplay-ui-coordinate-contract.test.js",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/tests/gameplay-ui-coordinate-contract.test.js",
+      "bytes": 4481,
+      "sha256": "35c0c76ad9f539ab93ab522cf3f08964737b954641848deae1f09b2583a06641",
+      "retire": false
+    },
+    {
+      "path": "tests/post-playable-warmup.test.js",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/tests/post-playable-warmup.test.js",
+      "bytes": 27431,
+      "sha256": "cd0c86bd7cb992b135a1b932100e8c5c7a04056c19465e3fc12fa50fbcaad08f",
+      "retire": false
+    },
+    {
+      "path": "tests/win-panel-route-owned-assets.test.js",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/tests/win-panel-route-owned-assets.test.js",
+      "bytes": 6002,
+      "sha256": "74a7d818322e00e6cc6330aacf14b3413ad5162680a1aa653c396a461ba7a38c",
+      "retire": false
+    },
+    {
+      "path": "tests/pixel-puzzle-lobby.test.js",
+      "backup": "config/unused-art/legacy-top-hud-20261019/original-active/tests/pixel-puzzle-lobby.test.js",
+      "bytes": 28469,
+      "sha256": "08c2deb07742c221e5c876e51009281a077aa46476ad94fb576f13b74789a599",
+      "retire": false
+    }
+  ],
+  "production_references": [
+    {
+      "path": "assets/Scripts/Core/installGameCtrlModules.ts",
+      "matches": [
+        "assets/Scripts/Core/GameCtrlModules/TopHudModule.ts"
+      ]
+    }
+  ],
+  "previous_packaged_files": [
+    {
+      "path": "build/wechatgame/minigame/subpackages/gameAssets/import/47/47b2f68a-ec42-b2e7-59e3-7ceba831b196.a2533.json",
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/gameAssets/import/88/8885ec69-f7f4-bb71-8fd7-e110a5061a63.a2533.json",
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/gameAssets/import/b8/b8dc3148-9d1a-47f5-8f7d-fb2f9d717e4a.json",
+      "bytes": 20295,
+      "sha256": "7a648aaefa324c5217709c5ccdca2d8c1d960a73add4522f248f7fdef7400063"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/gameAssets/native/47/47b2f68a-ec42-b2e7-59e3-7ceba831b196.0fb79.png",
+      "bytes": 24084,
+      "sha256": "c431493e2c661631d272dc38948b850ad2cf480d8e9a9a077f5aad88e8f6dcf1"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/gameAssets/native/88/8885ec69-f7f4-bb71-8fd7-e110a5061a63.fd99c.png",
+      "bytes": 26668,
+      "sha256": "90b9a82a4e71bf25fd8a6523f9a4469ee9cc7247a493cc2af849fc14a2c656b2"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/import/47/47b2f68a-ec42-b2e7-59e3-7ceba831b196.a2533.json",
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/import/47/47b2f68a-ec42-b2e7-59e3-7ceba831b196.json",
+      "bytes": 230,
+      "sha256": "f65fa1e596af4e273382901ce2b1fa670c05d9497b058dc760a1905d6a42cf58"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/import/47/47b2f68a-ec42-b2e7-59e3-7ceba831b196@6c48a.json",
+      "bytes": 384,
+      "sha256": "24280d46086069e825805f6d3cae44e30ca72c18f8169501dd813ac2c09ef8c2"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/import/47/47b2f68a-ec42-b2e7-59e3-7ceba831b196@f9941.d4bf1.json",
+      "bytes": 571,
+      "sha256": "2de96d028c734b39fa58e9f1590cbc4a0051e72e148d850a5981267469ebdf17"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/import/47/47b2f68a-ec42-b2e7-59e3-7ceba831b196@f9941.json",
+      "bytes": 2284,
+      "sha256": "dc2f35c71db19d04ac3545368dba04c8c32aa3e011b70b9c2eec2a1db57ee88f"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/import/88/8885ec69-f7f4-bb71-8fd7-e110a5061a63.a2533.json",
+      "bytes": 72,
+      "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/import/88/8885ec69-f7f4-bb71-8fd7-e110a5061a63.json",
+      "bytes": 230,
+      "sha256": "f65fa1e596af4e273382901ce2b1fa670c05d9497b058dc760a1905d6a42cf58"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/import/88/8885ec69-f7f4-bb71-8fd7-e110a5061a63@6c48a.json",
+      "bytes": 384,
+      "sha256": "9627ab6517a3e7f61fe854bb25cf1b81badd0ed7fffd6c045718eaf87af4e020"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/import/88/8885ec69-f7f4-bb71-8fd7-e110a5061a63@f9941.0c603.json",
+      "bytes": 555,
+      "sha256": "b2a4e7811cb11d18fd4a7975434ff0d805a898f14c282c21f3926b5b59fc1541"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/import/88/8885ec69-f7f4-bb71-8fd7-e110a5061a63@f9941.json",
+      "bytes": 2268,
+      "sha256": "27b81f15a994aa6411f1899e464238e0f57d303b136bf437e2e0d859725771b6"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/native/47/47b2f68a-ec42-b2e7-59e3-7ceba831b196.0fb79.png",
+      "bytes": 24084,
+      "sha256": "c431493e2c661631d272dc38948b850ad2cf480d8e9a9a077f5aad88e8f6dcf1"
+    },
+    {
+      "path": "build/wechatgame/minigame/subpackages/homeAssets/native/88/8885ec69-f7f4-bb71-8fd7-e110a5061a63.fd99c.png",
+      "bytes": 26668,
+      "sha256": "90b9a82a4e71bf25fd8a6523f9a4469ee9cc7247a493cc2af849fc14a2c656b2"
+    }
+  ],
+  "registrar_after_sha256": "d0f3598334a5d76aac278d6b034bd5320778659a3d859a3d700cb46f0e8fe54e",
+  "active_ui_unchanged": true,
+  "source_collectors_exclude_legacy_hud": true,
+  "concurrent_source_changes": [
+    {
+      "path": "assets/Scripts/Core/GameCtrlModules/CollectionAvatarModule.ts",
+      "before": "cd566fcb9a473eceae95f20125f7dfb06001e9b34675e13618f3c060d8cb6815",
+      "after": "e6b123949efed4d1a4a4dc8f93bb02913d56ae5109e9262fb3192df3d10e329e"
+    },
+    {
+      "path": "assets/Scripts/Core/LeaderboardAvatarImage.ts",
+      "before": null,
+      "after": "e784211cb754e1530a121121cc0bc98354842d5c02e340fa58809a6bbc9f1adf"
+    },
+    {
+      "path": "assets/Scripts/Core/LeaderboardAvatarImage.ts.meta",
+      "before": null,
+      "after": "cf2bd23fe4563169e7005a2773a7cb94ad71d5931c5b1083b190ad9a0b50905d"
+    },
+    {
+      "path": "assets/Scripts/Core/ProfileAvatarView.ts",
+      "before": "65a0f1c24ad563d9449fd205bb3e8084a001241e3265181ad6073b5dda07a8b2",
+      "after": "1fb5d3cc35fdd0ea68272fb4e428632438223fe27f02f46cbf688de962db076e"
+    }
+  ],
+  "build_verified": {
+    "platform": "wechat",
+    "slot": "A",
+    "exit_code": 0,
+    "ended": "2026-10-19T07:43:12.015Z",
+    "legacy_suite_excluded": true,
+    "active_art_retained": true,
+    "artifact": "build/wechatgame",
+    "concurrent_source_changes_recorded": 4
+  }
+}

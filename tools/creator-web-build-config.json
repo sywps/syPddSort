@@ -1,0 +1,24 @@
+{
+  "platform": "web-mobile",
+  "taskName": "creator-web",
+  "buildPath": "project://build",
+  "outputName": "creator-web",
+  "debug": false,
+  "sourceMaps": false,
+  "md5Cache": true,
+  "mainBundleIsRemote": false,
+  "mainBundleCompressionType": "merge_dep",
+  "useBuiltinServer": false,
+  "flags": { "WASM_SUBPACKAGE": false, "LOAD_SPINE_MANUALLY": false },
+  "packages": {
+    "web-mobile": { "resolution": { "designWidth": 720, "designHeight": 1280 } },
+    "engine": { "includeModules": { "graphics": "on", "ui": "on", "rich-text": "on" } }
+  },
+  "bundleConfigs": [
+    { "root": "db://assets/BootstrapBundle", "name": "bootstrap", "isRemote": false, "output": true },
+    { "root": "db://assets/GameAssetsBundle", "name": "gameAssets", "isRemote": false, "output": true },
+    { "root": "db://assets/HomeAssetsBundle", "name": "homeAssets", "isRemote": false, "output": true },
+    { "root": "db://assets/LevelData", "name": "levelData", "isRemote": false, "output": true },
+    { "root": "db://assets/PreviewBundle", "name": "preview", "isRemote": false, "output": false }
+  ]
+}

@@ -5,11 +5,11 @@ const fs = require('fs');
 const ts = require('typescript');
 const { transition, inventory } = require('../cloudfunctions/updateUserProfileAssets/profile-customization');
 const catalog = require('../cloudfunctions/updateUserProfileAssets/profile-catalog.json');
-function harness(initialState) {
+function harness(initialState, creator = false) {
   const storage = new Map([['pdd.level', '1']]), requests = new Map();
-  if (initialState) storage.set('pdd.profile.customization.v1', JSON.stringify(initialState));
+  if (initialState) storage.set(creator ? 'pdd.preview.profile.customization.v1' : 'pdd.profile.customization.v1', JSON.stringify(initialState));
   let doc = { savedLevel: 1, gold: 10000, vigor: 10, pvpEconomyRevision: 0 };
-  let preview = false, loseResponse = false, miniGame = true;
+  let preview = creator, loseResponse = false, miniGame = !creator, douyin = false;
   const calls = [], applied = [];
   let beforeCall = () => {}, lostSelect = false;
   const cloud = { async init() { return true; }, async callFunction(name, event) {
@@ -24,6 +24,7 @@ function harness(initialState) {
   } };
   const localStorage = { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
   const dependencies = {
+    './LocalChapterRewards': require('./helpers/local-chapter-runtime')(storage),
     cc: { sys: { localStorage } },
     './ChapterRewardPolicy': { eligibleChapterRewards: (cleared, claimed) => require('../cloudfunctions/updateUserProfileAssets/chapter-rewards').claimChapterRewards({ savedLevel: cleared + 1, chapterRewardClaims: claimed }, catalog, 0).granted },
     './PlatformCloudMgr': { PlatformCloudMgr: { inst: cloud } },
@@ -32,16 +33,56 @@ function harness(initialState) {
     './ProfileResourceService': { profileAssetUrl: id => `https://example.com/${id}.png` },
     './StartupLocalProgress': { STARTUP_LS_LEVEL: 'pdd.level' },
     './BrowserLevelPreview': { getBrowserLevelPreview: () => ({ active: preview }) },
+    './CreatorWeb': { isCreatorWeb: () => creator },
     './PreviewRewardSave': { PreviewRewardSave: { avatars: () => [], frames: () => [] } },
     './WorkbenchPreviewService': { isWorkbenchPreviewRequested: () => false },
-    './MiniGamePlatform': { isMiniGameRuntime: () => miniGame },
+    './MiniGamePlatform': { isMiniGameRuntime: () => miniGame, isDouyinMiniGameRuntime: () => douyin },
   };
   const module = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync('assets/Scripts/Core/ProfileCustomizationMgr.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   new Function('module', 'exports', 'require', code)(module, module.exports, name => { if (!dependencies[name]) throw Error(name); return dependencies[name]; });
   const runtime = { async ensureCloudGameStateSyncReady() { doc.savedLevel = Number(storage.get('pdd.level')); return true; }, applyPvpEconomySnapshot(snapshot) { applied.push(snapshot); storage.set('economyRevision', String(snapshot.pvpEconomyRevision)); } };
-  return { beforeCall: fn => { beforeCall = fn; }, loseNextSelect: () => { lostSelect = true; }, mgr: module.exports.ProfileCustomizationMgr.inst, runtime, storage, calls, applied, document: () => doc, setPreview: value => { preview = value; }, setBrowser: () => { miniGame = false; }, loseNextBuy: () => { loseResponse = true; } };
+  return { setDouyin: () => { douyin = true; }, beforeCall: fn => { beforeCall = fn; }, loseNextSelect: () => { lostSelect = true; }, mgr: module.exports.ProfileCustomizationMgr.inst, runtime, storage, calls, applied, document: () => doc, setPreview: value => { preview = value; }, setBrowser: () => { miniGame = false; }, loseNextBuy: () => { loseResponse = true; } };
 }
+
+test('creator can equip every active avatar/frame and reload without progress, spending or cloud calls', async () => {
+ const h = harness(undefined, true);
+ h.runtime.spendGold = () => assert.fail('creator appearance selection must not spend gold');
+ for (const row of catalog) {
+  assert(h.mgr.owned(row.id));
+  await h.mgr.select(h.runtime, { itemId: row.id });
+  const field = row.kind === 'avatar' ? 'equippedAvatarId' : 'equippedFrameId';
+  assert.equal(h.mgr.snapshot[field], row.id);
+ }
+ const saved = JSON.parse(h.storage.get('pdd.preview.profile.customization.v1'));
+ const reloaded = harness(saved, true);
+ assert.deepEqual(reloaded.mgr.snapshot, saved);
+ assert.equal(h.storage.get('pdd.level'), '1');
+ assert.equal(h.storage.has('pdd.profile.customization.v1'), false);
+ assert.equal(h.storage.has('pdd.chapter.rewards.browser.v1'), false);
+ assert.equal(h.calls.length, 0);
+ assert.deepEqual(saved.adWatchCounts, {});
+});
+
+test('Douyin chapter rewards grant offline and persist local avatars without calling a cloud claim', async () => {
+ const h = harness(); h.setDouyin(); h.storage.set('pdd.level', '19');
+ h.beforeCall(() => { throw Error('offline'); });
+ let totals = {}, gold = 0, brush = 0, magnet = 0, queued = 0;
+ Object.assign(h.runtime, { readWechatGiftTotals: () => totals,
+  applyWechatGiftState: state => {
+   gold += (state.wechatGiftTotals.gold || 0) - (totals.gold || 0);
+   brush += (state.wechatGiftTotals.brushCount || 0) - (totals.brushCount || 0);
+   magnet += (state.wechatGiftTotals.magnetCount || 0) - (totals.magnetCount || 0);
+   totals = { ...state.wechatGiftTotals };
+  }, grantBeanSkin: () => true, grantBackgroundSkin: () => true,
+  queueCloudGameStateSync: () => { queued++; return false; } });
+ const result = await h.mgr.claimChapterRewards(h.runtime);
+ assert.equal(result.granted.length, 4); assert.equal(gold, 100); assert.equal(brush, 2); assert.equal(magnet, 2);
+ assert(h.mgr.owned(1009)); assert.equal(h.calls.length, 0); assert.equal(queued, 1);
+ assert.equal((await h.mgr.claimChapterRewards(h.runtime)).granted.length, 0);
+ const cloud = JSON.parse(h.storage.get('pdd.profile.customization.v1')); cloud.ownedAvatarIds = [1001];
+ h.mgr.applyCloud(cloud); assert(h.mgr.owned(1009), 'old cloud ownership cannot erase pending local chapter avatar');
+});
 
 test('legacy cloud customization without ad counters applies and persists without mutating the response', () => {
  const h = harness();
@@ -311,9 +352,9 @@ test('chapter browser receipt recovers interrupted delivery without duplicating 
   };
   await assert.rejects(h.mgr.claimChapterRewards(h.runtime), /interrupted/);
   const recovered = await h.mgr.claimChapterRewards(h.runtime);
-  assert.equal(gold, 50); assert.equal(brush, 0); assert.equal(recovered.granted.length, 0);
+  assert.equal(gold, 50); assert.equal(brush, 1); assert.equal(recovered.granted.length, 0);
   assert(!h.mgr.owned(1009)); assert.equal(h.mgr.snapshot.equippedAvatarId, 1001);
   assert(beans.has(2004));
   await h.mgr.claimChapterRewards(h.runtime);
-  assert.equal(gold, 50); assert.equal(brush, 0); assert.equal(h.calls.length, 0);
+  assert.equal(gold, 50); assert.equal(brush, 1); assert.equal(h.calls.length, 0);
 });

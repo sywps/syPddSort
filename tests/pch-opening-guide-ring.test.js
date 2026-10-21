@@ -11,7 +11,7 @@ class Vec3 { constructor(x,y,z) { Object.assign(this,{x,y,z}); } }
 class Skeleton { static AnimationCacheMode = {SHARED_CACHE:1}; setAnimationCacheMode() {} findAnimation() { return true; } setAnimation(...args) { this.animation=args; } clearTracks() { this.cleared=true; } }
 const compiled=ts.transpileModule('export class Harness {'+methods+'}',{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 const mod={exports:{}};
-new Function('module','exports','sp','UITransform','Vec3','AudioMgr','getFirstLevelContent',compiled)(mod,mod.exports,{Skeleton,SkeletonData:class{}},class{},Vec3,{inst:{stopGuideVoice(){}}},()=> 'B');
+new Function('module','exports','sp','UITransform','Vec3','AudioMgr','getFirstLevelContent','isWeChatMiniGameRuntime',compiled)(mod,mod.exports,{Skeleton,SkeletonData:class{}},class{},Vec3,{inst:{stopGuideVoice(){}}},()=> 'B',()=>false);
 function harness(){const h=new mod.exports.Harness();h.openingGuideRingLoadVersion=0;h.openingGuideRingNodes=[];h.rules={};h.runtime={isGameEnd:false};h.prepareLevelOnePromptLayout=()=>0;h.clearLevelTwoSoftHand=()=>{};return h;}
 for(const cancellation of ['clear','rules','end','parent']) {
     const h=harness(),parent={isValid:true};let callback,ready=0;
@@ -45,6 +45,7 @@ assert.equal(args[9].x,0,'hand must point to an actual playable bean');
 assert.equal(h.openingGuideRingNodes.length,2,'only unlocked target color beans glow');
 assert.deepEqual(h.openingGuideRingNodes.map(n=>n.parent),h.runtime.cellNodes[0].slice(0,2));
 let taps=0;h.onOpeningGuideLevelOneTap=()=>taps++;
+h.openingGuide={activeInHierarchy:true};h.openingGuideTarget={activeInHierarchy:true};
 for(const x of [25,40,120])assert.equal(h.handleLevelOneOpeningGuideRootTap({getUILocation:()=>({x,y:0})}),false);
 assert.equal(taps,0,'blank, locked, other color must not advance');
 assert.equal(h.handleLevelOneOpeningGuideRootTap({getUILocation:()=>({x:80,y:0})}),true);

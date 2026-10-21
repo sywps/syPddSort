@@ -1,6 +1,7 @@
 import { _decorator, sys } from 'cc';
 import { getDouyinMiniGameRuntime, getWeChatMiniGameRuntime } from './MiniGamePlatform';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
+import { AnalyticsMgr } from './AnalyticsMgr';
 import { createDemoPvpBattle, type PvpBattleContext, type PvpBoardTimelinePoint, type PvpLockedCell, type PvpPublicProfile, type PvpReplayProgressPoint, type PvpSettlement, type PvpTerminalType } from './PvpModeConfig';
 import { UserMgr } from './UserMgr';
 import { createPixelBotReplay, pixelLevelHash } from './PvpBotReplay';
@@ -388,20 +389,27 @@ export class PvpServiceMgr {
     }
 
     private async call<T>(action: string, data: Record<string, unknown>): Promise<CloudResult<T>> {
-        const ready = await PlatformCloudMgr.inst.init();
-        if (!ready) throw new Error('PVP 云服务不可用');
-        const profile = UserMgr.inst.getDisplayProfile();
-        const result = await PlatformCloudMgr.inst.callFunction<CloudResult<T>>(CLOUD_FUNCTION_NAME, {
-            action,
-            uuid: profile.uuid,
-            displayName: profile.displayName,
-            avatarUrl: profile.avatarUrl,
-            avatarId: profile.avatarId, frameId: profile.frameId,
-            economyRevision: Math.max(0, Number(sys.localStorage.getItem(PVP_ECONOMY_REVISION_KEY)) || 0),
-            ...data,
-        });
-        if (result?.ok !== true) throw new Error(result?.errorMessage || 'PVP 服务请求失败');
-        return result;
+        const startedAt = Date.now();
+        try {
+            const ready = await PlatformCloudMgr.inst.init();
+            if (!ready) throw new Error('PVP 云服务不可用');
+            const profile = UserMgr.inst.getDisplayProfile();
+            const result = await PlatformCloudMgr.inst.callFunction<CloudResult<T>>(CLOUD_FUNCTION_NAME, {
+                action,
+                uuid: profile.uuid,
+                displayName: profile.displayName,
+                avatarUrl: profile.avatarUrl,
+                avatarId: profile.avatarId, frameId: profile.frameId,
+                economyRevision: Math.max(0, Number(sys.localStorage.getItem(PVP_ECONOMY_REVISION_KEY)) || 0),
+                ...data,
+            });
+            if (result?.ok !== true) throw new Error(result?.errorMessage || 'PVP 服务请求失败');
+            if (PlatformCloudMgr.inst.getPlatform() === 'douyin') AnalyticsMgr.inst.trackMultiplayerLobby('pvp', 'multiplayer_service_result', action, true, Date.now() - startedAt);
+            return result;
+        } catch (error) {
+            if (PlatformCloudMgr.inst.getPlatform() === 'douyin') AnalyticsMgr.inst.trackMultiplayerLobby('pvp', 'multiplayer_service_result', action, false, Date.now() - startedAt);
+            throw error;
+        }
     }
 
     toBattleContext(match: PvpCloudMatch): PvpBattleContext {

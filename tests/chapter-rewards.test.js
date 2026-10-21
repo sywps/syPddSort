@@ -17,7 +17,8 @@ for(let cleared=0;cleared<=160;cleared++){
 }
 assert.equal(claimChapterRewards({savedLevel:4},catalog,1).granted.length,0);
 let first=transition({savedLevel:5,gold:8,brushCount:2},{action:'profileChapterClaim'},null,1);
-assert.equal(first.patch.gold,58);assert.equal(first.patch.brushCount,2);
+assert.equal(first.patch.gold,58);assert.equal(first.patch.brushCount,3);
+assert.equal(first.patch.wechatGiftTotals.brushCount,1);
 assert.equal(first.patch.wechatGiftTotals.gold,50);
 assert.equal(first.state.equippedAvatarId,1001);
 const ninth=transition({savedLevel:10,chapterRewardClaims:['v1:1:4']},{action:'profileChapterClaim'},null,1);

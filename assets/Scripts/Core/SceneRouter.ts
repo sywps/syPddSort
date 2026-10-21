@@ -10,6 +10,7 @@ import { debugPerfTrace } from './DebugPerfTrace';
 import { runtimeLog } from './RuntimeLog';
 import { markStartupTrace } from './StartupTrace';
 import { AudioMgr } from './AudioMgr';
+import { ensureWeChatSceneSpineReady } from './WeChatSceneSpine';
 
 function isSceneTraceEnabled(): boolean {
     try {
@@ -88,6 +89,7 @@ export class SceneRouter {
     }
 
     async toGame(): Promise<void> {
+        await ensureWeChatSceneSpineReady();
         await this.loadBundledScene(this.gameSceneName, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOGICAL_GAME_ENTRY_BUNDLE_NAME);
     }
 

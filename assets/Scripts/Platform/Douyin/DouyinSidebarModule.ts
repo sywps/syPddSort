@@ -7,25 +7,57 @@ import {
     Label,
     Node,
     Prefab,
+    SySDKMgr,
     sys,
     UITransform,
 } from '../../Core/GameCtrlShared';
+import { screen, Vec2 } from 'cc';
 import type { Bundle } from '../../Core/GameCtrlShared';
 import { getDouyinMiniGameRuntime } from '../../Core/MiniGamePlatform';
 import { openCollectionShellOverlay } from '../../Core/Panels/CollectionShellOverlay';
 import { runtimeLog, runtimeWarn } from '../../Core/RuntimeLog';
+import { AnalyticsMgr } from '../../Core/AnalyticsMgr';
+
+function trackSidebar(eventName: string, success: boolean, source: string): void {
+    try { AnalyticsMgr.inst.trackFunnelEvent({ eventName, success, source, page: 'douyin_sidebar' }); }
+    catch (_) { console.error('[douyin-sidebar] telemetry failed'); }
+}
 
 const DOUYIN_SIDEBAR_BUTTON_NAME = 'DouyinSidebarTaskButton';
 const DOUYIN_SIDEBAR_BUTTON_PREFAB_PATH = 'UI/Prefabs/Buttons/DouyinSidebarTaskButton';
 const DOUYIN_SIDEBAR_BUTTON_LABEL_NAME = 'SidebarTaskLbl';
-const DOUYIN_SIDEBAR_GUIDE_PREFAB_PATH = 'UI/Prefabs/Panels/GameCirclePanel';
-const DOUYIN_SIDEBAR_REWARD_GOLD = 12;
-const DOUYIN_SIDEBAR_REWARD_PENDING_DATE_KEY = 'pdd.douyin.sidebarReward.pendingDate';
+const DOUYIN_SIDEBAR_GUIDE_PREFAB_PATH = 'UI/Prefabs/Panels/DouyinSidebarGuidePanel';
+const DOUYIN_SIDEBAR_REWARD_PROPS = ['freeze', 'brush', 'magnet'] as const;
+const DOUYIN_SIDEBAR_REWARD_COUNT = 1;
 const DOUYIN_SIDEBAR_REWARD_CLAIMED_DATE_KEY = 'pdd.douyin.sidebarReward.claimedDate';
-const DOUYIN_SIDEBAR_BUTTON_TASK_LABEL = '\u4fa7\u680f\n\u4efb\u52a1';
-const DOUYIN_SIDEBAR_BUTTON_CLAIM_LABEL = '\u9886\u53d6\n\u5956\u52b1';
-const DOUYIN_SIDEBAR_BUTTON_CLAIMED_LABEL = '\u5df2\n\u9886\u53d6';
-const DOUYIN_SIDEBAR_GUIDE_COPY = `\u6bcf\u65e5\u4ece\u6296\u97f3\u9996\u9875\u4fa7\u8fb9\u680f\u56de\u5230\u6e38\u620f\uff0c\u5373\u53ef\u9886\u53d6 ${DOUYIN_SIDEBAR_REWARD_GOLD} \u91d1\u5e01\u3002\n\n1. \u70b9\u51fb\u4e0b\u65b9\u6309\u94ae\uff0c\u524d\u5f80\u6296\u97f3\u9996\u9875\u4fa7\u8fb9\u680f\u3002\n2. \u5728\u4fa7\u8fb9\u680f\u70b9\u51fb\u300a\u8f7b\u677e\u62fc\u8c46\u300b\u8fd4\u56de\u6e38\u620f\u3002\n3. \u56de\u5230\u4e3b\u9875\u540e\uff0c\u518d\u70b9\u672c\u5165\u53e3\u9886\u5956\u3002`;
+const DOUYIN_SIDEBAR_BUTTON_TASK_LABEL = '入口有礼';
+
+// Match Cocos 3.8.8 PAL touch coordinates; the vendor requires a native touch-start gesture.
+export function bindDouyinSidebarGuideTouch(tt: any, button: Node, onTouch: () => void): () => void {
+    if (typeof tt?.onTouchStart !== 'function' || typeof tt?.offTouchStart !== 'function') {
+        throw new Error('[douyin-sidebar] native touch-start API unavailable');
+    }
+    const transform = button.getComponent(UITransform);
+    if (!transform) throw new Error('[douyin-sidebar] guide button UITransform missing');
+    let disposed = false;
+    const cleanup = () => {
+        if (disposed) return;
+        disposed = true;
+        tt.offTouchStart(handler);
+    };
+    const handler = (event: any) => {
+        if (disposed || !button.isValid || !button.activeInHierarchy) return;
+        const touch = event?.changedTouches?.[0];
+        if (!Number.isFinite(touch?.clientX) || !Number.isFinite(touch?.clientY)) return;
+        const point = new Vec2(touch.clientX * screen.devicePixelRatio,
+            screen.windowSize.height - touch.clientY * screen.devicePixelRatio);
+        if (!transform.hitTest(point)) return;
+        cleanup();
+        onTouch();
+    };
+    tt.onTouchStart(handler);
+    return cleanup;
+}
 
 function logSidebar(step: string, data: Record<string, unknown> = {}): void {
     runtimeLog(`[douyin-sidebar] ${step}`, data);
@@ -57,41 +89,10 @@ function requireDeepChild(parent: Node, name: string): Node {
     return node;
 }
 
-function setPrefabLabel(parent: Node, name: string, value: string): void {
-    const label = requireDeepChild(parent, name).getComponent(Label);
-    if (!label) throw new Error(`[douyin-sidebar] guide prefab missing Label: ${name}`);
-    label.string = value;
-}
-
 function setSidebarButtonLabel(btn: Node, value: string): void {
     const label = requireDeepChild(btn, DOUYIN_SIDEBAR_BUTTON_LABEL_NAME).getComponent(Label);
     if (!label) throw new Error(`[douyin-sidebar] button prefab missing Label: ${DOUYIN_SIDEBAR_BUTTON_LABEL_NAME}`);
     label.string = value;
-}
-
-function configureDouyinSidebarGuideContent(box: Node): void {
-    const icon = findChildDeep(box, 'GameCircleIcon');
-    if (icon?.isValid) {
-        icon.active = false;
-    }
-
-    const copyNode = requireDeepChild(box, 'GiftCopyLabel');
-    const copyTransform = copyNode.getComponent(UITransform);
-    const copyLabel = copyNode.getComponent(Label);
-    if (!copyTransform || !copyLabel) {
-        throw new Error('[douyin-sidebar] guide prefab missing GiftCopyLabel UI components');
-    }
-
-    // Code-owned variant: this Douyin guide reuses GameCirclePanel but displays text only.
-    copyNode.setPosition(0, 10, 0);
-    copyTransform.setContentSize(390, 245);
-    copyLabel.string = DOUYIN_SIDEBAR_GUIDE_COPY;
-    copyLabel.fontSize = 20;
-    copyLabel.lineHeight = 28;
-    copyLabel.enableWrapText = true;
-    copyLabel.overflow = Label.Overflow.CLAMP;
-    copyLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-    copyLabel.verticalAlign = Label.VerticalAlign.CENTER;
 }
 
 export function shouldInstallDouyinSidebarModule(): boolean {
@@ -124,7 +125,6 @@ export function installDouyinSidebarModule(target: any): void {
                 existing.active = false;
             }
 
-            const tt = getDouyinMiniGameRuntime();
             if (!parent.isValid || !this.mainMenuNode?.isValid) {
                 logSidebar('draw-entry-skip-invalid-parent', {
                     parentValid: parent.isValid,
@@ -132,8 +132,12 @@ export function installDouyinSidebarModule(target: any): void {
                 });
                 return;
             }
-            logSidebar('draw-entry-show', { hasTt: !!tt });
-            this.showDouyinSidebarButton(parent);
+            this._douyinSidebarUnsubscribe?.();
+            this._douyinSidebarUnsubscribe = SySDKMgr.inst.subscribeDouyinSidebar(() => {
+                if (!parent.isValid || !this.mainMenuNode?.isValid) return;
+                this.showDouyinSidebarButton(parent);
+            });
+            SySDKMgr.inst.refreshDouyinSidebar();
         },
 
         showDouyinSidebarButton(parent: Node) {
@@ -149,14 +153,21 @@ export function installDouyinSidebarModule(target: any): void {
                 return;
             }
 
+            if (this._douyinSidebarButtonLoadingParent === parent) return;
+            this._douyinSidebarButtonLoadingParent = parent;
+            const finishLoad = () => {
+                if (this._douyinSidebarButtonLoadingParent === parent) this._douyinSidebarButtonLoadingParent = null;
+            };
             logSidebar('load-button-bundle-start', { bundleName: HOME_ASSETS_BUNDLE_NAME });
             assetManager.loadBundle(HOME_ASSETS_BUNDLE_NAME, (bundleErr: Error | null, bundle: Bundle | null) => {
                 if (bundleErr || !bundle) {
+                    finishLoad();
                     logSidebar('load-button-bundle-failed', { error: bundleErr?.message || 'bundle missing' });
                     throw new Error(`[douyin-sidebar] loadBundle ${HOME_ASSETS_BUNDLE_NAME} failed: ${bundleErr?.message || 'bundle missing'}`);
                 }
                 logSidebar('load-button-prefab-start', { prefabPath: DOUYIN_SIDEBAR_BUTTON_PREFAB_PATH });
                 bundle.load(DOUYIN_SIDEBAR_BUTTON_PREFAB_PATH, Prefab, (prefabErr: Error | null, prefab: Prefab | null) => {
+                    finishLoad();
                     if (prefabErr || !prefab) {
                         logSidebar('load-button-prefab-failed', { error: prefabErr?.message || DOUYIN_SIDEBAR_BUTTON_PREFAB_PATH });
                         throw new Error(`[douyin-sidebar] load prefab failed: ${prefabErr?.message || DOUYIN_SIDEBAR_BUTTON_PREFAB_PATH}`);
@@ -168,13 +179,13 @@ export function installDouyinSidebarModule(target: any): void {
                         });
                         return;
                     }
+                    if (parent.getChildByName(DOUYIN_SIDEBAR_BUTTON_NAME)?.isValid) return;
                     const btn = instantiate(prefab);
                     btn.name = DOUYIN_SIDEBAR_BUTTON_NAME;
                     parent.addChild(btn);
                     btn.active = true;
                     this.syncDouyinSidebarButtonState(btn);
                     this.bindDouyinSidebarButton(btn);
-                    this.startHomeSceneScalePulse?.(btn, 1.08, 0.6);
                     logSidebar('button-added', {
                         active: btn.active,
                         parentName: parent.name,
@@ -193,7 +204,6 @@ export function installDouyinSidebarModule(target: any): void {
             btn.targetOff(this);
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
-                if (this.tryClaimDouyinSidebarReward('home_entry')) return;
                 this.openDouyinSidebarGuide();
             }, this);
         },
@@ -203,80 +213,92 @@ export function installDouyinSidebarModule(target: any): void {
         },
 
         hasPendingDouyinSidebarRewardToday(): boolean {
-            return sys.localStorage.getItem(DOUYIN_SIDEBAR_REWARD_PENDING_DATE_KEY) === getLocalDateKey();
+            const state = SySDKMgr.inst.getDouyinSidebarState();
+            return state.canShow && state.eligibleToday;
         },
 
         syncDouyinSidebarButtonState(btn?: Node | null): void {
             const target = btn?.isValid ? btn : this._douyinSidebarTaskButton;
             if (!target?.isValid) return;
-            const label = this.hasClaimedDouyinSidebarRewardToday()
-                ? DOUYIN_SIDEBAR_BUTTON_CLAIMED_LABEL
-                : this.hasPendingDouyinSidebarRewardToday()
-                    ? DOUYIN_SIDEBAR_BUTTON_CLAIM_LABEL
-                    : DOUYIN_SIDEBAR_BUTTON_TASK_LABEL;
+            const label = DOUYIN_SIDEBAR_BUTTON_TASK_LABEL;
             setSidebarButtonLabel(target, label);
             logSidebar('button-label-sync', { label: label.replace('\n', '/') });
         },
 
-        markDouyinSidebarRewardPending(): void {
-            if (this.hasClaimedDouyinSidebarRewardToday()) return;
-            sys.localStorage.setItem(DOUYIN_SIDEBAR_REWARD_PENDING_DATE_KEY, getLocalDateKey());
-            this.syncDouyinSidebarButtonState();
-            logSidebar('reward-pending', { rewardGold: DOUYIN_SIDEBAR_REWARD_GOLD });
-        },
-
-        clearDouyinSidebarRewardPending(): void {
-            sys.localStorage.removeItem(DOUYIN_SIDEBAR_REWARD_PENDING_DATE_KEY);
-            this.syncDouyinSidebarButtonState();
-        },
-
         tryClaimDouyinSidebarReward(source: string = 'unknown'): boolean {
+            if (this._douyinSidebarClaiming) return true;
             if (this.hasClaimedDouyinSidebarRewardToday()) {
                 this.syncDouyinSidebarButtonState();
-                this.showToast?.('\u4eca\u5929\u7684\u4fa7\u680f\u5956\u52b1\u5df2\u7ecf\u9886\u8fc7\u5566', 1.6);
                 logSidebar('reward-already-claimed', { source });
                 return true;
             }
             if (!this.hasPendingDouyinSidebarRewardToday()) {
                 return false;
             }
-            if (typeof this.addGold !== 'function') {
-                throw new Error('[douyin-sidebar] runtime missing addGold() for reward claim');
+            if (typeof this.addPropCount !== 'function') {
+                throw new Error('[douyin-sidebar] runtime missing addPropCount() for reward claim');
             }
-            this.addGold(DOUYIN_SIDEBAR_REWARD_GOLD);
-            sys.localStorage.setItem(DOUYIN_SIDEBAR_REWARD_CLAIMED_DATE_KEY, getLocalDateKey());
-            this.clearDouyinSidebarRewardPending();
-            this.refreshGoldUI?.();
-            this.showToast?.(`\u4fa7\u680f\u4efb\u52a1\u5b8c\u6210\uff0c\u83b7\u5f97${DOUYIN_SIDEBAR_REWARD_GOLD}\u91d1\u5e01`, 2);
+            this._douyinSidebarClaiming = true;
+            const rewardProp = DOUYIN_SIDEBAR_REWARD_PROPS[Math.floor(Math.random() * DOUYIN_SIDEBAR_REWARD_PROPS.length)];
+            try {
+                this.addPropCount(rewardProp, DOUYIN_SIDEBAR_REWARD_COUNT);
+                // Same-device daily claim only. Server-side identity/day/idempotency awaits Douyin Cloud.
+                sys.localStorage.setItem(DOUYIN_SIDEBAR_REWARD_CLAIMED_DATE_KEY, getLocalDateKey());
+                trackSidebar('douyin_sidebar_reward_result', true, source);
+            } catch (error) {
+                trackSidebar('douyin_sidebar_reward_result', false, source);
+                throw error;
+            } finally {
+                this._douyinSidebarClaiming = false;
+            }
+            this.syncDouyinSidebarButtonState();
             logSidebar('reward-claimed', {
                 source,
-                rewardGold: DOUYIN_SIDEBAR_REWARD_GOLD,
-                nextGold: typeof this.getGold === 'function' ? this.getGold() : null,
+                rewardProp,
+                rewardCount: DOUYIN_SIDEBAR_REWARD_COUNT,
             });
             return true;
         },
 
         openDouyinSidebarGuide() {
-            if (this._douyinSidebarGuideOverlay?.isValid) return;
+            if (this._douyinSidebarGuideOverlay?.isValid || this._douyinSidebarGuideLoading) return;
+            this._douyinSidebarGuideLoading = true;
             this._douyinSidebarGuideOverlay = null;
             openCollectionShellOverlay(this, {
                 overlayName: 'DouyinSidebarGuideOverlay',
                 prefabPath: DOUYIN_SIDEBAR_GUIDE_PREFAB_PATH,
-                title: '\u4fa7\u680f\u590d\u8bbf\u4efb\u52a1',
+                title: '入口有礼',
                 siblingIndex: 1001,
                 requireActionNodes: false,
                 onClose: () => {
+                    this._douyinSidebarGuideLoading = false;
+                    this._douyinSidebarGuideTouchCleanup?.();
+                    this._douyinSidebarGuideTouchCleanup = null;
                     this._douyinSidebarGuideOverlay = null;
                 },
                 onError: () => {
+                    this._douyinSidebarGuideLoading = false;
+                    this._douyinSidebarGuideTouchCleanup?.();
+                    this._douyinSidebarGuideTouchCleanup = null;
                     this._douyinSidebarGuideOverlay = null;
                 },
                 onReady: ({ overlay, box, close }) => {
+                    this._douyinSidebarGuideLoading = false;
                     this._douyinSidebarGuideOverlay = overlay;
-                    configureDouyinSidebarGuideContent(box);
-                    setPrefabLabel(box, 'EnterLabel', '\u53bb\u4fa7\u680f\u9886\u5956');
                     const enterBtn = requireDeepChild(box, 'EnterBtn');
-                    this.bindPanelButton(enterBtn, () => {
+                    const enterLabel = requireDeepChild(enterBtn, 'EnterLabel').getComponent(Label);
+                    if (!enterLabel) throw new Error('[douyin-sidebar] guide prefab missing EnterLabel component');
+                    this._douyinSidebarGuideTouchCleanup?.();
+                    this._douyinSidebarGuideTouchCleanup = null;
+                    // Claim only after the panel is ready; completion is shown inside it.
+                    this.tryClaimDouyinSidebarReward('home_entry');
+                    if (this.hasClaimedDouyinSidebarRewardToday()) {
+                        enterLabel.string = '已完成';
+                        const button = enterBtn.getComponent(Button);
+                        if (button) button.interactable = false;
+                        return;
+                    }
+                    this._douyinSidebarGuideTouchCleanup = bindDouyinSidebarGuideTouch(getDouyinMiniGameRuntime(), enterBtn, () => {
                         AudioMgr.inst.play('button');
                         this.openDouyinSidebarScene();
                         close();
@@ -285,28 +307,20 @@ export function installDouyinSidebarModule(target: any): void {
             });
         },
         openDouyinSidebarScene() {
-            const tt = getDouyinMiniGameRuntime();
-            if (!tt || typeof tt.navigateToScene !== 'function') {
-                runtimeWarn('[douyin-sidebar] tt.navigateToScene unavailable');
-                this.showToast?.('\u8bf7\u5728\u6296\u97f3\u4e2d\u6253\u5f00\u4fa7\u680f\u4efb\u52a1', 1.8);
-                return;
-            }
             if (this.hasClaimedDouyinSidebarRewardToday()) {
-                this.showToast?.('\u4eca\u5929\u7684\u4fa7\u680f\u5956\u52b1\u5df2\u7ecf\u9886\u8fc7\u5566', 1.6);
                 return;
             }
-            this.markDouyinSidebarRewardPending();
-            tt.navigateToScene({
-                scene: 'sidebar',
-                success: () => {
-                    logSidebar('navigate-sidebar-success', { rewardGold: DOUYIN_SIDEBAR_REWARD_GOLD });
+            void SySDKMgr.inst.openDouyinSidebar().then(
+                () => {
+                    logSidebar('navigate-sidebar-success', { rewardProps: DOUYIN_SIDEBAR_REWARD_PROPS, rewardCount: DOUYIN_SIDEBAR_REWARD_COUNT });
+                    trackSidebar('douyin_sidebar_guide_result', true, 'sdk_guide');
                 },
-                fail: (err: any) => {
-                    this.clearDouyinSidebarRewardPending();
+                (err: any) => {
+                    trackSidebar('douyin_sidebar_guide_result', false, 'sdk_guide');
                     runtimeWarn('[douyin-sidebar] navigateToScene failed:', err);
                     this.showToast?.('\u4fa7\u680f\u6253\u5f00\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5', 1.8);
                 },
-            });
+            );
         },
     });
 }

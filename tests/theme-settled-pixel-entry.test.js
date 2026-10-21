@@ -100,7 +100,7 @@ assert.ok(
 );
 assert.ok(
     conveyor.includes("this.runtime._activeGameplayEntryMode === 'theme'"),
-    'settled pixel blocks must be enabled only for theme challenge gameplay',
+    'theme challenge gameplay must retain settled pixel blocks',
 );
 assert.ok(
     themeFlow.includes('for (const levelId of this.getThemeLevelOrder())')

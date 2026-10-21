@@ -575,7 +575,11 @@ export class GameplaySlotUiController {
         if (!lockBtnSprite.spriteFrame) {
             throw new Error('[GameplayScene] Game.scene must provide SpriteFrame on SlotArea/SlotRowLockedBtn');
         }
-        const lockButton = lockBtn.getComponent(Button) || lockBtn.addComponent(Button);
+        let lockButton = lockBtn.getComponent(Button);
+        if (!lockButton) {
+            lockButton = lockBtn.addComponent(Button);
+            lockButton.transition = Button.Transition.SCALE; lockButton.zoomScale = 0.95; lockButton.duration = 0.08;
+        }
         lockButton.enabled = lockBtn.active;
         lockBtn.targetOff(runtime);
         lockBtn.on(Button.EventType.CLICK, () => {

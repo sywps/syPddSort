@@ -2,7 +2,7 @@ const assert = require('assert/strict');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { PNG } = require('pngjs');
+const imageDimensions = require('./helpers/image-dimensions');
 
 const root = path.resolve(__dirname, '..');
 const resolve = relativePath => path.join(root, relativePath);
@@ -28,7 +28,8 @@ const optimized = [
         originalHash: '8566b604597cb5e25897ccb147348cc8c357193e01ad7fb429c8200ead18fc06',
     },
     {
-        file: 'assets/GameAssetsBundle/Textures/UI/app_transition_loading_background.png',
+        file: 'assets/GameAssetsBundle/Textures/UI/app_transition_loading_background.jpg',
+        originalFile: 'assets/GameAssetsBundle/Textures/UI/app_transition_loading_background.png',
         width: 720,
         height: 1280,
         uuid: '8e8f0bea-1f21-4ca8-bc0f-e2ba4cd62432',
@@ -37,7 +38,7 @@ const optimized = [
 ];
 
 for (const item of optimized) {
-    const png = PNG.sync.read(fs.readFileSync(resolve(item.file)));
+    const png = imageDimensions(fs.readFileSync(resolve(item.file)));
     assert.equal(png.width, item.width, `${item.file} width`);
     assert.equal(png.height, item.height, `${item.file} height`);
 

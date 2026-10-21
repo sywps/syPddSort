@@ -1,3 +1,4 @@
+import { SafeArea } from 'cc';
 import {
     BOARD_PLACE_HIT_CELL_RATIO,
     BOARD_PLACE_HIT_MIN_UI,
@@ -781,6 +782,29 @@ export class GameplayViewController {
 
     private fitBoardViewportToSafeRect(boardWidth: number, boardHeight: number, padding: number): void {
         const runtime = this.runtime;
+        if (runtime.shouldUseContentAwareInitialFit()) {
+            // Widgets normally settle at the end of the frame. Fit against their
+            // adapted positions now, before the opening animation records its home.
+            const align = (node: Node, descendants: boolean): void => {
+                if (descendants && !node.active) return;
+                // Auto-sized HUD labels also change their bounds on first render.
+                node.getComponent(Label)?.updateRenderData(true);
+                const safeArea = node.getComponent(SafeArea);
+                if (safeArea?.enabled) safeArea.updateArea();
+                const widget = node.getComponent(Widget);
+                if (widget?.enabled) widget.updateAlignment();
+                if (descendants) for (const child of node.children) align(child, true);
+            };
+            const fixedRoot = this.getGameplayFixedRoot();
+            const ancestors: Node[] = [];
+            for (let node: Node | null = fixedRoot; node; node = node.parent) ancestors.unshift(node);
+            for (const node of ancestors) align(node, false);
+            for (const name of ['TopBarGroup', 'PchConveyorRoot', 'BoardInitialFitArea']) {
+                align(this.getGameplayFixedGroup(name), true);
+            }
+            align(this.getGameplayBottomHudGroup(), true);
+            align(runtime.boardGroup.parent, false);
+        }
         const initialFitRect = runtime.getBoardInitialFitRect();
         const availableW = Math.max(1, initialFitRect.right - initialFitRect.left);
         const availableH = Math.max(1, initialFitRect.top - initialFitRect.bottom);

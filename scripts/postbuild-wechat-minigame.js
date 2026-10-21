@@ -2041,7 +2041,9 @@ var sdkSrc = path.join(projectRoot, 'sdk');
 var sdkDest = path.join(minigameRootPath, 'sdk');
 if (fs.existsSync(sdkSrc)) {
     if (fs.existsSync(sdkDest)) fs.rmSync(sdkDest, { recursive: true, force: true });
-    fs.cpSync(sdkSrc, sdkDest, { recursive: true });
+    fs.cpSync(sdkSrc, sdkDest, { recursive: true,
+        filter: (source) => path.resolve(source) !== path.join(sdkSrc, 'douyin'),
+    });
     assertDnSdkIntegration(sdkDest, '微信生成包');
     assertDnSdkGameEntry(minigameRootPath);
     console.log('[SDK] SDK 外部脚本已复制到 minigame/sdk/ ✓');

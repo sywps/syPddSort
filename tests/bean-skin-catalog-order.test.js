@@ -6,9 +6,13 @@ const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 const exportsBox = {};
+let creator = false;
+const storage = new Map();
+const localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) };
 new Function('exports', 'require', compiled)(exportsBox, name => {
     if (name === '../BrowserLevelPreview') return { getBrowserLevelPreview: () => ({ active: false }) };
-    if (name === '../GameCtrlShared') return { PINDD_BEAN_VARIANTS: [1, 2, 4] };
+    if (name === '../CreatorWeb') return { isCreatorWeb: () => creator };
+    if (name === '../GameCtrlShared') return { PINDD_BEAN_VARIANTS: [1, 2, 4], sys: { localStorage }, UserStateSyncMgr: { inst: { flushPendingSave() {} } } };
     if (['../RuntimeLog', '../PreviewRewardSave'].includes(name)) return {};
     throw Error(`Unexpected module dependency: ${name}`);
 });
@@ -31,6 +35,17 @@ assert.ifError(current.error);
 assert.deepStrictEqual(current.config.rows.map(row => row.id), [2000, 2004, 2002, 2003, 2001]);
 assert.equal(current.config.byId.get(2004).unlockValue, 9);
 assert.equal(current.config.byId.get(2001).unlockValue, 117);
+assert.equal(current.runtime.isBeanSkinOwned(2001), false);
+creator = true;
+for (const row of current.config.rows) {
+    assert(current.runtime.isBeanSkinOwned(row.id));
+    current.runtime._persistEquippedBeanSkinSelection(row.id);
+    assert.equal(load(catalog).runtime.getEquippedBeanSkinId(), row.id, 'selection survives a fresh runtime');
+}
+assert.equal(current.runtime.isBeanSkinOwned(9999), false);
+assert.equal(storage.has('pdd.level'), false);
+creator = false;
+assert.equal(load(catalog).runtime.getEquippedBeanSkinId(), 2000, 'ordinary mode still rejects locked equipment');
 current.runtime._loadBeanSkinConfig((config, error) => {
     assert.ifError(error);
     assert.strictEqual(config, current.config, 'successful catalog is cached');

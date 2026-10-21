@@ -18,7 +18,6 @@ const groups = [
             'popup_tool_freeze_icon',
             'popup_tool_magnet_icon',
             'popup_tool_wand_icon',
-            '设置',
         ],
     },
     {

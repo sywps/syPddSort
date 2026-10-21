@@ -68,7 +68,7 @@ export class WxCloudMgr {
             return this.cloudInitPromise;
         }
 
-        this.cloudInitPromise = Promise.resolve().then(() => {
+        const attempt = Promise.resolve().then(() => {
             try {
                 const wx = this.getWx();
                 const initOptions: Record<string, unknown> = { traceUser: true };
@@ -85,7 +85,13 @@ export class WxCloudMgr {
             }
         });
 
-        return this.cloudInitPromise;
+        this.cloudInitPromise = attempt;
+        try {
+            return await attempt;
+        } finally {
+            // Share an in-flight attempt and retain success, but let a later request retry failure.
+            if (!this.cloudReady && this.cloudInitPromise === attempt) this.cloudInitPromise = null;
+        }
     }
 
     async callFunction<T = any>(name: string, data: Record<string, unknown> = {}): Promise<T> {

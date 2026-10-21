@@ -7,9 +7,11 @@ const { loadCollectionCatalog } = require('./collection-catalog-contract');
 const { LEVEL_DATA_CLIENT_BUILD, LEVEL_DATA_SCHEMA_VERSION, validateConveyorCapacity } = require('./conveyor-capacity-contract');
 const { validateHard } = require('./hard-level-contract');
 const { normalizeWechatCdnSlot } = require('./wechat-cdn-slot-config');
+const { normalizeDouyinCdnSlot } = require('./douyin-cdn-slot-config');
 
 const projectDir = path.resolve(__dirname, '..');
-const cdnSlot = readOptionalWechatCdnSlot(process.env.PDD_WECHAT_CDN_SLOT);
+const isDouyinCdn = process.env.PDD_CDN_PLATFORM === 'douyin';
+const cdnSlot = isDouyinCdn ? normalizeDouyinCdnSlot(process.env.PDD_DOUYIN_CDN_SLOT) : readOptionalWechatCdnSlot(process.env.PDD_WECHAT_CDN_SLOT);
 const options = parseArgs(process.argv.slice(2));
 const sourceLevelDir = path.resolve(options.source || path.join(projectDir, 'assets', 'LevelData'));
 const overlayLevelDir = options.overlaySource ? path.resolve(options.overlaySource) : '';
@@ -280,6 +282,7 @@ function buildOutput() {
     const manifest = {
         manifestVersion: 1,
         ...(cdnSlot ? { cdnSlot } : {}),
+        ...(isDouyinCdn ? { cdnPlatform: 'douyin' } : {}),
         dataVersion,
         levelDataVersion: dataVersion,
         schemaVersion: LEVEL_DATA_SCHEMA_VERSION,

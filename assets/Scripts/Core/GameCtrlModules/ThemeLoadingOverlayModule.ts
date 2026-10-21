@@ -31,6 +31,8 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { weChatShareReturnService } from '../../Platform/WeChatShareReturnService';
+import { getDouyinMiniGameRuntime } from '../MiniGamePlatform';
+import { isDouyinShareCancelled } from '../../Platform/Douyin/DouyinShareService';
 import type { WeChatShareReturnHandle } from '../../Platform/WeChatShareReturnService';
 
 type WeChatDisplayShareOptions = {
@@ -170,8 +172,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
             const title = `我在拼豆豆通关了第${levelId}关，快来一起挑战！`;
 
             const wx: any = this.getWeChatRuntime();
-            const tt: any = (typeof globalThis !== 'undefined' ? (globalThis as any).tt : null)
-                || (typeof window !== 'undefined' ? (window as any).tt : null);
+            const tt = getDouyinMiniGameRuntime();
 
             if (wx && typeof wx.shareAppMessage === 'function') {
                 startWeChatDisplayShare(this, {
@@ -190,7 +191,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 AnalyticsMgr.inst.trackShareClick('level_win', 'win_share', levelId);
                 try {
                     tt.shareAppMessage({
-                        channel: 'video',
+                        channel: 'invite',
                         title,
                         desc: title,
                         query: `level=${levelId}`,
@@ -198,8 +199,9 @@ export function installThemeLoadingOverlayModule(target: any): void {
                             AnalyticsMgr.inst.trackShareSuccess('level_win', 'win_share', levelId);
                             this.showToast('分享成功');
                         },
-                        fail: () => {
-                            this.showToast('分享已取消');
+                        fail: (error: any) => {
+                            if (!isDouyinShareCancelled(error)) console.warn('[shareCurrentWinLevel] share failed:', error);
+                            this.showToast(isDouyinShareCancelled(error) ? '分享已取消' : '分享失败');
                         },
                     });
                 } catch (e) {

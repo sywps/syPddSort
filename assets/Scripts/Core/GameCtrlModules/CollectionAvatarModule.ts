@@ -1,5 +1,7 @@
 import { getBrowserLevelPreview } from '../BrowserLevelPreview';
 import { renderProfileAvatar, invalidateProfileAvatar } from '../ProfileAvatarView';
+import { bindLeaderboardAvatarFrame, loadLeaderboardAvatarFrame, hasLeaderboardAvatarBinding, hasLeaderboardAvatarUsers,
+    releaseLeaderboardAvatarBinding, retireLeaderboardAvatarFrame } from '../LeaderboardAvatarImage';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
@@ -34,6 +36,7 @@ import type {
 import { ensureCollectionPanelController } from '../Panels/CollectionPanelController';
 import { releaseCompletedPatternPreviewTree as releasePixelPosterPreviewTree, renderCompletedPatternPreview as renderPixelPosterPreview } from '../CompletedPatternPreview';
 import type { LevelCollectionEntry } from '../LevelDataCdnService';
+import { isCreatorWeb } from '../CreatorWeb';
 
 const COLLECTION_PREVIEW_SETTLE_DELAY_SECONDS = 0.08;
 const COLLECTION_PREVIEW_CACHE_MAX_ENTRIES = 54;
@@ -146,6 +149,25 @@ function requireCollectionAvatarLabel(parent: Node, name: string): Label {
     return label;
 }
 
+// One tiny opaque frame shared by all legacy leaderboard portraits. Graphics
+// rectangles reserve about 2.25 MiB of GPU buffers per avatar in Cocos 3.8.8.
+let leaderboardAvatarMaskFrame: SpriteFrame | null = null;
+function enableLeaderboardAvatarMask(node: Node): void {
+    const mask = node.getComponent(Mask);
+    if (!mask) throw new Error('[leaderboard-prefab] AvatarMask is missing Mask');
+    if (!leaderboardAvatarMaskFrame?.isValid) {
+        leaderboardAvatarMaskFrame = createSingleColorSpriteFrame(Color.WHITE, 2, 2);
+        leaderboardAvatarMaskFrame.addRef();
+    }
+    mask.type = Mask.Type.SPRITE_STENCIL;
+    const stencil = node.getComponent(Sprite);
+    if (!stencil) throw new Error('[leaderboard-prefab] AvatarMask stencil unavailable');
+    // Set CUSTOM before the frame so its 2x2 pixels do not resize the authored mask.
+    stencil.sizeMode = Sprite.SizeMode.CUSTOM;
+    stencil.spriteFrame = leaderboardAvatarMaskFrame;
+    mask.enabled = true;
+}
+
 export function installCollectionAvatarModule(target: any): void {
     Object.assign(target, {
         /** Reuse the leaderboard's authored avatar subtree without mounting the panel. */
@@ -201,18 +223,19 @@ export function installCollectionAvatarModule(target: any): void {
             const frameSprite = frameNode.getComponent(Sprite)!;
             if (!('__profileDefaultFrame' in frameNode)) (frameNode as any).__profileDefaultFrame = frameSprite.spriteFrame;
             if (identity?.avatarId || identity?.frameId) {
+                if (hasLeaderboardAvatarBinding(spriteNode)) spriteNode.getComponent(Sprite)!.spriteFrame = null;
+                releaseLeaderboardAvatarBinding(spriteNode);
                 (spriteNode as any).__leaderboardAvatarRequest = {};
                 // Match the profile window for both catalog and authorized portraits.
                 maskNode.getComponent(Mask)!.enabled = false;
                 defaultNode.active = false; spriteNode.active = true;
-                void renderProfileAvatar(spriteNode, frameNode, { ...identity, avatarUrl: url }).catch(error => console.error('[Profile] leaderboard avatar failed', error));
+                void renderProfileAvatar(spriteNode, frameNode, { ...identity, avatarUrl: url }, true).catch(error => console.error('[Profile] leaderboard avatar failed', error));
                 return;
             }
             invalidateProfileAvatar(spriteNode);
             spriteNode.setPosition(0, 0, 0);
             frameSprite.spriteFrame = (frameNode as any).__profileDefaultFrame;
-            maskNode.getComponent(Mask)!.enabled = true;
-            maskNode.getComponent(Mask)!.type = Mask.Type.GRAPHICS_RECT;
+            enableLeaderboardAvatarMask(maskNode);
             const sp = spriteNode.getComponent(Sprite);
             const ut = spriteNode.getComponent(UITransform);
             const maskSize = maskNode.getComponent(UITransform)?.contentSize;
@@ -223,6 +246,7 @@ export function installCollectionAvatarModule(target: any): void {
             const request = {};
             (spriteNode as any).__leaderboardAvatarRequest = request;
             sp.spriteFrame = null;
+            releaseLeaderboardAvatarBinding(spriteNode);
             spriteNode.active = false;
             defaultNode.active = true;
             const applySpriteFrame = (frame: SpriteFrame | null) => {
@@ -233,12 +257,15 @@ export function installCollectionAvatarModule(target: any): void {
                     return;
                 }
                 sp.spriteFrame = frame;
+                bindLeaderboardAvatarFrame(spriteNode, frame);
                 sp.sizeMode = Sprite.SizeMode.CUSTOM;
                 const scale = Math.max(maskSize.width / frame.rect.width, maskSize.height / frame.rect.height);
                 ut.setContentSize(frame.rect.width * scale, frame.rect.height * scale);
                 spriteNode.active = true;
                 defaultNode.active = false;
             };
+            (applySpriteFrame as any).isCurrent = () => node.isValid && spriteNode.isValid
+                && (spriteNode as any).__leaderboardAvatarRequest === request;
         
             if (!(url || '').trim()) {
                 return;
@@ -261,7 +288,10 @@ export function installCollectionAvatarModule(target: any): void {
             const finishLoad = (frame: SpriteFrame | null) => {
                 if (settled) return;
                 settled = true;
-                if (frame) {
+                const waiters = leaderboardAvatarPendingLoads.get(url) || [];
+                leaderboardAvatarPendingLoads.delete(url);
+                for (const waiter of waiters) waiter(frame);
+                if (frame && hasLeaderboardAvatarUsers(frame)) {
                     leaderboardAvatarFrameCache.set(url, frame);
                     while (leaderboardAvatarFrameCache.size > MAX_LEADERBOARD_AVATAR_FRAMES) {
                         const oldestKey = leaderboardAvatarFrameCache.keys().next().value;
@@ -269,188 +299,27 @@ export function installCollectionAvatarModule(target: any): void {
                         const oldestFrame = leaderboardAvatarFrameCache.get(oldestKey) || null;
                         leaderboardAvatarFrameCache.delete(oldestKey);
                         try {
-                            oldestFrame?.texture?.destroy();
-                            oldestFrame?.destroy();
+                            retireLeaderboardAvatarFrame(oldestFrame);
                         } catch (err) {
                             console.warn('[Avatar] cache trim destroy failed:', err);
                         }
                     }
-                }
-                const waiters = leaderboardAvatarPendingLoads.get(url) || [];
-                leaderboardAvatarPendingLoads.delete(url);
-                for (const waiter of waiters) {
-                    waiter(frame);
+                } else if (frame) {
+                    retireLeaderboardAvatarFrame(frame);
                 }
                 finishLeaderboardAvatarLoad();
             };
-            const buildSpriteFrameFromCanvas = (canvas: HTMLCanvasElement | any): SpriteFrame | null => {
-                try {
-                    const imageAsset = new ImageAsset(canvas);
-                    const width = imageAsset.width || canvas?.width || 0;
-                    const height = imageAsset.height || canvas?.height || 0;
-                    if (!width || !height) {
-                        return null;
-                    }
-                    const texture = new Texture2D();
-                    texture.image = imageAsset;
-                    const frame = new SpriteFrame();
-                    frame.texture = texture;
-                    frame.rect = new Rect(0, 0, width, height);
-                    return frame;
-                } catch (err) {
-                    console.warn('[Avatar] canvas sprite frame build failed:', err);
-                    return null;
-                }
-            };
-            const createAvatarCanvas = (width: number, height: number): HTMLCanvasElement | any | null => {
-                try {
-                    const doc = typeof document !== 'undefined' ? (document as any) : null;
-                    if (doc?.createElement) {
-                        const canvas = doc.createElement('canvas');
-                        canvas.width = width;
-                        canvas.height = height;
-                        return canvas;
-                    }
-                } catch (err) {
-                    console.warn('[Avatar] document canvas create failed:', err);
-                }
-        
-                try {
-                    const wxCanvas = typeof wx?.createOffscreenCanvas === 'function'
-                        ? wx.createOffscreenCanvas({ type: '2d', width, height })
-                        : null;
-                    if (wxCanvas) {
-                        wxCanvas.width = width;
-                        wxCanvas.height = height;
-                        return wxCanvas;
-                    }
-                } catch (err) {
-                    console.warn('[Avatar] offscreen canvas create failed:', err);
-                }
-        
-                return null;
-            };
-            const makeSpriteFrame = (source: ImageAsset | any): SpriteFrame | null => {
-                try {
-                    if (source instanceof ImageAsset) {
-                        const rawImage = (source as any)?.image;
-                        const width = source.width || rawImage?.width || 0;
-                        const height = source.height || rawImage?.height || 0;
-                        if (!width || !height) {
-                            return null;
-                        }
-                        const texture = new Texture2D();
-                        texture.image = source;
-                        const frame = new SpriteFrame();
-                        frame.texture = texture;
-                        frame.rect = new Rect(0, 0, width, height);
-                        return frame;
-                    }
-        
-                    const width = source?.width || 0;
-                    const height = source?.height || 0;
-                    if (!width || !height) {
-                        return null;
-                    }
-        
-                    const canvas = createAvatarCanvas(width, height);
-                    if (canvas) {
-                        const ctx = canvas.getContext?.('2d');
-                        if (ctx) {
-                            ctx.clearRect(0, 0, width, height);
-                            ctx.drawImage(source, 0, 0, width, height);
-                            const frameFromCanvas = buildSpriteFrameFromCanvas(canvas);
-                            if (frameFromCanvas) {
-                                return frameFromCanvas;
-                            }
-                        }
-                    }
-        
-                    const imageAsset = new ImageAsset(source);
-                    const texture = new Texture2D();
-                    texture.image = imageAsset;
-                    const frame = new SpriteFrame();
-                    frame.texture = texture;
-                    frame.rect = new Rect(0, 0, width, height);
-                    return frame;
-                } catch (err) {
-                    console.warn('[Avatar] sprite frame build failed:', err);
-                    return null;
-                }
-            };
-            const loadRemoteFrame = () => {
-                assetManager.loadRemote<ImageAsset>(url, (err, imgAsset) => {
-                    if (err || !imgAsset) {
-                        console.warn('[Avatar] loadRemote failed:', err);
-                        finishLoad(null);
-                        return;
-                    }
-                    finishLoad(makeSpriteFrame(imgAsset));
-                });
-            };
-        
-            const wx = this.getWeChatRuntime();
-            const tryLoadWithWeChatImage = (src: string, onError: () => void): boolean => {
-                const createImage = typeof wx?.createImage === 'function' ? wx.createImage.bind(wx) : null;
-                if (!createImage) {
-                    return false;
-                }
-        
-                try {
-                    const img = createImage();
-                    img.onload = () => {
-                        const frame = makeSpriteFrame(img);
-                        if (frame) {
-                            finishLoad(frame);
-                            return;
-                        }
-                        onError();
-                    };
-                    img.onerror = (err: any) => {
-                        console.warn('[Avatar] wx image load failed:', err?.errMsg || err);
-                        onError();
-                    };
-                    img.src = src;
-                    return true;
-                } catch (err) {
-                    console.warn('[Avatar] wx image assign failed:', err);
-                    return false;
-                }
-            };
-        
             enqueueLeaderboardAvatarLoad(url, () => {
-                if (wx?.downloadFile) {
-                    wx.downloadFile({
-                        url,
-                        success: (res: any) => {
-                            if (res.statusCode === 200 && res.tempFilePath) {
-                                if (tryLoadWithWeChatImage(res.tempFilePath, loadRemoteFrame)) {
-                                    return;
-                                }
-                            } else {
-                                console.warn('[Avatar] downloadFile statusCode:', res.statusCode);
-                            }
-        
-                            if (tryLoadWithWeChatImage(url, loadRemoteFrame)) {
-                                return;
-                            }
-                            loadRemoteFrame();
-                        },
-                        fail: (err: any) => {
-                            console.warn('[Avatar] downloadFile failed:', err);
-                            if (tryLoadWithWeChatImage(url, loadRemoteFrame)) {
-                                return;
-                            }
-                            loadRemoteFrame();
-                        },
-                    });
+                const isCurrent = () => (leaderboardAvatarPendingLoads.get(url) || [])
+                    .some(waiter => (waiter as any).isCurrent?.());
+                if (!isCurrent()) {
+                    finishLoad(null);
                     return;
                 }
-        
-                if (tryLoadWithWeChatImage(url, loadRemoteFrame)) {
-                    return;
-                }
-                loadRemoteFrame();
+                void loadLeaderboardAvatarFrame(url, isCurrent).then(finishLoad, error => {
+                    if (isCurrent()) console.warn('[Avatar] loadRemote failed:', error);
+                    finishLoad(null);
+                });
             });
         },
 
@@ -478,27 +347,13 @@ export function installCollectionAvatarModule(target: any): void {
             const display = UserMgr.inst.getDisplayProfile();
             const progressLevel = profile.lastLevelId || 1;
             const selfEntry: RankListEntry = {
-                rank: 0,
+                rank: -1,
                 displayName: display.displayName,
                 avatarUrl: profile.avatarUrl,
                 avatarId: 0, frameId: 0,
                 progressLevel,
             };
-            const wx = this.getWeChatRuntime();
-            if (!wx?.getFriendCloudStorage) return selfEntry;
-        
-            try {
-                await new Promise((resolve, reject) => {
-                    wx.getFriendCloudStorage({
-                        keyList: ['score', 'profile_v1'],
-                        success: () => resolve(true),
-                        fail: (err: any) => reject(err),
-                    });
-                });
-                selfEntry.rank = 0;
-            } catch (err) {
-                console.warn('[GameCtrl] buildFriendSelfEntry failed:', err);
-            }
+            // Actual WeChat friend rank is drawn inside the open-data domain.
             return selfEntry;
         },
 
@@ -511,7 +366,7 @@ export function installCollectionAvatarModule(target: any): void {
 
         renderLeaderboardSelfEntry(parent: Node, entry: RankListEntry) {
             const displayName = entry.displayName || '微信用户';
-            const rankText = entry.rank > 0 ? `第${entry.rank}名` : '未上榜';
+            const rankText = entry.rank > 0 ? `第${entry.rank}名` : entry.rank < 0 ? '—' : '未上榜';
             const progressLevel = Math.max(1, Math.floor(Number(entry.progressLevel) || 1));
             if (!parent.getComponent(UITransform)) {
                 throw new Error('[leaderboard-prefab] LeaderboardSelfBox is missing UITransform');
@@ -621,7 +476,7 @@ export function installCollectionAvatarModule(target: any): void {
                 const completed = allEntries.filter((entry: LevelCollectionEntry) => entry.prefix === 'coop_level_'
                     ? !!(entry as any).unlocked
                     : isCollectionEntryUnlockedForProgress(entry, savedLevel, completedThemeLevelIds)).length;
-                progressLabel.string = `已收集：${completed} / ${allEntries.length}`;
+                progressLabel.string = isCreatorWeb() ? `可预览：${allEntries.length} 个图案` : `已收集：${completed} / ${allEntries.length}`;
             }
             const columnCount = Math.max(1, columnXs.length);
             const rowCount = Math.max(1, Math.ceil(allEntries.length / columnCount));
@@ -744,9 +599,9 @@ export function installCollectionAvatarModule(target: any): void {
                 const col = entryIndex % state.columnCount;
                 item.slot.setPosition(state.columnXs[col], state.startY - row * state.rowPitch, 0);
                 if (item.entryIndex !== entryIndex || !item.slot.active) {
-                    const unlocked = entry.prefix === 'coop_level_'
+                    const unlocked = isCreatorWeb() || (entry.prefix === 'coop_level_'
                         ? !!(entry as any).unlocked
-                        : isCollectionEntryUnlockedForProgress(entry, state.savedLevel, state.completedThemeLevelIds);
+                        : isCollectionEntryUnlockedForProgress(entry, state.savedLevel, state.completedThemeLevelIds));
                     item.slot.name = `CollectionCardSlotItem_${entryIndex}`;
                     item.slot.active = true;
                     const previewInfo = this.drawCollectionCard(item.slot, entry.levelId, 0, 0, 0, 0, unlocked, state.savedLevel, {

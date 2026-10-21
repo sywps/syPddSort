@@ -8,6 +8,30 @@
     ".png"
   ],
   "subMetas": {
+    "6c48a": {
+      "importer": "texture",
+      "uuid": "6014d699-5e3c-4641-9e6b-8bdf1d48faeb@6c48a",
+      "displayName": "win_home_button",
+      "id": "6c48a",
+      "name": "texture",
+      "userData": {
+        "wrapModeS": "clamp-to-edge",
+        "wrapModeT": "clamp-to-edge",
+        "imageUuidOrDatabaseUri": "6014d699-5e3c-4641-9e6b-8bdf1d48faeb",
+        "isUuid": true,
+        "visible": false,
+        "minfilter": "linear",
+        "magfilter": "linear",
+        "mipfilter": "none",
+        "anisotropy": 0
+      },
+      "ver": "1.0.22",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
     "f9941": {
       "importer": "sprite-frame",
       "uuid": "6014d699-5e3c-4641-9e6b-8bdf1d48faeb@f9941",
@@ -94,30 +118,6 @@
         }
       },
       "ver": "1.0.12",
-      "imported": true,
-      "files": [
-        ".json"
-      ],
-      "subMetas": {}
-    },
-    "6c48a": {
-      "importer": "texture",
-      "uuid": "6014d699-5e3c-4641-9e6b-8bdf1d48faeb@6c48a",
-      "displayName": "win_home_button",
-      "id": "6c48a",
-      "name": "texture",
-      "userData": {
-        "wrapModeS": "clamp-to-edge",
-        "wrapModeT": "clamp-to-edge",
-        "imageUuidOrDatabaseUri": "6014d699-5e3c-4641-9e6b-8bdf1d48faeb",
-        "isUuid": true,
-        "visible": false,
-        "minfilter": "linear",
-        "magfilter": "linear",
-        "mipfilter": "none",
-        "anisotropy": 0
-      },
-      "ver": "1.0.22",
       "imported": true,
       "files": [
         ".json"

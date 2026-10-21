@@ -777,6 +777,9 @@ assertWechatFirstScreenBackground(runtimeDir, settings);
 assertOpenDataContextConfig(runtimeDir, gameJson);
 logStep('2.1 补齐本地小游戏公共 bundle 产物...');
 runNode('scripts/postbuild-minigame-bundles.js', [runtimeDir]);
+logInfo('规范化微信资源包索引: ' + require('./normalize-minigame-pack-indices').normalizeRuntimePackIndices(runtimeDir));
+logInfo('补齐微信图集依赖: ' + JSON.stringify(require('./repair-douyin-atlas-dependencies').repairAtlasDependencies(runtimeDir)));
+runNode('tests/wechat-pack-config.test.js', [runtimeDir]);
 gameJson = readJson(path.join(runtimeDir, 'game.json'));
 settings = readJson(findSettingsPath(runtimeDir));
 

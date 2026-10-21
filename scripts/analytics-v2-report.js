@@ -46,8 +46,8 @@ function compatibleFunnelRecords(records) {
   return result;
 }
 
-function buildSettlementFlowReport(records, asOf = Date.now()) {
-  const rows = unique(records, 'first_level_funnel').filter(x => x.analyticsEnvironment === 'wechat_release'
+function buildSettlementFlowReport(records, asOf = Date.now(), analyticsEnvironment = 'wechat_release') {
+  const rows = unique(records, 'first_level_funnel').filter(x => x.analyticsEnvironment === analyticsEnvironment
     && Number(x.extra?.settlementSchemaVersion) === 1 && x.extra?.settlementId
     && Number(x.timestamp) <= asOf && String(x.eventName || '').startsWith('settlement_'));
   if (!rows.length) return { available: false, reason: 'no_settlement_flow_events', levels: [] };
@@ -114,11 +114,13 @@ function buildSettlementFlowReport(records, asOf = Date.now()) {
       'Timing includes background, reward, and other pauses. Rates use only settlements with eligible and shown evidence in this window.'] };
 }
 
-function buildAnalyticsV2Report({ behaviorRecords, funnelRecords, levelRecords, asOf = Date.now(), clientBuildId, experimentBucket }) {
+function buildAnalyticsV2Report({ behaviorRecords, funnelRecords, levelRecords, asOf = Date.now(), clientBuildId, experimentBucket, analyticsEnvironment }) {
   if (![behaviorRecords, funnelRecords, levelRecords].every(Array.isArray)) return { available: false, reason: 'missing_raw_collection' };
+  if (analyticsEnvironment && !['wechat_release', 'douyin_dev', 'douyin_release'].includes(analyticsEnvironment)) return { available: false, reason: 'invalid_environment' };
   const allRecords = [...behaviorRecords, ...funnelRecords, ...levelRecords];
   const official = allRecords.some(x => x.analyticsEnvironment === 'wechat_release' && Number(x.csdVersion) >= 3);
-  const environmentSelected = x => official ? x.analyticsEnvironment === 'wechat_release' && Number(x.csdVersion) >= 3 : Number(x.csdVersion || 0) < 3;
+  const environmentSelected = x => analyticsEnvironment ? x.analyticsEnvironment === analyticsEnvironment && Number(x.csdVersion) >= 3
+    : official ? x.analyticsEnvironment === 'wechat_release' && Number(x.csdVersion) >= 3 : Number(x.csdVersion || 0) < 3;
   const modeByRound = new Map(), modeBySession = new Map();
   const explicitMode = x => x.gameplayEntryMode || x.extra?.gameplayEntryMode || x.extra?.entryMode || '';
   for (const x of [...behaviorRecords, ...levelRecords]) {
@@ -235,8 +237,8 @@ function buildAnalyticsV2Report({ behaviorRecords, funnelRecords, levelRecords, 
   return { available: true, schemaVersion: 2, asOf, levels,
     settlementFlow: buildSettlementFlowReport(funnelRecords.filter(x =>
       (!clientBuildId || (x.clientBuildId || x.extra?.clientBuildId) === clientBuildId)
-      && (!experimentBucket || (x.experimentBucket || x.abBucket) === experimentBucket)), asOf),
-    environmentScope: official ? 'wechat_release' : 'historical_environment_unknown',
+      && (!experimentBucket || (x.experimentBucket || x.abBucket) === experimentBucket)), asOf, analyticsEnvironment || 'wechat_release'),
+    environmentScope: analyticsEnvironment || (official ? 'wechat_release' : 'historical_environment_unknown'),
     appDiagnostics: buildCsdDetails(unique(funnelRecords, 'first_level_funnel').filter(x => environmentSelected(x) && Number(x.logicalLevelId || x.levelId || 0) === 0)),
     filters: { clientBuildId: clientBuildId || null, experimentBucket: experimentBucket || null, mode: 'main (explicit or unambiguous linked attribution)' },
     quality: { duplicateRows: behaviorRecords.length + funnelRecords.length + levelRecords.length
@@ -272,7 +274,9 @@ function buildAnalyticsV2FromSummaries(summaries) {
 }
 function renderAnalyticsV2(report) {
   if (!report.available) return '# CSD 检查\n\n原始数据缺失，无法生成。\n';
-  return '# 前二十关 CSD 检查\n\n采集范围：' + (report.environmentScope === 'wechat_release' ? '已确认微信正式版本' : '历史环境未知，不能视为已验证正式数据')
+  return '# 前二十关 CSD 检查\n\n采集范围：' + (report.environmentScope === 'wechat_release' ? '已确认微信正式版本'
+    : report.environmentScope === 'douyin_dev' ? '抖音 dev 联调数据（非正式运营数据）'
+    : report.environmentScope === 'douyin_release' ? '抖音正式数据' : '历史环境未知，不能视为已验证正式数据')
     + '。人数跨结果可重叠；终局仅统计有局标识且在进入队列中的记录。缺失结局不等于失败。\n\n|关卡|进入人数|引导展示|引导完成|未命中人数/次数|通关人数|失败人数|复活人数|主动放弃局|未决局|\n|---|---:|---:|---:|---|---:|---:|---:|---:|---:|\n'
     + report.levels.map(x => `|${x.levelId}|${x.entered.users}|${x.guide.applicable ? x.guide.shownUsers ?? '未知' : '不适用'}|${x.guide.applicable ? x.guide.completedUsers ?? '未知' : '不适用'}|${x.guide.missUsers}/${x.guide.missCount ?? '未知'}|${x.pass.users}|${x.failureEncounters.users}|${x.revived.users}|${x.terminal.explicitExit}（另有${x.terminal.unknownAbandonReason}局中断原因未知）|${x.terminal.unresolved}|`).join('\n')
     + '\n\n质量统计：' + JSON.stringify(report.quality) + '\n'

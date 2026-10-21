@@ -71,6 +71,7 @@ function loadStartupRouteModule(localValue = null, miniGameQuery = {}, windowSea
         module,
         exports: module.exports,
         require(id) {
+            if (id === './CreatorWeb') return { isCreatorWeb: () => false };
             if (id === './StartupLocalProgress') {
                 return {
                     normalizeStartupLocalLevel,

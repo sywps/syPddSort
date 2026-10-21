@@ -205,4 +205,38 @@ for (const fail of [false, true]) {
         assert.equal(h.rules.board.isAllLocked(), true);
     }
 }
-console.log('Full conveyor clear revive: atomic rollback, all beans, timer order, animation, duplicate and win passed');
+// Exercise the shared production skill runner: logical locks must not reveal pixels
+// until each individual flight completes, including refreshes during revival.
+for (const kind of ['revive', 'brush', 'magnet']) {
+    animations.length = 0;
+    const h = skillHarness();
+    h.runtime._activeGameplayEntryMode = 'main';
+    h.controller.isActive = () => true;
+    h.controller.commitFinish = () => {};
+    const pixels = () => [0, 1].map(col => h.controller.shouldRenderSettledPixelBlock(0, col));
+    const execute = () => {
+        for (let col = 0; col < 2; col++) {
+            h.rules.board.currentColors[0][col] = col + 1;
+            h.rules.board.setLocked(0, col, true);
+        }
+        return {
+            moved: 2, colorId: 0,
+            boardCells: [{ row: 0, col: 0 }, { row: 0, col: 1 }],
+            moves: [0, 1].map(col => ({ source: { kind: 'board', row: 0, col, colorId: col + 1 }, target: { row: 0, col } })),
+        };
+    };
+    h.runtime.isGameEnd = kind === 'revive';
+    h.runtime.continueAfterLose = () => {
+        assert.deepEqual(pixels(), [false, false], 'revival refresh must already hide pending targets');
+        h.runtime.isGameEnd = false;
+    };
+    assert.equal(h.controller.runConveyorSkill(kind, false, execute), true);
+    assert.equal(h.rules.board.isAllLocked(), true, 'preserve atomic rule commit');
+    assert.deepEqual(pixels(), [false, false], `${kind}: no pixels before flight`);
+    animations[0].callbacks.forEach(fn => fn());
+    assert.deepEqual(pixels(), [true, false], `${kind}: only the arrived bean becomes a pixel`);
+    animations[1].callbacks.forEach(fn => fn());
+    assert.deepEqual(pixels(), [true, true], `${kind}: all pixels appear after arrival`);
+    assert.equal(h.runtime._flyingTargets.size, 0);
+}
+console.log('Full conveyor clear revive: atomic rollback, all beans, timer order, animation, duplicate, win and per-bean pixel arrival passed');

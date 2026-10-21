@@ -14,7 +14,7 @@ const ceiling = Number(hostSource.match(/VIGOR_CEILING = (\d+)/)[1]);
 const restoreSeconds = Number(hostSource.match(/VIGOR_RESTORE_SECONDS = (\d+)/)[1]);
 const restoreMs = restoreSeconds * 1000;
 
-function createRuntime(vigor = ceiling, untilRestoreMs = 0) {
+function createRuntime(vigor = ceiling, untilRestoreMs = 0, creator = false) {
     let now = 1700000000000;
     const values = new Map([
         ['pdd.vigor', String(vigor)],
@@ -27,6 +27,7 @@ function createRuntime(vigor = ceiling, untilRestoreMs = 0) {
         module, exports: module.exports, Date: TestDate, console,
         require(id) {
             if (id === '../BrowserLevelPreview') return { getBrowserLevelPreview: () => ({ active: false }) };
+            if (id === '../CreatorWeb') return { isCreatorWeb: () => creator };
             if (id === '../PreviewRewardSave') return { PreviewRewardSave: {} };
             if (id === '../RuntimeLog') return { runtimeLog() {}, runtimeWarn() {} };
             if (id === '../UserStateSyncMgr') return { PVP_ECONOMY_REVISION_KEY: 'pdd.pvpEconomyRevision' };
@@ -287,6 +288,29 @@ for (const failure of ['no-grant', 'partial-error']) {
     assert.equal(f.runtime.getVigor(), 2, 'failed grant restores vigor even after a partial write');
     assert.equal(f.runtime.getVigorTime(), deadline);
     assert.equal(f.runtime.toasts.at(-1), '体力购买失败，请重试');
+}
+
+for (const initial of [0, 4, ceiling]) {
+    const f = createRuntime(initial, restoreMs, true);
+    for (const mode of ['main', 'theme', 'collection_replay']) {
+        for (const level of [1, 25, 600]) {
+            assert.equal(f.runtime.isTutorialVigorFreeLevel(level, mode), true);
+            assert.equal(f.runtime.costVigorForLevel(level, mode), true);
+        }
+    }
+    assert.equal(f.runtime.costVigor(), true);
+    assert.equal(f.writes.length, 0, 'creator entry never spends or fabricates stored vigor');
+    assert.equal(f.runtime.getVigor(), initial);
+    f.runtime._vigorCountLbl = { string: '' };
+    f.runtime._vigorTimeLbl = { string: '' };
+    f.runtime.refreshVigorUI();
+    assert.equal(f.runtime._vigorCountLbl.string, String(initial));
+    assert.equal(f.runtime._vigorTimeLbl.string, initial >= ceiling ? '体力已满' : '05:00');
+    let opened = 0;
+    f.runtime.openRecoverVigorPrefabModal = () => opened++;
+    f.runtime.showNoLivesAdModal({ source: 'home_hud' });
+    assert.equal(opened, 1, 'the original stamina panel remains accessible');
+    assert.equal(f.runtime.toasts.length, 0, 'no creator-only unlimited-stamina message');
 }
 
 console.log('vigor-refresh.test.js passed');

@@ -32,7 +32,7 @@ const fakeSySDKMgr = {
 const OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS = 1500;
 
 function createHarness(signatures) {
-    const methods = signatures.map(extractMethod).join('\n');
+    const methods = [...new Set([...signatures, 'private runOptionalGuideAudio(action: () => void): void'])].map(extractMethod).join('\n');
     const compiled = ts.transpileModule(`export class Harness {\n${methods}\n}`, {
         compilerOptions: {
             module: ts.ModuleKind.CommonJS,
@@ -40,8 +40,8 @@ function createHarness(signatures) {
         },
     }).outputText;
     const testModule = { exports: {} };
-    const load = new Function('module', 'exports', 'require', 'AudioMgr', 'SySDKMgr', 'Vec3', 'UITransform', 'OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS', 'sys', 'PCH_CAPACITY_GUIDE_DONE_KEY', compiled);
-    load(testModule, testModule.exports, require, fakeAudioMgr, fakeSySDKMgr, class FakeVec3 {}, class FakeUITransform {}, OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS, {localStorage:{getItem:()=>null,setItem(){}}}, 'capacity-guide-test');
+    const load = new Function('module', 'exports', 'require', 'AudioMgr', 'SySDKMgr', 'Vec3', 'UITransform', 'OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS', 'sys', 'PCH_CAPACITY_GUIDE_DONE_KEY', 'isWeChatMiniGameRuntime', compiled);
+    load(testModule, testModule.exports, require, fakeAudioMgr, fakeSySDKMgr, class FakeVec3 {}, class FakeUITransform {}, OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS, {localStorage:{getItem:()=>null,setItem(){}}}, 'capacity-guide-test',()=>false);
     const harness = new testModule.exports.Harness();
     harness.trackPchFunnelEvent = () => {};
     return harness;
@@ -180,7 +180,7 @@ assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: openingGu
 
 const tutorialTelemetry = createHarness([
     'private reportOpeningGuideTutorialStart(): void',
-    'private reportOpeningGuideTutorialFinish(): void',
+    'private reportOpeningGuideTutorialFinish(guideName?: string): void',
 ]);
 const completedTelemetry = [];
 tutorialTelemetry.getOpeningGuideAnalyticsMeta = () => ({ guideId: 'pch_level_1_store_v1' });
@@ -292,7 +292,7 @@ const levelThreeAnalytics = [];
 const levelThreeCalls = [];
 const levelThreeToasts = [];
 let levelThreeTutorialFinishes = 0;
-levelThree.rules = {};
+levelThree.rules = { bufferCapacity: 60 };
 levelThree.openingGuide = { name: 'PchLevelThreeCapacityGuide' };
 levelThree.trackPchFunnelEvent = () => {};
 levelThree.resetCapacityAdGesture = () => {};
@@ -312,6 +312,7 @@ levelThree.runtime = {
 };
 levelThree.expandCapacity = () => {
     levelThreeCalls.push('expand');
+    levelThree.rules.bufferCapacity += 12;
     return true;
 };
 levelThree.trackOpeningGuideEvent = (...args) => levelThreeAnalytics.push(args);
@@ -322,8 +323,8 @@ levelThree.onOpeningGuideFreeCapacity(capacityEvent);
 assert.strictEqual(capacityEvent.propagationStopped, true);
 assert.strictEqual(levelThreeTutorialFinishes, 1, 'level 3 guide success must report tutorial completion once');
 assert.deepStrictEqual(levelThreeAnalytics, [
-    ['pch_guide_tap_result', true, 'capacity_expanded'],
-    ['pch_guide_step_done', true, 'completed'],
+    ['pch_guide_tap_result', true, 'capacity_expanded', 'PchLevelThreeCapacityGuide'],
+    ['pch_guide_step_done', true, 'completed', 'PchLevelThreeCapacityGuide'],
 ]);
 assert.deepStrictEqual(levelThreeCalls, ['expand', 'rings', 'assist', 'dismiss', 'toast']);
 assert.deepStrictEqual(levelThreeToasts, ['传送带已扩容 +12']);
@@ -350,7 +351,7 @@ failedLevelThree.reportOpeningGuideTutorialFinish = () => { failedLevelThreeTuto
 failedLevelThree.dismissOpeningGuide = () => { failedLevelThreeDismisses += 1; };
 failedLevelThree.onOpeningGuideFreeCapacity({ propagationStopped: false });
 assert.deepStrictEqual(failedLevelThreeAnalytics, [
-    ['pch_guide_tap_result', false, 'capacity_expand_failed'],
+    ['pch_guide_tap_result', false, 'capacity_expand_failed', 'PchLevelThreeCapacityGuide'],
 ]);
 assert.strictEqual(failedLevelThreeAssists, 0, 'failed capacity expansion must not mark countdown assistance');
 assert.strictEqual(failedLevelThreeDismisses, 0, 'failed capacity expansion must retain the guide');
@@ -373,6 +374,7 @@ function routeGuide(levelId, entryMode) {
     guide.onOpeningGuideFreeCapacity = () => {};
     guide.showLevelOneBoardGuide = (parent) => calls.push(['level1', parent]);
     guide.showOpeningTargetGuide = (...args) => calls.push(['target', ...args]);
+    guide.showRoundedMaterialGuide = (parent, speedGuide) => calls.push(['rounded-material', parent, speedGuide]);
     guide.showLevelThreeCapacityGuide = (parent) => calls.push(['capacity-material', parent]);
     guide.showOpeningFeatureGuide('fixed-root');
     return calls;
@@ -413,6 +415,10 @@ for (const levelId of [1, 2, 3]) {
     let shown = 0;
     missingBubbleLoader.showLevelOneBoardGuide = () => { shown += 1; };
     missingBubbleLoader.showOpeningTargetGuide = () => { shown += 1; };
+    missingBubbleLoader.showRoundedMaterialGuide = (_parent, speedGuide) => {
+        assert.strictEqual(speedGuide, true, 'level 2 must keep the speed guide action');
+        shown += 1;
+    };
     missingBubbleLoader.showLevelThreeCapacityGuide = () => { shown += 1; };
     missingBubbleLoader.showOpeningFeatureGuide({ isValid: true });
     assert.strictEqual(shown, 1, `level ${levelId} must retain its guide action without the bubble loader`);
@@ -435,7 +441,7 @@ const capacityFocusMaskSource = extractMethod('private createOpeningGuideCapacit
 const conveyorPromptAnchorSource = extractMethod('private getOpeningGuidePromptCenterYAboveConveyor(');
 const openingGuideTextStyleSource = extractMethod('private applyOpeningGuidePromptLabelStyle(');
 const tutorialStartSource = extractMethod('private reportOpeningGuideTutorialStart(): void');
-const tutorialFinishSource = extractMethod('private reportOpeningGuideTutorialFinish(): void');
+const tutorialFinishSource = extractMethod('private reportOpeningGuideTutorialFinish(guideName?: string): void');
 const sySdkSource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/SySDKMgr.ts'), 'utf8');
 assert.ok(
     tutorialStartSource.includes('SySDKMgr.inst.reportTutorialStart()')

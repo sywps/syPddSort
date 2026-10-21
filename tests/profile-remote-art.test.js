@@ -25,7 +25,7 @@ function replacement() {
   live.dataVersion = 'c'.repeat(64);
   return live;
 }
-function harness(live = replacement(), storage = new Map(), offline = false) {
+function harness(live = replacement(), storage = new Map(), offline = false, creator = false) {
   const downloads = [], requests = [], failures = [];
   class SpriteFrame { addRef() {} }
   const dependencies = {
@@ -35,6 +35,7 @@ function harness(live = replacement(), storage = new Map(), offline = false) {
     } },
     './ProfileCustomizationConfig': { PROFILE_ITEMS: catalog, PROFILE_FRAME_GEOMETRY: packagedGeometry, profileItem: id => { const row = catalog.find(x => x.id === id); if (!row) throw Error('bad id'); return row; } },
     './ProfileArtManifest': validator,
+    './CreatorWeb': { isCreatorWeb: () => creator },
     './ProfileDiagnostics': { reportProfileFailure: (...args) => failures.push(args) },
     './RemoteDataCdnClient': {
       normalizeCdnBaseUrl: value => value || '', shouldUseLocalLevelDataMirror: () => false,
@@ -45,6 +46,14 @@ function harness(live = replacement(), storage = new Map(), offline = false) {
   const module = loadTs('ProfileResourceService', dependencies);
   return { service: module.ProfileResourceService, ...module, downloads, requests, failures, storage };
 }
+test('creator level CDN does not move profile art off the local bundle', async () => {
+  const h = harness(replacement(), new Map(), false, true);
+  await h.service.prepare();
+  assert.ok((await h.service.load(1001)).local);
+  assert.equal(h.requests.length, 0);
+  assert.equal(h.downloads.length, 0);
+});
+
 test('remote manifest accepts new artwork for fixed IDs and rejects malformed contracts', () => {
   assert.equal(validator.validateProfileArtManifest(replacement(), catalog).items[0].width, 300);
   for (const mutate of [x => x.items.pop(), x => x.items.push(x.items[0]), x => x.items[0].asset = '../a.png', x => x.items[0].width = 0, x => x.items.find(r => r.kind === 'frame').bounds = [0, 0, 9000, 20]]) {

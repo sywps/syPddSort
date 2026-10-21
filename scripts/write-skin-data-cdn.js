@@ -4,9 +4,11 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { normalizeWechatCdnSlot } = require('./wechat-cdn-slot-config');
+const { normalizeDouyinCdnSlot } = require('./douyin-cdn-slot-config');
 
 const projectDir = path.resolve(__dirname, '..');
-const cdnSlot = readOptionalWechatCdnSlot(process.env.PDD_WECHAT_CDN_SLOT);
+const isDouyinCdn = process.env.PDD_CDN_PLATFORM === 'douyin';
+const cdnSlot = isDouyinCdn ? normalizeDouyinCdnSlot(process.env.PDD_DOUYIN_CDN_SLOT) : readOptionalWechatCdnSlot(process.env.PDD_WECHAT_CDN_SLOT);
 const skinConfigPath = path.join(projectDir, 'assets', 'GameAssetsBundle', 'Skins', 'skins.json');
 const bootstrapRoot = path.join(projectDir, 'assets', 'BootstrapBundle');
 const gameAssetsRoot = path.join(projectDir, 'assets', 'GameAssetsBundle');
@@ -253,6 +255,7 @@ function buildOutput() {
     const manifest = {
         manifestVersion: 1,
         ...(cdnSlot ? { cdnSlot } : {}),
+        ...(isDouyinCdn ? { cdnPlatform: 'douyin' } : {}),
         skinDataVersion,
         schemaVersion: 1,
         minClientBuild: 1,

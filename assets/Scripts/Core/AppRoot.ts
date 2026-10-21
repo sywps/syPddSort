@@ -9,6 +9,8 @@ import {
     type AppSceneName,
 } from './AppSession';
 import { SceneRouter } from './SceneRouter';
+import { isMiniGameRuntime } from './MiniGamePlatform';
+import { AnalyticsMgr } from './AnalyticsMgr';
 
 const { ccclass } = _decorator;
 const APP_TRANSITION_BUNDLE_NAME = 'gameAssets';
@@ -21,6 +23,11 @@ export class AppRoot extends Component {
     private readonly _router = new SceneRouter(this._session);
     appTransition: AppTransitionController | null = null;
     private appTransitionPromise: Promise<AppTransitionController> | null = null;
+    private weChatTransitionRequest: {
+        key: string; promise: Promise<void>; targetScene: AppSceneName;
+        acceptReady?: boolean;
+        complete?: (scene: AppSceneName, error: unknown | null) => boolean;
+    } | null = null;
     startupLoading: StartupLoadingController | null = null;
     private startupLoadingPromise: Promise<StartupLoadingController> | null = null;
 
@@ -68,8 +75,17 @@ export class AppRoot extends Component {
     ensureAppTransition(): Promise<AppTransitionController> {
         if (this.appTransition?.isValid) return Promise.resolve(this.appTransition);
         if (this.appTransitionPromise) return this.appTransitionPromise;
+        let finished = false;
+        let timeout: ReturnType<typeof setTimeout> | undefined;
         this.appTransitionPromise = new Promise<AppTransitionController>((resolve, reject) => {
+            if (isMiniGameRuntime()) {
+                timeout = setTimeout(() => {
+                    finished = true;
+                    reject(new Error('[AppTransition] optional transition load timed out'));
+                }, 5000);
+            }
             const loadPrefab = (bundle: AssetManager.Bundle) => bundle.load(APP_TRANSITION_PREFAB_PATH, Prefab, (error, prefab) => {
+                if (finished) return;
                 if (error || !prefab) {
                     reject(error || new Error('[AppTransition] prefab missing'));
                     return;
@@ -94,20 +110,66 @@ export class AppRoot extends Component {
                 return;
             }
             assetManager.loadBundle(APP_TRANSITION_BUNDLE_NAME, (bundleError, loadedBundle) => {
+                if (finished) return;
                 if (bundleError || !loadedBundle) {
                     reject(bundleError || new Error('[AppTransition] gameAssets bundle missing'));
                     return;
                 }
-                loadPrefab(loadedBundle);
+                try { loadPrefab(loadedBundle); }
+                catch (error) { reject(error); }
             });
         }).then((transition) => {
+            finished = true;
+            if (timeout !== undefined) clearTimeout(timeout);
             this.appTransitionPromise = null;
             return transition;
         }, (error) => {
+            finished = true;
+            if (timeout !== undefined) clearTimeout(timeout);
             this.appTransitionPromise = null;
             throw error;
         });
         return this.appTransitionPromise;
+    }
+
+    private runAppTransition(key: string, scene: AppSceneName, direction: 'forward' | 'reverse', task: () => Promise<void>): Promise<void> {
+        if (!isMiniGameRuntime()) {
+            return this.ensureAppTransition().then(transition => transition.run(key, scene, direction, task));
+        }
+        const active = this.weChatTransitionRequest;
+        if (active) return active.key === key ? active.promise
+            : Promise.reject(new Error(`[AppTransition] transition already in flight: ${active.key}`));
+        const promise = (async () => {
+            let transition: AppTransitionController;
+            try {
+                transition = await this.ensureAppTransition();
+            } catch (error) {
+                console.warn('[AppTransition] optional animation unavailable; continuing original route:', error);
+                try {
+                    AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'app_transition_asset_failed', success: false,
+                        source: 'app_transition', errorCode: 'transition_asset_unavailable', errorMessage: String(error),
+                        extra: { targetScene: scene, transitionKey: key } });
+                } catch (reportError) { console.warn('[AppTransition] telemetry failed:', reportError); }
+                const ready = new Promise<void>((resolve, reject) => {
+                    let completed = false;
+                    this.weChatTransitionRequest!.complete = (target, failure) => {
+                        if (completed || target !== this.weChatTransitionRequest?.targetScene) return false;
+                        completed = true;
+                        if (failure !== null) reject(failure);
+                        else resolve();
+                        return true;
+                    };
+                });
+                await Promise.all([Promise.resolve().then(task), ready]);
+                return;
+            }
+            // A gameplay/route failure is not an animation failure: never execute the task twice.
+            await transition.run(key, scene, direction, task);
+        })().finally(() => {
+            if (this.weChatTransitionRequest?.promise === promise) this.weChatTransitionRequest = null;
+        });
+        this.weChatTransitionRequest = { key, promise, targetScene: scene };
+        return promise;
     }
 
     static tryGet(): AppRoot | null {
@@ -197,8 +259,7 @@ export class AppRoot extends Component {
         };
         if (coverMode === 'none') await route();
         else {
-            const transition = await this.ensureAppTransition();
-            await transition.run('route:Home', 'Home', 'reverse', route);
+            await this.runAppTransition('route:Home', 'Home', 'reverse', route);
         }
         this.router.logTransitionTrace('[SceneSplitTrace] requestHomeRoute:afterToHome', { source, coverMode });
     }
@@ -218,21 +279,45 @@ export class AppRoot extends Component {
             await route();
             return;
         }
-        const transition = await this.ensureAppTransition();
-        await transition.run(`route:Game:${prefix}${levelId}`, 'Game', 'forward', route);
+        await this.runAppTransition(`route:Game:${prefix}${levelId}`, 'Game', 'forward', route);
     }
 
     async runGameplayTransition(key: string, task: () => void | Promise<void>): Promise<void> {
-        const transition = await this.ensureAppTransition();
-        await transition.run(`gameplay:${key}`, 'Game', 'forward', async () => { await task(); });
+        await this.runAppTransition(`gameplay:${key}`, 'Game', 'forward', async () => { await task(); });
     }
 
     isAppTransitionTargeting(sceneName: AppSceneName): boolean {
-        return !!this.appTransition?.isTargeting(sceneName);
+        return !!this.appTransition?.isTargeting(sceneName)
+            || (!!this.weChatTransitionRequest?.complete && this.weChatTransitionRequest.targetScene === sceneName);
     }
 
     completeAppTransitionAfterDraw(sceneName: AppSceneName, error: unknown | null = null): boolean {
+        if (error === null && this.weChatTransitionRequest?.acceptReady === false) return false;
+        if (this.weChatTransitionRequest?.complete) return this.weChatTransitionRequest.complete(sceneName, error);
         return this.appTransition?.completeAfterDraw(sceneName, error) || false;
+    }
+
+    redirectFailedGameplayTransitionToHome(error: unknown): void {
+        if (this.weChatTransitionRequest) this.weChatTransitionRequest.acceptReady = true;
+        if (this.weChatTransitionRequest?.complete) {
+            const complete = this.weChatTransitionRequest.complete;
+            this.weChatTransitionRequest.targetScene = 'Home';
+            this.weChatTransitionRequest.complete = (scene, failure) => complete(scene, failure || error);
+        }
+        this.appTransition?.redirectAfterFailure('Home', error);
+    }
+
+    resetAppTransitionReadiness(sceneName: AppSceneName): void {
+        if (this.weChatTransitionRequest) this.weChatTransitionRequest.acceptReady = true;
+        this.appTransition?.resetReadiness(sceneName);
+    }
+
+    holdAppTransitionReadiness(): void {
+        if (this.weChatTransitionRequest) this.weChatTransitionRequest.acceptReady = false;
+    }
+
+    whenWeChatTransitionFinished(): Promise<void> {
+        return this.weChatTransitionRequest?.promise || Promise.resolve();
     }
 
     markGameRequested(

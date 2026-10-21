@@ -40,7 +40,7 @@ export class BootSceneCtrl extends Component {
         this.scheduleOnce(() => {
             if (!this.node?.isValid) return;
             if (!appRoot.session.consumeBootRoute()) return;
-            const routeHome = routeDecision.reason === 'coop-invite' || routeDecision.reason === 'local_progress_home';
+            const routeHome = routeDecision.reason === 'coop-invite' || routeDecision.reason === 'local_progress_home' || routeDecision.reason === 'creator_home';
             markStartupTrace(routeHome ? 'startup_route_home_start' : 'startup_route_game_start', {
                 requestedLevelId: routeDecision.shouldMarkPendingGameplay ? routeDecision.levelId : 0,
                 reason: routeDecision.reason,

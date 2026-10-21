@@ -149,7 +149,8 @@ async function verifyGameplayEntries(fixture) {
     const errors = [];
     const shared = {
         AudioMgr: { inst: { init() {} } },
-        AnalyticsMgr: { inst: { finalizePendingFailedLevel() {} } },
+        AnalyticsMgr: { inst: { finalizePendingFailedLevel() {}, trackLevelExitIntent() {}, trackFunnelEvent() {},
+            settlement: { action: () => 'attempt', transition() {}, gate() {}, finish() {}, failTransition() {} } } },
         mapLogicalToPhysicalLevelId: id => id,
     };
     let AppRoot;
@@ -161,10 +162,11 @@ async function verifyGameplayEntries(fixture) {
         './AppTransitionController': { AppTransitionController },
         '../GameCtrlShared': shared, './GameCtrlShared': shared,
         '../HomeIconIdleWiggle': {}, '../LevelDataCdnService': {},
+        '../WeChatLevelPreparation': {},
         '../Panels/GameCirclePanelController': {}, '../RemoteDataCdnClient': {},
         '../WorkbenchPreviewService': { isWorkbenchPreviewRequested: () => false },
         './WorkbenchPreviewService': { isWorkbenchPreviewRequested: () => false },
-        '../MiniGamePlatform': {}, './MiniGamePlatform': {},
+        '../MiniGamePlatform': { isMiniGameRuntime: () => false }, './MiniGamePlatform': { isMiniGameRuntime: () => false },
         '../RuntimeLog': {}, '../PixelPosterPreviewRenderer': {}, '../LevelExperimentService': {},
         '../StartupTrace': {}, './StartupTrace': {},
         '../DebugPerfTrace': {},
@@ -185,6 +187,13 @@ async function verifyGameplayEntries(fixture) {
         './GameCtrlModules/GameplayJudgmentFeedbackModule': {},
         './StartupCloudRestoreHelper': {},
         '../../Platform/WeChatShareReturnService': {},
+        '../../Platform/Douyin/DouyinLeaderboardService': {},
+        '../../Platform/Douyin/DouyinShareService': {},
+        '../GameplayVoiceController': { ensureGameplayVoiceController: () => ({ stopVoice() {}, beginLevel() {} }) },
+        '../AnalyticsMgr': shared,
+        '../CreatorWeb': { isCreatorWeb: () => false, getCreatorWebConfig: () => null },
+        './GameplayVoiceController': { ensureGameplayVoiceController: () => ({ stopVoice() {}, beginLevel() {} }) },
+        './Panels/GameplayHelpAnimation': {},
     };
     dependencies['./StartupTrace'] = { markStartupTrace() {}, flushStartupTrace() {} };
     function load(relativePath) {
@@ -226,6 +235,7 @@ async function verifyGameplayEntries(fixture) {
             levelData: { levelId: 1 }, _gameplayInitSeq: 1,
             getRuntimeSceneName: () => 'Game', getActiveLogicalLevelId: () => 1,
             costVigorForLevel: () => true,
+            isTutorialVigorFreeLevel: (id, mode) => mode === 'main' && id <= 2,
             deactivateMainMenuNode() {}, saveLevelProgress() {},
             unschedule() {}, unscheduleAllCallbacks() {}, stopPulseTweens() {}, clearDragNodes() {},
             setWinPrimaryButtonInteractable() {}, refreshWinAdBonusUI() {},
@@ -440,6 +450,26 @@ async function run() {
     first.controller.update(0.34);
     await assert.rejects(failed, /home route failed/, 'route failures must reject after the reverse reveal');
     assert.equal(first.rootNode.active, false);
+    assert.equal(first.blocker.enabled, false);
+
+    // Failure redirection cancels queued Game readiness and waits for Home's
+    // real draw, even if the old Game task rejects after the redirect.
+    let rejectOldTask;
+    const redirect = first.controller.run('recover:Game', 'Game', 'forward', () => new Promise((_, reject) => { rejectOldTask = reject; }));
+    first.controller.update(0.32);
+    await flushPromises();
+    first.controller.completeAfterDraw('Game');
+    first.controller.redirectAfterFailure('Home', new Error('entry exhausted'));
+    rejectOldTask(new Error('old task rejected'));
+    await flushPromises();
+    assert.equal(first.controller.completeAfterDraw('Game'), false);
+    events.emit('after-draw');
+    first.controller.update(10);
+    assert.equal(first.rootNode.active, true, 'recovery must not reveal an unfinished Home');
+    assert.equal(first.controller.completeAfterDraw('Home'), true);
+    events.emit('after-draw');
+    first.controller.update(0.34);
+    await assert.rejects(redirect, /entry exhausted/);
     assert.equal(first.blocker.enabled, false);
 
     await verifyGameplayEntries(first);

@@ -21,6 +21,7 @@ import type { LevelData } from '../GameCtrlShared';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import { getBrowserLevelPreview } from '../BrowserLevelPreview';
 import { PreviewRewardSave } from '../PreviewRewardSave';
+import { isCreatorWeb } from '../CreatorWeb';
 
 export type BeanSkinRow = {
     id: number;
@@ -308,6 +309,7 @@ export function installBeanSkinModule(target: any): void {
         },
 
         _readBeanSkinOwnedIds(): Set<number> {
+            if (isCreatorWeb()) return new Set(BEAN_SKIN_IDS);
             const previewOwned = getBrowserLevelPreview().active ? PreviewRewardSave.beanSkins() : [];
             try {
                 const parsed = JSON.parse(sys.localStorage.getItem(LS_OWNED_BEAN_SKINS) || '[]');
@@ -330,14 +332,14 @@ export function installBeanSkinModule(target: any): void {
             return safeId > 0 && this._readBeanSkinOwnedIds().has(safeId);
         },
 
-        grantBeanSkin(id: number): boolean {
+        grantBeanSkin(id: number, sync: boolean = true): boolean {
             const safeId = normalizeBeanSkinId(id);
             if (!safeId) return false;
             const owned = this._readBeanSkinOwnedIds();
             const hadOwned = owned.has(safeId);
             owned.add(safeId);
             this._writeBeanSkinOwnedIds(owned);
-            if (!hadOwned) this.queueCloudGameStateSync?.();
+            if (!hadOwned && sync) this.queueCloudGameStateSync?.();
             return true;
         },
 
@@ -675,7 +677,7 @@ export function installBeanSkinModule(target: any): void {
                 const label = requireBeanPanelLabel(tabNode, 'Label', `BackgroundSkinPanel/Box/SkinCategoryTabs/${tabNode.name}`);
                 label.string = tab.text;
                 tabNode.targetOff(this);
-                tabNode.on(Node.EventType.TOUCH_END, () => {
+                tabNode.on(Button.EventType.CLICK, () => {
                     if (this._beanSkinPanelActiveTab === tab.key) return;
                     AudioMgr.inst.play('button');
                     this.switchSkinPanelCategory(tab.key);
@@ -791,6 +793,7 @@ export function installBeanSkinModule(target: any): void {
             if (equipped) return;
             if (owned) {
                 bindBeanPanelAction(this, action, () => {
+                    AudioMgr.inst.play('button');
                     const activeButton = action.getComponent(Button);
                     if (activeButton) activeButton.interactable = false;
                     actionLabel.string = '加载中';
@@ -803,6 +806,7 @@ export function installBeanSkinModule(target: any): void {
                 return;
             }
             bindBeanPanelAction(this, action, () => {
+                AudioMgr.inst.play('button');
                 const activeButton = action.getComponent(Button);
                 if (activeButton) activeButton.interactable = false;
                 this.watchBeanSkinUnlockAd(skin, () => this.refreshBeanSkinPanelCards());

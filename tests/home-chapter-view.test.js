@@ -3,10 +3,13 @@ const fs = require('fs');
 const vm = require('vm');
 const ts = require('typescript');
 class Label {}
+class Button { static EventType = { CLICK: 'click' }; }
 class UIOpacity { constructor() { this.opacity = 255; } }
 class Vec3 { constructor(x, y, z) { Object.assign(this, { x, y, z }); } }
 const animations = [];
-const Tween = { stopAllByTarget() {} };
+const Tween = { stopAllByTarget(target) {
+    animations.filter(animation => animation.target === target).forEach(animation => { animation.stopped = true; });
+} };
 function tween(target) {
     const steps = [];
     const chain = {
@@ -46,7 +49,7 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync('assets/Scripts/Core/HomeC
     exports: mod.exports,
     setTimeout: fn => { timers.set(++timerId, fn); return timerId; },
     clearTimeout: id => timers.delete(id),
-    require: name => name === 'cc' ? { Node, Label, UITransform, UIOpacity, Vec3, Tween, tween } : name === './HomeArtworkPreview' ? { openHomeArtworkPreview: (...args) => opened.push(args) } : name === './LevelRouteService' ? route.exports : name === './BrowserLevelPreview' ? { getBrowserLevelPreview: () => previewState } : {
+    require: name => name === './AudioMgr' ? { AudioMgr: { inst: { play: name => assert.equal(name, 'button') } } } : name === './CreatorWeb' ? { isCreatorWeb: () => false } : name === 'cc' ? { Button, Node, Label, UITransform, UIOpacity, Vec3, Tween, tween } : name === './HomeArtworkPreview' ? { openHomeArtworkPreview: (...args) => opened.push(args) } : name === './LevelRouteService' ? route.exports : name === './BrowserLevelPreview' ? { getBrowserLevelPreview: () => previewState } : {
         renderCompletedPatternPreview: (...args) => {
             rendered.push(args);
             if (holdTextures) textureReady.push(args[4]); else args[4]?.(true);
@@ -76,7 +79,7 @@ const hero = new Node('HeroCard');
 add(hero, 'ChapterTitle', Label); add(hero, 'ChapterProgress', Label);
 const grid = add(hero, 'ChapterGrid');
 for (let i = 1; i <= 9; i++) {
-    const slot = add(grid, `Cell${i}`);
+    const slot = add(grid, `Cell${i}`, Button);
     add(slot, 'LevelNumber', Label); add(slot, 'PreviewAnchor', UITransform);
     add(slot, 'Status', Label); add(slot, 'CurrentMark');
     add(slot, 'CompletedBackground'); add(slot, 'PendingBackground');
@@ -84,10 +87,12 @@ for (let i = 1; i <= 9; i++) {
 const loads = [];
 const runtime = { getSavedLevel: () => 11, loadLevelData: (level, callback) => loads.push({ level, callback }) };
 renderHomeChapter(runtime, hero, 11);
-grid.children[0].events.get('end')({});
+assert.equal(grid.children[0].getComponent(Button).interactable, true);
+grid.children[0].events.get('click')();
 assert.deepEqual(Array.from(opened[0][1]), [10]);
 assert.equal(opened[0][2], 10);
-grid.children[1].events.get('end')({});
+assert.equal(grid.children[1].getComponent(Button).interactable, false);
+grid.children[1].events.get('click')();
 assert.equal(opened.length, 1, 'Incomplete cells do not open artwork');
 assert.equal(loads.length, 1, 'Only completed images should load');
 assert.equal(loads[0].level, 10);
@@ -182,7 +187,7 @@ async function verifyReadiness() {
     runtime._homeChapterEntryPending = false;
     runtime._revealHomeChapter();
     assert.equal(animations.filter(item => item.target instanceof Node).length, 2);
-    assert.equal(timers.size, 0);
+    assert.equal(timers.size, 1, 'active flips retain an independent recovery deadline');
     renderHomeChapter(runtime, hero, 897);
     const expired = runtime._homeChapterReady;
     [...timers.values()][0]();
@@ -194,4 +199,119 @@ async function verifyReadiness() {
     runtime._cancelHomeChapterLoad();
     console.log('home chapter readiness, deferred animations, timeout and cancellation passed');
 }
-verifyReadiness().catch(error => { console.error(error); process.exitCode = 1; });
+
+function assertCompleted(count) {
+    grid.children.forEach((slot, index) => {
+        const completed = index < count;
+        assert.equal(slot.getChildByName('CompletedBackground').active, completed, `cell ${index + 1} completion`);
+        assert.equal(slot.getChildByName('PendingBackground').active, !completed, `cell ${index + 1} pending`);
+        assert.equal(slot.getChildByName('LevelNumber').active, !completed, `cell ${index + 1} number`);
+        assert.equal(slot.getChildByName('PreviewAnchor').active, completed);
+        assert.equal(slot.getChildByName('PreviewAnchor').getComponent(UIOpacity).opacity, 255);
+        assert.equal(slot.scale.x, 1);
+        assert.equal(slot.getChildByName('PreviewAnchor').scale.x, 1);
+    });
+}
+function completeAnimations() {
+    // Execute real view callbacks, including the nested pop tween; stopped actions never complete.
+    for (let i = 0; i < animations.length; i++) {
+        const animation = animations[i];
+        if (animation.stopped || animation.completed) continue;
+        for (const [kind, value, props] of animation.steps) {
+            if (animation.stopped) break;
+            if (kind === 'to') Object.assign(animation.target, props);
+            if (kind === 'call') value();
+        }
+        animation.completed = true;
+    }
+}
+async function renderSaved(level, covered = false) {
+    runtime._homeChapterEntryPending = covered;
+    runtime.getSavedLevel = () => level;
+    loads.length = 0; animations.length = 0;
+    renderHomeChapter(runtime, hero, level);
+    loads.forEach(load => load.callback({ correctColorArr: [[1]] }));
+    assert.equal(await runtime._homeChapterReady, null);
+}
+function foreground() {
+    const source = ts.createSourceFile('AssetBootstrapModule.ts', fs.readFileSync('assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts', 'utf8'), ts.ScriptTarget.Latest, true);
+    let method;
+    const visit = node => {
+        if (ts.isMethodDeclaration(node) && node.name.getText(source) === 'handleGameShowLifecycle') method = node;
+        ts.forEachChild(node, visit);
+    };
+    visit(source);
+    assert.ok(method, 'foreground lifecycle exists');
+    const context = { runtime };
+    vm.runInNewContext(ts.transpileModule(`class Lifecycle { ${method.getText(source)} }\nLifecycle.prototype.handleGameShowLifecycle.call(runtime);`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2020 },
+    }).outputText, context);
+}
+async function verifyInterruptedCompletion() {
+    await renderSaved(4);
+    await renderSaved(6, true);
+    assertCompleted(5); // Missing reveal must never turn saved completion into a locked card.
+    assert.equal(animations.length, 0, 'cover still gates the normal completion animation');
+    runtime._homeChapterEntryPending = false;
+    runtime._revealHomeChapter();
+    assert.equal(grid.children[3].getChildByName('PendingBackground').active, true, 'normal flip retains its number-card start');
+    const flips = animations.filter(animation => animation.target instanceof Node);
+    assert.equal(flips.length, 2, 'only levels 4 and 5 animate');
+    assert.deepEqual(flips.map(animation => animation.steps[0][1]), [0.12, 0.22]);
+    const count = animations.length;
+    runtime._revealHomeChapter();
+    assert.equal(animations.length, count, 'reveal is consumed once');
+    completeAnimations();
+    assertCompleted(5);
+    assert.equal(timers.size, 0, 'normal completion cleans recovery timers');
+
+    await renderSaved(7);
+    // Emulate Tween.stopAll between the number-card start and the final callback.
+    animations.forEach(animation => { animation.stopped = true; });
+    assert.equal(grid.children[5].getChildByName('PendingBackground').active, true);
+    for (const callback of [...timers.values()]) callback();
+    assertCompleted(6);
+    assert.equal(timers.size, 0);
+
+    await renderSaved(8);
+    const oldRestore = runtime._restoreHomeChapter;
+    grid.children[6].setScale(0.04, 1, 1);
+    grid.children[6].getChildByName('PreviewAnchor').setScale(0.82, 0.82, 1);
+    foreground(); // Exercise the actual foreground hook during a partially played flip.
+    assertCompleted(7);
+    completeAnimations();
+    assertCompleted(7);
+    assert.equal(timers.size, 0);
+    await renderSaved(8);
+    assert.equal(animations.length, 0, 'refresh never replays historical completions');
+    assertCompleted(7);
+    oldRestore();
+    assertCompleted(7);
+
+    await renderSaved(9);
+    const staleReveal = runtime._revealHomeChapter;
+    await renderSaved(9); // Refresh while the previous flip is still active.
+    assert.equal(animations.length, 0);
+    staleReveal();
+    assert.equal(animations.length, 0, 'superseded callbacks cannot restart an old flip');
+    assertCompleted(8);
+    assert.equal(timers.size, 0);
+
+    // Foreground during resource preparation cannot schedule the abandoned animation later.
+    await renderSaved(8);
+    runtime.getSavedLevel = () => 9;
+    runtime._homeChapterEntryPending = true;
+    loads.length = 0;
+    renderHomeChapter(runtime, hero, 9);
+    foreground();
+    loads.forEach(load => load.callback({ correctColorArr: [[1]] }));
+    assert.equal(await runtime._homeChapterReady, null);
+    runtime._homeChapterEntryPending = false;
+    runtime._revealHomeChapter();
+    assertCompleted(8);
+    assert.equal(animations.length, 0);
+    runtime._cancelHomeChapterLoad();
+    assert.equal(timers.size, 0);
+    console.log('home chapter saved-progress display, normal flips and interrupted recovery passed');
+}
+verifyReadiness().then(verifyInterruptedCompletion).catch(error => { console.error(error); process.exitCode = 1; });

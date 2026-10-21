@@ -116,7 +116,7 @@
             "_value": false
           },
           "particle-2d": {
-            "_value": false
+            "_value": true
           },
           "audio": {
             "_value": true
@@ -201,6 +201,7 @@
           "intersection-2d",
           "legacy-pipeline",
           "mask",
+          "particle-2d",
           "profiler",
           "rich-text",
           "spine-3.8",

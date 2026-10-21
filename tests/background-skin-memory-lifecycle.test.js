@@ -11,6 +11,7 @@ const remoteLoads = [];
 const bundleLoads = [];
 const released = [];
 const trace = [];
+let creator = false;
 
 class Asset {
     constructor() { this.isValid = true; this.refCount = 0; this.name = ''; this.releaseChecks = 0; }
@@ -42,6 +43,7 @@ vm.runInNewContext(ts.transpileModule(source, {
     module: moduleRef, exports: moduleRef.exports, console, Map, Set,
     require(id) {
         if (id === '../BrowserLevelPreview') return { getBrowserLevelPreview: () => ({ active: false }) };
+        if (id === '../CreatorWeb') return { isCreatorWeb: () => creator };
         if (id === '../PreviewRewardSave') return { PreviewRewardSave: { backgrounds: () => [] } };
         if (id === '../GameCtrlShared') return shared;
         if (id === '../SkinResourceCdnService') return { SkinResourceCdnService: { inst: { getAssetUrl: asset => asset.url } } };
@@ -287,4 +289,24 @@ storage.set('pdd.skin.background.equippedState', JSON.stringify({ id: 1002, upda
 assert.equal(migrated._sanitizeRetiredBackgroundSkinState(), false);
 assert.equal(migrated.getEquippedBackgroundSkinId(), 1002);
 
-console.log('background-skin-memory-lifecycle.test.js passed (async teardown, shared assets, live loads, errors; device memory unmeasured)');
+// Creator unlocks only active catalog rows, without advancing levels or ad progress.
+creator = true;
+const creatorRuntime = runtime();
+moduleRef.exports.installSkinBackgroundModule(creatorRuntime);
+creatorRuntime.syncBackgroundSkinCloudState = () => {};
+const creatorRows = backgroundConfig.skins.filter(row => row.enabled !== false);
+const creatorConfig = { rows: creatorRows, byId: new Map(creatorRows.map(row => [row.id, row])) };
+creatorRuntime._backgroundSkinConfigCache = creatorConfig;
+const adProgressBeforeCreator = storage.get('pdd.skin.background.adProgress');
+creatorRuntime._syncDefaultOwnedBackgroundSkins(creatorConfig);
+for (const row of creatorRows) {
+    assert(creatorRuntime.isBackgroundSkinOwned(row.id));
+    creatorRuntime._writeEquippedBackgroundSkinState(row.id, 12345);
+    assert.equal(creatorRuntime.getEquippedBackgroundSkinId(), row.id);
+}
+assert.equal(creatorRuntime.isBackgroundSkinOwned(1000), false, 'retired background stays unavailable');
+assert.equal(creatorRuntime.isBackgroundSkinOwned(99999), false);
+assert.equal(storage.has('pdd.level'), false);
+assert.equal(storage.get('pdd.skin.background.adProgress'), adProgressBeforeCreator);
+creator = false;
+console.log('background-skin-memory-lifecycle.test.js passed (async teardown, shared assets, live loads, errors, creator access; device memory unmeasured)');

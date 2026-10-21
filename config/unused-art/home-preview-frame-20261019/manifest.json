@@ -1,0 +1,19 @@
+{
+  "status": "moved_and_verified",
+  "uuid": "2847651e-86a6-4f51-8b17-2595b2432ca8",
+  "compact": "28R2UehqZPUYsXJZWyQyyo",
+  "files": [
+    {
+      "source": "assets/HomeAssetsBundle/GameUI/home_preview_frame.png",
+      "backup": "config/unused-art/home-preview-frame-20261019/original-active/assets/HomeAssetsBundle/GameUI/home_preview_frame.png",
+      "sha256": "d0464213a86c53238040f91c3f6a7abb7abcac7ca02c6ab9f411aaddb1f99674",
+      "bytes": 53849
+    },
+    {
+      "source": "assets/HomeAssetsBundle/GameUI/home_preview_frame.png.meta",
+      "backup": "config/unused-art/home-preview-frame-20261019/original-active/assets/HomeAssetsBundle/GameUI/home_preview_frame.png.meta",
+      "sha256": "c9a7af1a5089b8b309b11daa75a5067fe9358efb41cbf551329ca8d20c0930dc",
+      "bytes": 3143
+    }
+  ]
+}

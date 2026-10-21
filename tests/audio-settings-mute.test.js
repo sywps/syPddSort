@@ -200,6 +200,7 @@ function mockRequire(request) {
         return { GAME_ASSETS_BUNDLE_NAME: 'gameAssets', LOCAL_BOOTSTRAP_BUNDLE_NAME: 'bootstrap' };
     }
     if (request === './RuntimeLog') return { runtimeLog: () => {} };
+    if (request === './MiniGamePlatform') return { getDouyinMiniGameRuntime: () => null };
     throw new Error(`unexpected module: ${request}`);
 }
 
@@ -284,9 +285,9 @@ assert.strictEqual(
 
 const rogueLoopSource = audioMgr.sfxSources[0];
 rogueLoopSource.loop = true;
-rogueLoopSource.clip = { _nativeAsset: { url: 'stale-bgm.mp3' } };
+rogueLoopSource.clip = { isValid: true, _nativeAsset: { url: 'stale-bgm.mp3' } };
 rogueLoopSource.play();
-audioMgr.bgmClip = { _nativeAsset: { url: 'bgm.mp3' } };
+audioMgr.bgmClip = { isValid: true, _nativeAsset: { url: 'bgm.mp3' } };
 audioMgr.bgmLoadState = 'ready';
 audioMgr.playGameBgm();
 assert.strictEqual(rogueLoopSource.playing, false, 'starting BGM must stop any unexpected parallel loop source');
@@ -301,7 +302,7 @@ assert.strictEqual(
 rogueLoopSource.destroy();
 audioMgr.init(host);
 
-const flyClip = { _nativeAsset: { url: 'fly.mp3' }, loadMode: 0 };
+const flyClip = { isValid: true, _nativeAsset: { url: 'fly.mp3' }, loadMode: 0 };
 audioMgr.sfxClips.set('fly', flyClip);
 for (let i = 0; i < 8; i++) audioMgr.play('fly');
 assert.strictEqual(audioMgr.busySfxSources.size, 8, 'eight overlapping SFX must occupy eight independent channels');
@@ -344,7 +345,8 @@ audioMgr.play('fly');
 assert.strictEqual(storage.get('pdd.setting.sfx'), '1', 'SFX re-enable must persist immediately');
 assert.ok(audioMgr.sfxSources.some((source) => source.playing), 'SFX playback must resume after re-enabling');
 
-const settleClip = { _nativeAsset: { url: 'settle.mp3' } };
+const settleClip = { isValid: true, _nativeAsset: { url: 'settle.mp3' },
+    addRef() { return this; }, decRef() { return this; } };
 audioMgr.sfxClips.set('settle', settleClip);
 audioMgr.stopSfx();
 for (let i = 0; i < 30; i++) audioMgr.play('settle');
@@ -443,8 +445,8 @@ assert.strictEqual(
 );
 
 const getTotalSfxPlayCount = () => audioMgr.sfxSources.reduce((sum, source) => sum + source.playCount, 0);
-audioMgr.sfxClips.set('button', { _nativeAsset: { url: 'button.mp3' } });
-audioMgr.sfxClips.set('uiPanel', { _nativeAsset: { url: 'ui-panel.mp3' } });
+audioMgr.sfxClips.set('button', { isValid: true, _nativeAsset: { url: 'button.mp3' } });
+audioMgr.sfxClips.set('uiPanel', { isValid: true, _nativeAsset: { url: 'ui-panel.mp3' } });
 const allowedGameSfxNames = [
     'settle', 'conveyorEnter', 'conveyorReturn', 'button', 'tick', 'winColor', 'winAll',
     'winSettlement', 'lose', 'revivePop',
@@ -452,9 +454,9 @@ const allowedGameSfxNames = [
     'judgmentAmazing', 'judgmentPerfect', 'judgmentUnbelievable',
 ];
 for (const name of allowedGameSfxNames) {
-    audioMgr.sfxClips.set(name, { _nativeAsset: { url: `${name}.mp3` } });
+    audioMgr.sfxClips.set(name, { isValid: true, _nativeAsset: { url: `${name}.mp3` } });
 }
-audioMgr.sfxClips.set('select', { _nativeAsset: { url: 'select.mp3' } });
+audioMgr.sfxClips.set('select', { isValid: true, _nativeAsset: { url: 'select.mp3' } });
 
 scene.name = 'Game';
 audioMgr.stopSfx();
@@ -512,7 +514,7 @@ assert.strictEqual(
 // Full-class lifecycle regressions for dynamic pools and local repair.
 const mgr = new AudioMgr();
 mgr.init(host);
-mgr.bgmClip = { name: 'continuity' };
+mgr.bgmClip = { isValid: true, name: 'continuity' };
 mgr.bgmAutoplayRequested = true;
 mgr.ensureBgmPlaying();
 const music = mgr.bgmSrc;
@@ -607,8 +609,8 @@ const independent = new AudioMgr();
 independent.init(host);
 independent.setSfxEnabled(true);
 independent.setVoiceEnabled(true);
-independent.sfxClips.set('judgmentGreat', {});
-independent.sfxClips.set('button', {});
+independent.sfxClips.set('judgmentGreat', { isValid: true });
+independent.sfxClips.set('button', { isValid: true });
 independent.bgmSrc.playing = true;
 independent.playVoice('judgmentGreat', 'judgment');
 const narration = independent.guideVoiceSource;

@@ -65,7 +65,7 @@ export function subscribeRewardedAdLoadEvents(listener: RewardedAdLoadListener):
 }
 
 function emitRewardedAdLoadEvent(event: RewardedAdLoadEvent): void {
-    for (const listener of [...rewardedAdLoadListeners]) {
+    for (const listener of Array.from(rewardedAdLoadListeners)) {
         try {
             listener(event);
         } catch (error) {
@@ -218,13 +218,9 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         this.loadWaitTimer = setTimeout(() => {
             if (!this.isCurrentRequest(requestId)) return;
             this.loadWaitTimer = null;
-            const devtoolsSuccess = this.shouldSimulateDevtoolsCompletion();
-            console.warn(`[AdConfig] ${this.platform} rewarded ad preload/show wait timeout, success=${devtoolsSuccess}`);
-            if (devtoolsSuccess) {
-                this.currentHooks?.onShow?.(requestId);
-            }
+            console.warn(`[AdConfig] ${this.platform} rewarded ad preload/show wait timeout`);
             this.resolveCurrent({
-                status: devtoolsSuccess ? 'verified_complete' : 'technical_error',
+                status: 'technical_error',
                 reason: 'load-wait-timeout',
             });
         }, waitMs);
@@ -322,7 +318,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
             changedAt: now,
             durationMs,
         };
-        for (const listener of [...this.stateListeners]) {
+        for (const listener of Array.from(this.stateListeners)) {
             try {
                 listener(snapshot);
             } catch (error) {
@@ -625,9 +621,6 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
                 closeResult: result,
             };
         }
-        if (this.shouldSimulateDevtoolsCompletion()) {
-            return { status: 'verified_complete', closeResult: result };
-        }
         return {
             status: 'unknown',
             reason: 'close-result-missing-isEnded',
@@ -653,11 +646,6 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
             return Math.max(1200, Math.min(3000, hooks.minFallbackWatchMs || 2000));
         }
         return 10000;
-    }
-
-    private shouldSimulateDevtoolsCompletion(): boolean {
-        if (this.platform === 'wechat') return false;
-        return this.isDevtoolsLike();
     }
 
     private isDevtoolsLike(): boolean {
@@ -777,7 +765,7 @@ class WebRewardedAdProvider implements RewardedAdProvider {
             changedAt: now,
             durationMs: Math.max(0, now - this.state.changedAt),
         };
-        for (const listener of [...this.listeners]) listener(this.state);
+        for (const listener of Array.from(this.listeners)) listener(this.state);
     }
 }
 

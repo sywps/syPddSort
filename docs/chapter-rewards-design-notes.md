@@ -1,8 +1,11 @@
-# 当前章节奖励规则（2026-09-21 更新）
+# 当前章节奖励规则（2026-10-12 更新）
+
+2026-10-13 抖音发放方式已改为本地即时领取、云端后台同步。当前实施及发布说明以 [抖音本地章节奖励](douyin-local-chapter-rewards.md) 为准，下方单文件规则发布方式仅对应之前版本。
 
 本节取代下方历史方案。
-- 每章9关；第4关仅50金币。
-- 第1/5/9/13章：豆豆皮肤2001/2002/2003/2004。
+- 每章9关；第4关50金币+道具1个（奇数章清除，偶数章磁铁）。
+- 前16章第9关装饰+道具1个（奇数章磁铁，偶数章清除），与本章第4关不同。
+- 第1/5/9/13章：豆豆皮肤2004/2002/2003/2001。
 - 第2/6/10/14章：头像1009/1010/1011/1012。
 - 第3/7/11/15章：头像框2006/2007/2008/2009。
 - 第4/8/12/16章：背景皮肤1002/1003/1004/1006。
@@ -10,9 +13,10 @@
 - 已选豆豆/背景改为章节解锁，其他装饰获取方式保留；已有资产不回收，不自动装备。
 - 保留旧领取键v1，已经领取过的里程碑不重发、不追补差额；本地测试记录也保留。
 - 浏览器选关测试资产独立存储，新增头像框/豆豆/背景拥有记录和皮肤选择存储隔离。
-- 礼盒上方及奖励弹窗复用四类实际图标；金币气泡仅×50。
+- 礼盒上方气泡只显示图标，两个奖励使用160×72；第17章起章末三个奖励保留196×72。数量仅在领取弹窗显示。
 
-发布：重新构建客户端并部署整个 cloudfunctions/updateUserProfileAssets，包含 chapter-reward-policy.js、chapter-rewards.js、profile-customization.js、profile-catalog.json。无需部署 syncUserState。本次未部署。
+当前抖音版本发布（2026-10-13 更正）：先运行 `node scripts/sync-chapter-reward-policy.js` 和 `node scripts/build-douyin-business-rules.js`，再替换抖音业务服务中的 `businessRules.js` 并发布。`updateUserProfileAssets` 是沿用的业务接口名，不是部署微信目录。单文件交付见 `artifacts/douyin-chapter-rewards-20261013/操作说明.md`。客户端沿用 A 槽、release 编译和 dev 后端，不切换 prod。无需初始化数据库或更换其他服务文件。本次尚未云端部署。
+仅微信版本：重新构建客户端并部署整个 cloudfunctions/updateUserProfileAssets，包含 chapter-reward-policy.js、chapter-rewards.js、profile-customization.js、profile-catalog.json。无需部署 syncUserState。
 规则生成：修改 ChapterRewardPolicy.ts 后运行 node scripts/sync-chapter-reward-policy.js。头像规则源修改后运行 node scripts/prepare-profile-assets.js --config-only。
 验证：161组前后端进度一致；16章装饰发放/配置/图标；本地持久化与去重；头像/头像框客户端21项；并发金币；TypeScript通过。bean-skin-integration在既有构建脚本资源字符串断言处失败，尚未验收真机视觉。
 

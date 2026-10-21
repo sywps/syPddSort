@@ -15,6 +15,7 @@ const loaded = { exports: {} };
 let localPreview = false;
 let miniGame = false;
 let cloudPlatform = 'none';
+const telemetry = [];
 new Function('module', 'exports', 'require', compiled)(loaded, loaded.exports, function resolveDependency(name) {
     if (name.endsWith('/CoopBrowserRuntime') || name.endsWith('/CoopBrowserStore')) {
         const module = { exports: {} };
@@ -28,11 +29,12 @@ new Function('module', 'exports', 'require', compiled)(loaded, loaded.exports, f
     if (name.endsWith('/CoopModeConfig')) return config;
     if (name.endsWith('/PvpHumanReplay')) return replay;
     if (name.endsWith('/PvpBotReplay')) return { pixelLevelHash };
-    if (name.endsWith('/PlatformCloudMgr')) return { PlatformCloudMgr: { inst: { getPlatform: () => cloudPlatform } } };
-    if (name.endsWith('/MiniGamePlatform')) return { getWeChatMiniGameRuntime: () => null, isMiniGameRuntime: () => miniGame };
+    if (name.endsWith('/PlatformCloudMgr')) return { PlatformCloudMgr: { inst: { getPlatform: () => cloudPlatform, init: async () => false } } };
+    if (name.endsWith('/MiniGamePlatform')) return { getWeChatMiniGameRuntime: () => null, getDouyinMiniGameRuntime: () => null, isMiniGameRuntime: () => miniGame };
     if (name.endsWith('/RemoteDataCdnClient')) return { isLocalBrowserPreview: () => localPreview };
     if (name.endsWith('/WeChatShareReturnService')) return {};
     if (name.endsWith('/UserMgr')) return {};
+    if (name.endsWith('/AnalyticsMgr')) return { AnalyticsMgr: { inst: { trackMultiplayerLobby: (...args) => telemetry.push(args) } } };
     throw new Error(`Unexpected client dependency ${name}`);
 });
 const full = require('../cloudfunctions/coopService/levels/coop_level_7.json');
@@ -41,6 +43,10 @@ const run = { id: 'b'.repeat(40), postId: post.id, role: 'creator', version: 0, 
 
 async function main() {
     const loader = new loaded.exports.CoopServiceMgr();
+    cloudPlatform = 'douyin';
+    await assert.rejects(loader.overview(), /合作云服务不可用/);
+    assert.deepEqual(telemetry.map(row => row.slice(0, 4)), [['coop', 'multiplayer_service_result', 'overview', false]], 'actual service failure is observed without changing failure or uploading replay');
+    cloudPlatform = 'none';
     const runtime = {
         _withGameAssetsBundle(callback) { callback({ load(name, _type, done) {
             assert.equal(name, 'coop-manifest');
@@ -70,7 +76,7 @@ async function main() {
     await assert.rejects(failedLoader.fullLevel(runtime, 7), /cloud unavailable/, 'cloud errors never fall back to stale CDN data');
     cloudPlatform = 'none';
     const mgr = new loaded.exports.CoopServiceMgr();
-    await assert.rejects(mgr.overview(), /需要微信云服务/, 'no fake offline rewards');
+    await assert.rejects(mgr.overview(), /需要小游戏云服务/, 'no fake offline rewards');
     mgr.fullLevel = async () => full;
     await assert.rejects(mgr.prepare({}, { ...post, levelHash: 'bad' }, run), /版本不一致/);
     await mgr.prepare({}, post, run);
@@ -162,7 +168,7 @@ async function main() {
         simulator.active = {}; assert.throws(() => simulator.switchLocalPlayer(), /退出/); simulator.active = null;
         miniGame = true;
         assert.equal(simulator.isLocalSimulation(), false, 'mini-game builds never route to simulator');
-        await assert.rejects(simulator.overview(), /微信云服务/);
+        await assert.rejects(simulator.overview(), /小游戏云服务/);
     } finally { global.fetch = originalFetch; localPreview = false; miniGame = false; }
     console.log('COOP_CLIENT_TESTS_PASSED: no progress writes, fresh re-entry, completion retry and version checks');
 }

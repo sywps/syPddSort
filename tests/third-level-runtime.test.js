@@ -12,7 +12,7 @@ async function run(){
  delete entry.variants.B;assert.equal(await service.loadLevelFromContext({},3,'level_',true,'B'),null);assert.equal(failure,'experiment_variant_missing');
  let prepares=0,loaded='',reject=false;
  const runtime=harness(method('GameCtrlModules/AssetBootstrapModule.ts','_loadLevelDataFromConfiguredSource'),{
-  AnalyticsMgr:{inst:{prepareThirdLevelExperiment:async()=>{prepares++;if(reject)throw Error('offline')}}},thirdLevelExperiment:{content:()=> 'C'},isWorkbenchPreviewRequested:()=>false});
+  AnalyticsMgr:{inst:{prepareThirdLevelExperiment:async()=>{prepares++;if(reject)throw Error('offline')}}},thirdLevelExperiment:{content:()=> 'C'},isWorkbenchPreviewRequested:()=>false,isMiniGameRuntime:()=>false});
  runtime._loadPreparedLevelDataFromConfiguredSource=(_id,_p,cb,bucket)=>{loaded=bucket;cb({bucket})};
  const load=(id=3,prefix='level_',entering=true)=>new Promise(resolve=>runtime._loadLevelDataFromConfiguredSource(id,prefix,(data,source,error)=>resolve({data,source,error}),entering));
  assert.equal((await load(3,'level_',false)).data.bucket,'A');assert.equal(prepares,0,'thumbnail/warmup must not enrol');
@@ -24,7 +24,7 @@ async function run(){
  reject=true;loaded='';const bad=await load();assert.equal(bad.data,null);assert.match(bad.error.message,/offline/);assert.equal(loaded,'');
  let timeout,late,accepts=0;
  const gate=harness(method('AnalyticsMgr.ts','prepareThirdLevelExperiment'),{thirdLevelExperiment:{assertStorageReady(){},decision:null,accept(){accepts++}},
-  THIRD_LEVEL_EXPERIMENT_ID:'third_level_abc_v1',PlatformCloudMgr:{inst:{callFunction:()=>new Promise(resolve=>late=resolve)}},sys:{localStorage:{getItem:()=>3}},setTimeout:cb=>{timeout=cb;return 1},clearTimeout(){}});
+  THIRD_LEVEL_EXPERIMENT_ID:'third_level_abc_v1',PlatformCloudMgr:{inst:{callFunction:()=>new Promise(resolve=>late=resolve)}},sys:{localStorage:{getItem:()=>3}},isMiniGameRuntime:()=>false,setTimeout:cb=>{timeout=cb;return 1},clearTimeout(){}});
  gate.ensureReady=async()=>true;gate.trackFunnelEvent=()=>{};
  const pending=gate.prepareThirdLevelExperiment();await Promise.resolve();timeout();await assert.rejects(pending,/超时/);
  late({ok:true,openid:'u',thirdLevelExperiment:{}});await Promise.resolve();await Promise.resolve();assert.equal(accepts,0,'late receipt cannot switch current gameplay');

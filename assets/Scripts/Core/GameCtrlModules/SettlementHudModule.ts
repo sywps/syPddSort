@@ -1,5 +1,8 @@
 import { getBrowserLevelPreview } from '../BrowserLevelPreview';
-import { beginChapterRewards, renderChapterRewards } from '../ChapterRewardView';
+import { getCreatorWebConfig } from '../CreatorWeb';
+import { isMiniGameRuntime } from '../MiniGamePlatform';
+import { AppRoot } from '../AppRoot';
+import { beginChapterRewards, renderChapterRewards, showWinShareReward } from '../ChapterRewardView';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
@@ -388,7 +391,7 @@ export function installSettlementHudModule(target: any): void {
             const homeBtn = this.panelWin?.getChildByName('SettlementTopHud')?.getChildByName('WinHomeBtn');
             if (homeBtn) homeBtn.active = this._isThemeLevel || this.getActiveLogicalLevelId() !== 1;
             const collectionBtn = this.panelWin?.getChildByName('SettlementTopHud')?.getChildByName('CollectionBtn');
-            if (collectionBtn) collectionBtn.active = this._isThemeLevel || this.getActiveLogicalLevelId() !== 1;
+            if (collectionBtn) collectionBtn.active = false;
             const root = this.panelWin?.getChildByName('Box');
             const box = (this.panelWin as any)?.__basicSettlement ? root : root?.getChildByName('BottomGroup');
             const costBadge = box?.getChildByName('PrimaryBtn')?.getChildByName('VigorCostBadge');
@@ -541,12 +544,14 @@ export function installSettlementHudModule(target: any): void {
                 return;
             }
             const revealToken = this._settlementRevealToken;
+            let grantedGold = 0;
             const grantWinBonusReward = () => {
                 if (this._settlementRevealToken !== revealToken || this._settlementNextTransitioning || this._winAdRewardClaimed) return false;
                 const rewardAmount = Math.max(0, Math.floor(Number(this._pendingWinAdBonusReward) || 0));
                 const baseAmount = Math.max(0, Math.floor(Number(this._pendingWinGoldReward) || 0));
                 this.addGold(rewardAmount);
                 this._winAdRewardClaimed = true;
+                grantedGold = rewardAmount;
                 this.updateWinRewardLabel(baseAmount + rewardAmount);
                 this.syncWinSettlementGoldBox?.();
             };
@@ -555,6 +560,8 @@ export function installSettlementHudModule(target: any): void {
                 shareType: 'win_bonus_reward',
                 shareFailToast: () => '',
                 grantFailToast: () => '',
+                afterGrant: () => showWinShareReward(this, grantedGold, revealToken),
+                afterGrantFailToast: '金币已到账，奖励界面加载失败',
                 onFinally: () => this.refreshWinAdBonusUI(),
             });
         },
@@ -809,16 +816,25 @@ export function installSettlementHudModule(target: any): void {
                 console.error('[settlement] deferring panel construction:', error);
             }
 
+            this.playCompletedPatternPresentation(
+                () => this.requestWinSettlementReveal?.(logicalLevelId, revealToken),
+                () => this.isValid && this.isGameEnd && revealToken === this._settlementRevealToken,
+            );
+        },
+
+        // Presentation only: callers own scoring, rewards and the result panel.
+        playCompletedPatternPresentation(onDone: () => void, isCurrent: () => boolean): void {
             let revealed = false;
             const revealSettlement = () => {
-                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                if (revealed || !isCurrent()) return;
                 revealed = true;
                 this.unschedule(revealSettlement);
                 this.unschedule(recoverSettlement);
-                this.requestWinSettlementReveal?.(logicalLevelId, revealToken);
+                onDone();
             };
             const recoverSettlement = () => {
-                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                if (revealed || !isCurrent()) return;
+                console.error('[settlement] completion presentation timed out; restoring board and continuing');
                 if (this.boardGroup?.isValid) {
                     Tween.stopAllByTarget(this.boardGroup);
                     this.resetBoardViewportToHome();
@@ -829,7 +845,7 @@ export function installSettlementHudModule(target: any): void {
             this.scheduleOnce(recoverSettlement, 5 + pendingColorCount * 2);
 
             const showSettlement = () => {
-                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                if (revealed || !isCurrent()) return;
                 if (PATTERN_COMPLETE_SETTLEMENT_HOLD > 0 && typeof this.scheduleOnce === 'function') {
                     this.scheduleOnce(revealSettlement, PATTERN_COMPLETE_SETTLEMENT_HOLD);
                 } else {
@@ -838,7 +854,7 @@ export function installSettlementHudModule(target: any): void {
             };
 
             const playPatternCompleteFx = () => {
-                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                if (revealed || !isCurrent()) return;
                 PerformanceMgr.inst.markUserActivity(8000);
                 AudioMgr.inst.play('winAll');
                 try {
@@ -853,7 +869,7 @@ export function installSettlementHudModule(target: any): void {
             };
 
             const playBoardCompleteShrink = () => {
-                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                if (revealed || !isCurrent()) return;
                 if (!this.boardGroup) {
                     playPatternCompleteFx();
                     return;
@@ -877,7 +893,7 @@ export function installSettlementHudModule(target: any): void {
             };
 
             const scheduleBoardCompleteShrink = () => {
-                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                if (revealed || !isCurrent()) return;
                 if (this.boardGroup && PATTERN_COMPLETE_BOARD_SHRINK_DELAY > 0 && typeof this.scheduleOnce === 'function') {
                     this.scheduleOnce(playBoardCompleteShrink, PATTERN_COMPLETE_BOARD_SHRINK_DELAY);
                 } else {
@@ -886,7 +902,7 @@ export function installSettlementHudModule(target: any): void {
             };
 
             const playPatternCompleteColorFx = () => {
-                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                if (revealed || !isCurrent()) return;
                 try {
                     this.flushPendingColorCompleteEffectsSequentially(scheduleBoardCompleteShrink);
                 } catch (error) {
@@ -1145,6 +1161,11 @@ export function installSettlementHudModule(target: any): void {
                 return;
             }
             const nextId = this.getActiveLogicalLevelId() + 1;
+            const creator = getCreatorWebConfig();
+            if (creator && !creator.mainLevels.includes(nextId)) {
+                this.showMainMenu();
+                return;
+            }
             const attempt = AnalyticsMgr.inst.settlement.action(this._settlementAnalyticsId, 'next', {
                 logicalLevelId: nextId, gameplayEntryMode: 'main',
             });
@@ -1152,6 +1173,7 @@ export function installSettlementHudModule(target: any): void {
             // 下一关消耗体力
             if (!this.costVigorForLevel(nextId, 'main')) {
                 AnalyticsMgr.inst.settlement.gate(attempt, 'blocked', 'vigor');
+                let rewardedEntryStarted = false;
                 this.showNoLivesAdModal({
                     source: 'next_level',
                     onResult: (result: any) => {
@@ -1164,6 +1186,10 @@ export function installSettlementHudModule(target: any): void {
                         }
                         if (!this.isValid) return;
                         if (this.getRuntimeSceneName('Game') !== 'Game') return;
+                        if (isMiniGameRuntime()) {
+                            if (rewardedEntryStarted || this._gameplayTransitionPromise) return;
+                            rewardedEntryStarted = true;
+                        }
                         if (!this.costVigorForLevel(nextId, 'main')) {
                             AnalyticsMgr.inst.settlement.gate(attempt, 'failed', 'vigor_after_reward');
                             this.endSettlementNextTransition();
@@ -1171,6 +1197,7 @@ export function installSettlementHudModule(target: any): void {
                         }
                         AnalyticsMgr.inst.settlement.gate(attempt, 'passed', 'vigor_after_reward');
                         AnalyticsMgr.inst.settlement.transition(attempt);
+                        if (isMiniGameRuntime()) AppRoot.inst.session.weChatEntryVigorCharged = !this.isTutorialVigorFreeLevel(nextId, 'main');
                         void this.requestLevelTransition(nextId);
                     },
                 });
@@ -1179,6 +1206,7 @@ export function installSettlementHudModule(target: any): void {
             AnalyticsMgr.inst.settlement.gate(attempt,
                 this.isTutorialVigorFreeLevel(nextId, 'main') ? 'exempt' : 'passed', 'vigor');
             AnalyticsMgr.inst.settlement.transition(attempt);
+            if (isMiniGameRuntime()) AppRoot.inst.session.weChatEntryVigorCharged = !this.isTutorialVigorFreeLevel(nextId, 'main');
             void this.requestLevelTransition(nextId);
         },
 

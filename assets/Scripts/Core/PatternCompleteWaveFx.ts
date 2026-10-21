@@ -24,15 +24,17 @@ export class PatternCompleteWaveFx extends Component {
     private activeFx: WaveNode[] = [];
     private pool: WaveNode[] = [];
     private finished: (() => void) | null = null;
+    private failed: ((error: unknown) => void) | null = null;
     private running = false;
 
-    play(prefab: Prefab, cells: PatternWaveCell[], onDone?: () => void): void {
+    play(prefab: Prefab, cells: PatternWaveCell[], onDone?: () => void, onError?: (error: unknown) => void): void {
         this.stop();
         if (!cells.length) throw new Error('[pattern-wave-fx] no completed pattern cells');
         this.prefab = prefab;
         this.pending = [...cells].sort((a, b) => (a.row + a.col) - (b.row + b.col));
         this.duration = getPatternWaveDuration(cells);
         this.finished = onDone || null;
+        this.failed = onError || null;
         this.running = true;
         this.update(0);
     }
@@ -40,6 +42,7 @@ export class PatternCompleteWaveFx extends Component {
     stop(): void {
         this.running = false;
         this.finished = null;
+        this.failed = null;
         this.pending = [];
         this.next = 0;
         this.elapsed = 0;
@@ -82,6 +85,27 @@ export class PatternCompleteWaveFx extends Component {
 
     protected update(dt: number): void {
         if (!this.running) return;
+        try {
+            this.updateWave(dt);
+        } catch (error) {
+            const failed = this.failed;
+            if (!failed) throw error;
+            const done = this.finished;
+            this.stop();
+            failed(error);
+            done?.();
+            return;
+        }
+        // Gameplay callbacks are outside the visual error boundary.
+        if (this.elapsed + 1e-8 >= this.duration && this.finished) {
+            const done = this.finished;
+            this.finished = null;
+            done();
+        }
+        if (this.next >= this.pending.length && !this.activeFx.length) this.running = false;
+    }
+
+    private updateWave(dt: number): void {
         this.elapsed += dt;
         let kept = 0;
         for (const item of this.activeFx) {
@@ -112,11 +136,5 @@ export class PatternCompleteWaveFx extends Component {
             // The clip ends at .4s; keep its node pooled only after the reference's 1s lifetime.
             if (age >= PATTERN_WAVE_CLIP_DURATION) item.node.active = false;
         }
-        if (this.elapsed + 1e-8 >= this.duration && this.finished) {
-            const done = this.finished;
-            this.finished = null;
-            done();
-        }
-        if (this.next >= this.pending.length && !this.activeFx.length) this.running = false;
     }
 }

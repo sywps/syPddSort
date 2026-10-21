@@ -1,0 +1,126 @@
+{
+  "status": "source_applied_and_verified",
+  "archive": "config/unused-art/five-image-size-20261019",
+  "records": [
+    {
+      "path": "assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/gameplay_skill_slot_background.png",
+      "uuid": "d2fee374-a06c-43bd-a2bd-8fdbb71522c3",
+      "before": [
+        192,
+        192
+      ],
+      "after": [
+        160,
+        160
+      ],
+      "before_bytes": 18254,
+      "after_bytes": 13888,
+      "before_sha256": "d5d2eb216a2851a892788d1df0019c1bd50bcd951fd103b568a7bdb14cf6c455",
+      "after_sha256": "beb64b695597c33f8087f4cba4e6db2cbd3f89b26b5a90ce5b2e481d5468de5d",
+      "before_meta_sha256": "19d2bb4e899627d3b89a6ef3bd8a8a86179bfb2fb2e9d79ccce4b8f9b146621a",
+      "after_meta_sha256": "8ddd7b1499b0700f00c1225895b3648ee568defaf197bbc9e176200a3bf08cd4",
+      "candidate": ".planning/six_image_size_review_20261019/candidates/gameplay_skill_slot_background-160x160.png",
+      "stage": "0"
+    },
+    {
+      "path": "assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/倒计时.png",
+      "uuid": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4",
+      "before": [
+        300,
+        133
+      ],
+      "after": [
+        240,
+        106
+      ],
+      "before_bytes": 17317,
+      "after_bytes": 12385,
+      "before_sha256": "77c9338c1153e2717f3ef19621ef9b905a4636198e3ac6a9dc92ddd1a5de8df4",
+      "after_sha256": "f8be4da78e79eaeb0eb69a2e518bf53e5b94ecf1d24a46f8f4f7aabd40ec04bc",
+      "before_meta_sha256": "27eaf4cc0e8354b9af1e6dd8b0309620ed0fbab788c9864aaf27f5e08918c3cf",
+      "after_meta_sha256": "541cc3d21dfe5046bb279db7e360bf0072f8c2058cc73d83a31ec59c19d4c7ef",
+      "candidate": ".planning/six_image_size_review_20261019/candidates/倒计时-240x106.png",
+      "stage": "1"
+    },
+    {
+      "path": "assets/GameAssetsBundle/Textures/UI/chapter_reward_title.png",
+      "uuid": "83fdef8c-14fe-42f6-8cbe-bf0c036a7cc4",
+      "before": [
+        768,
+        190
+      ],
+      "after": [
+        640,
+        158
+      ],
+      "before_bytes": 51703,
+      "after_bytes": 39108,
+      "before_sha256": "f3790b67028f68d2f09c979a6fdce6f4e0e8f9f006d9804ef26408820acdca06",
+      "after_sha256": "ae0367905d3f58cbcfe13d96e6a6cb7c6d267adb6e7a1830468f99c389797bf7",
+      "before_meta_sha256": "df1789918ffd65ff4eb97176aae00ac68dfe096cf657f1f7383eeec636908db0",
+      "after_meta_sha256": "65947b6aed29a268f4d823f0175ef19f0382b114081b5ef7fdde5d9c0ea794a2",
+      "candidate": ".planning/six_image_size_review_20261019/candidates/chapter_reward_title-640x158.png",
+      "stage": "2"
+    },
+    {
+      "path": "assets/GameAssetsBundle/Textures/UI/chapter_reward_bubble_blue.png",
+      "uuid": "2b632114-4ec5-4b09-bed0-745d29390756",
+      "before": [
+        384,
+        134
+      ],
+      "after": [
+        320,
+        112
+      ],
+      "before_bytes": 21754,
+      "after_bytes": 17022,
+      "before_sha256": "462261bf2e5892d9490bbe0e8e135114b4deb796704137f7715f95742b241453",
+      "after_sha256": "f325787673bb039ff307dc5c54ee49b7ee28c571594c6a1ad1b014c4e4a81f34",
+      "before_meta_sha256": "54531f4cc9ca1abe6bc94a4fcd492776de7e53320f486edc40dbfe43e016ed83",
+      "after_meta_sha256": "888bb41fc30da97dc2b230a23166105c379a54cfcd4d6196c7d6ec0925465765",
+      "candidate": ".planning/six_image_size_review_20261019/candidates/chapter_reward_bubble_blue-320x112.png",
+      "stage": "3"
+    },
+    {
+      "path": "assets/GameAssetsBundle/Textures/UI/collection_entry_icon.png",
+      "uuid": "58aee730-ea27-4547-8c2c-e6445e9ab8b5",
+      "before": [
+        307,
+        303
+      ],
+      "after": [
+        192,
+        190
+      ],
+      "before_bytes": 31432,
+      "after_bytes": 14929,
+      "before_sha256": "d9be673e6e2df386dcaa427fc7822c8f1499b68e2eeda2fd2fe82bc751000329",
+      "after_sha256": "cbc4eecfce52a87416248068fedd38872626fd85eb5cba526a13edabe5fd0599",
+      "before_meta_sha256": "4a6eded59998fb37e3ae8f098157e88d3937ef674a645b06c8cf89d035858d11",
+      "after_meta_sha256": "87355e7bbb66c6fe281fac32f01316a40ae0e4a1c98478602d3a9d0438fa6095",
+      "candidate": ".planning/six_image_size_review_20261019/candidates/collection_entry_icon-192x190.png",
+      "stage": "4"
+    }
+  ],
+  "patches": [
+    {
+      "path": "tests/bootstrap-skill-slot-background-contract.test.js",
+      "stage": "staged\\test-0",
+      "before_sha256": "1358f751e6818585cec0b804fffb978f4ca66ecafc7675dbbb824a9b291270a3",
+      "after_sha256": "e978f013a647551715a89fcf3e8a8f43950f32b08ea092d501cef2968e9c775a"
+    },
+    {
+      "path": "tests/win-collection-entry.test.js",
+      "stage": "staged\\test-1",
+      "before_sha256": "2fc44b5a2037c7d6274dc3ce53b2a61f91258f983829bab341801be5bbc1686f",
+      "after_sha256": "ae4cb0f29d5b5edcdf74a0ca47f8866c21720de8211dfe3b0ed7e40a1529a56e"
+    }
+  ],
+  "saved_bytes": 43128,
+  "meta_geometry": "Existing scale helper; canonical integer rect/offset/UV; normalized UV retains Cocos top-origin Y convention; custom trim for two trimmed images",
+  "applied_at": "2026-10-19T09:08:18.343Z",
+  "editor_import_verified": false,
+  "full_build_performed": false,
+  "verification": "verification.json"
+}

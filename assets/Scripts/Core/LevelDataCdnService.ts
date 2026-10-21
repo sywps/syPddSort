@@ -17,6 +17,7 @@ import {
 } from './RemoteDataCdnClient';
 import { runtimeWarn } from './RuntimeLog';
 import { recordStartupDiagnostic } from './StartupTrace';
+import { AnalyticsMgr } from './AnalyticsMgr';
 
 type LevelPackEntry = {
     id: string;
@@ -100,6 +101,7 @@ const LEGACY_COLLECTION_CATALOG_MAIN_LEVEL_COUNT = 300;
 const FOREGROUND_CDN_REQUEST_ATTEMPTS = 2;
 const FOREGROUND_CDN_RETRY_DELAY_MS = 300;
 const LEVEL_PACK_STORAGE_KEY = 'pdd.cdn.levelPackCache.v1';
+const LEVEL_MANIFEST_STORAGE_KEY = 'pdd.cdn.levelManifestCache.v1';
 const DEFAULT_LEVEL_PREFIX = 'level_';
 const THEME_LEVEL_PREFIX = 'zt_level_';
 const DEFAULT_WECHAT_LEVEL_DATA_CDN_URL = 'https://game-pdd-v4.oss-cn-beijing.aliyuncs.com/syGame/pdd_v4/remote_wechat/levels/';
@@ -233,13 +235,16 @@ export class LevelDataCdnService {
             if (state.textPromise === promise) state.textPromise = null;
             try {
                 state.manifest = this.validateLiveManifest(parseJsonText<LevelLiveManifest>(text, 'level_live.json'));
+                this.persistManifest(context, text);
                 this.clearLiveManifestUnavailable(state);
             } catch (err) {
                 this.markLiveManifestUnavailable(state, 'level_live.json prefetch parse failed', err);
+                this.reportResourceEvent(context, 'level_manifest_prefetch_failed', false, err);
             }
         }).catch((err) => {
             if (state.textPromise === promise) state.textPromise = null;
             this.markLiveManifestUnavailable(state, 'level_live.json prefetch failed', err);
+            this.reportResourceEvent(context, 'level_manifest_prefetch_failed', false, err);
         });
     }
 
@@ -377,11 +382,22 @@ export class LevelDataCdnService {
                 const text = await promise;
                 if (state.textPromise === promise) state.textPromise = null;
                 state.manifest = this.validateLiveManifest(parseJsonText<LevelLiveManifest>(text, 'level_live.json'));
+                this.persistManifest(context, text);
                 this.clearLiveManifestUnavailable(state);
                 return state.manifest;
             } catch (err) {
                 lastError = err;
                 if (state.textPromise === promise) state.textPromise = null;
+                if (isMiniGameRuntime()) {
+                    this.reportResourceEvent(context, 'level_manifest_request_failed', false, err);
+                    const cached = this.readPersistedManifest(context);
+                    if (cached) {
+                        state.manifest = cached;
+                        this.markLiveManifestUnavailable(state, 'using validated cached level_live.json', err);
+                        this.reportResourceEvent(context, 'level_manifest_cache_restored', true);
+                        return cached;
+                    }
+                }
                 if (attempt + 1 < attempts) {
                     await this.delay(FOREGROUND_CDN_RETRY_DELAY_MS);
                 }
@@ -389,6 +405,45 @@ export class LevelDataCdnService {
         }
         this.markLiveManifestUnavailable(state, 'level_live.json unavailable', lastError);
         return null;
+    }
+
+    private manifestStorageKey(context: LevelDataCdnContext): string {
+        return LEVEL_MANIFEST_STORAGE_KEY + ':' + (isDouyinMiniGameRuntime() ? 'douyin:' : '')
+            + context.namespace + ':' + normalizeCdnBaseUrl(context.baseUrl);
+    }
+
+    private persistManifest(context: LevelDataCdnContext, text: string): void {
+        if (!isMiniGameRuntime()) return;
+        try {
+            const key = this.manifestStorageKey(context);
+            writeCdnStorageObject(key, { text });
+            if (readCdnStorageObject(key)?.text !== text) throw new Error('manifest cache write was not retained');
+        } catch (error) {
+            // Keep using the validated network response; report that offline persistence failed.
+            this.reportResourceEvent(context, 'level_manifest_cache_write_failed', false, error);
+        }
+    }
+
+    private readPersistedManifest(context: LevelDataCdnContext): LevelLiveManifest | null {
+        if (!isMiniGameRuntime()) return null;
+        const record = readCdnStorageObject(this.manifestStorageKey(context));
+        if (!record) return null;
+        try {
+            if (typeof record.text !== 'string') throw new Error('cached manifest text missing');
+            return this.validateLiveManifest(parseJsonText<LevelLiveManifest>(record.text, 'cached level_live.json'));
+        } catch (error) {
+            this.reportResourceEvent(context, 'level_manifest_cache_invalid', false, error);
+            return null;
+        }
+    }
+
+    private reportResourceEvent(context: LevelDataCdnContext, eventName: string, success: boolean, error?: unknown, packId: string = ''): void {
+        if (!isMiniGameRuntime()) return;
+        try {
+            AnalyticsMgr.inst.trackFunnelEvent({ eventName, source: 'level_data_cdn', success,
+                errorCode: success ? '' : eventName, errorMessage: error ? this.formatErrorReason(error) : '',
+                extra: { namespace: context.namespace, packId } });
+        } catch (reportError) { runtimeWarn('[LevelDataCDN] telemetry failed:', reportError); }
     }
 
     private delay(ms: number): Promise<void> {
@@ -519,6 +574,7 @@ export class LevelDataCdnService {
                         return pack;
                     } catch (err) {
                         lastError = err;
+                        this.reportResourceEvent(context, 'level_pack_request_failed', false, err, packEntry.id);
                         if (attempt + 1 < attempts) {
                             await this.delay(FOREGROUND_CDN_RETRY_DELAY_MS);
                         }
@@ -532,6 +588,7 @@ export class LevelDataCdnService {
                         return parsePackText(cachedText);
                     } catch (cacheErr) {
                         removePersistedLevelPack(cacheKey);
+                        this.reportResourceEvent(context, 'level_pack_cache_invalid', false, cacheErr, packEntry.id);
                         runtimeWarn('[LevelDataCDN] persisted pack invalid, refetching:', packEntry.url, cacheErr instanceof Error ? cacheErr.message : cacheErr);
                         return loadRemotePack();
                     }

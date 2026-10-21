@@ -47,6 +47,7 @@ async function run() {
   let response = { ok: true, reward: { claimId: 'claim-1', expiresAt: Date.now() + 600000 } };
   const calls = [];
   const inventoryEvents = [];
+  const telemetry = [];
   let inventoryReady = true;
   let inventoryCloudAvailable = true;
   const userStateSyncManager = {
@@ -57,6 +58,7 @@ async function run() {
     if (id === 'cc') return { sys, _decorator: { ccclass: () => Type => Type } };
     if (id.endsWith('UserStateSyncMgr')) return { PVP_ECONOMY_REVISION_KEY: revisionKey, UserStateSyncMgr: { inst: userStateSyncManager } };
     if (id.endsWith('UserMgr')) return { UserMgr: { inst: { getDisplayProfile: () => ({ uuid: 'test' }) } } };
+    if (id.endsWith('AnalyticsMgr')) return { AnalyticsMgr: { inst: { trackMultiplayerLobby: (...args) => telemetry.push(args) } } };
     if (id.endsWith('PvpModeConfig')) return { createDemoPvpBattle: levelId => ({ demo: true, levelId }) };
     if (id.endsWith('PvpBotReplay')) return require('../cloudfunctions/pvpService/bot-runtime/PvpBotReplay');
     if (id.endsWith('PvpHumanReplay')) return require('../cloudfunctions/pvpService/bot-runtime/PvpHumanReplay');
@@ -162,6 +164,10 @@ async function run() {
     await assert.rejects(service.simulateTicketReward('share'), /仅本地预览/);
     assert.strictEqual(service.hasPendingTicketReward(), true, 'preview must preserve formal pending receipts');
   }
+  platform = 'douyin'; response = new Error('抖音业务云暂未接入接口：pvpService');
+  await assert.rejects(service.getEconomy(), /暂未接入/);
+  assert.equal(telemetry.length, 1);
+  assert.deepStrictEqual(telemetry[0].slice(0, 4), ['pvp', 'multiplayer_service_result', 'getEconomy', false]);
   console.log('PVP_CLIENT_ECONOMY_TESTS_PASSED');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

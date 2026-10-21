@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>抖音 prod 手动准备</title>
+<style>
+body{font:16px/1.65 system-ui;color:#263445;background:#f3f5f8;max-width:1050px;margin:32px auto;padding:0 20px}h1{font-size:28px}h2{font-size:21px;margin-top:0}section{background:white;border:1px solid #dde3eb;border-radius:12px;padding:22px;margin:18px 0}button,select,input{font:inherit;padding:9px;margin:4px 4px 4px 0}button{cursor:pointer}button:disabled{cursor:default}input{max-width:95%;width:660px}textarea{width:100%;height:310px;box-sizing:border-box;font:13px/1.5 monospace}code{background:#f2f4f7;padding:2px 5px}small{display:block;color:#586778;overflow-wrap:anywhere}.notice{border-left:5px solid #d18a19;background:#fff8e8}#status{min-height:28px;color:#284d74}table{border-collapse:collapse}td,th{border-bottom:1px solid #ddd;padding:7px 12px;text-align:left}li{margin:8px 0}
+</style></head><body>
+<h1>抖音 prod：上线前手动准备一次</h1>
+<p>这张页面帮你复制完整文件和填写内容，不连接抖音、不自动发布、不读写玩家数据。</p>
+<section class="notice"><b>当前是待部署文件，不代表 prod 已经正常。</b><p>先完成下面两项后台检查，再处理游戏包连接 prod。玩家登录不会自动准备数据库。</p></section>
+<section><h2>1．在 dev 更新完整文件并发布</h2>
+<p>依次处理下拉框中的文件：不存在就新建同名文件；已存在就替换全部内容。文件应放在原来的同一目录。包含 businessCommon 依赖的 chapterRewardSync。无需搜索代码片段，不运行这些公共文件。</p>
+<select id="file" aria-label="需要更新的文件"></select><button id="copyCode">复制完整文件</button><button id="selectCode">全选代码</button>
+<textarea id="code" readonly spellcheck="false" aria-label="所选文件全部内容"></textarea><small id="hash"></small>
+<p>保留后台原 <code>package.json</code>、已有其他文件及 dev 环境配置。文件一起发布，备注 <code>manual-prod-20261011</code>，记住成功版本号。</p>
+<p>dev 中分别调试 <code>businessSetup.js</code>、<code>analyticsSetup.js</code>，Body 都填 <code>{}</code>；都返回 <code>ok:true</code> 后再发布到 prod。</p></section>
+<section><h2>2．准备一份管理密钥</h2>
+<p>用途：证明这次后台操作由你发起。它只用于后台，不放进游戏包。两处填写的是<b>同一份内容</b>。</p>
+<p>如果 prod 已有你保存的有效管理密钥，粘贴到下面并点“使用已有密钥”。否则点“生成本次密钥”。生成后保持此页打开，直到两项检查成功；刷新或关闭不会保留它。</p>
+<input id="secret" type="password" autocomplete="off" spellcheck="false" aria-label="管理密钥（不上传、不保存）">
+<div><button id="generate">生成本次密钥</button><button id="useExisting">使用已有密钥</button><button id="show">显示／隐藏</button></div>
+<p><button id="copyEnvSecret" disabled>复制：后台环境变量的值</button><button id="copyHeaderSecret" disabled>复制：调试请求头的值</button></p>
+<small>仅使用浏览器自带的安全随机数生成；密钥不写入文件或浏览器存储，也不发送到任何网站。不要把它发到聊天或截图里。</small></section>
+<section><h2>3．把刚才的版本发布到 prod</h2>
+<p>切到 prod，选择第 1 步刚发布成功的版本，打开发布设置。环境 <code>env-XzE6JatzwX</code>，服务 <code>1m0ub3f29wtv7</code>。</p>
+<table><tr><th>名称</th><th>填写内容</th></tr>
+<tr><td>CLOUD_ENV</td><td>平台提供 PROD，不改成 DEV</td></tr>
+<tr><td>BUSINESS_ENVIRONMENT</td><td>douyin_release</td></tr>
+<tr><td>ANALYTICS_ENVIRONMENT</td><td>douyin_release</td></tr>
+<tr><td>MONGODB_DB</td><td>pdd_douyin_prod</td></tr>
+<tr><td>MONGODB_URI</td><td>prod 可访问的实际数据库连接信息，仅在后台填写</td></tr>
+<tr><td>DOUYIN_ADMIN_TOKEN</td><td>点上方“复制：后台环境变量的值”后粘贴</td></tr></table>
+<p>发布并等它生效。只在草稿里改好还不算生效。</p></section>
+<section><h2>4．在 prod 调试两项，看到成功结果</h2>
+<ol><li>选择 <code>businessSetup.js</code>，POST，Body 填 <code>{}</code>。</li>
+<li>在<b>请求参数</b>的 Headers 中新增 <code>x-pdd-admin-token</code>。值使用上方“复制：调试请求头的值”。不要填到下方运行结果的 Headers，也不要填到 Body。</li>
+<li>点“调试”。应返回 <code>ok:true</code>、<code>transactionsVerified:true</code>、<code>businessEnvironment:"douyin_release"</code>。</li>
+<li>再选择 <code>analyticsSetup.js</code>，相同 Body 和请求头，点“调试”。应返回 <code>ok:true</code>、<code>reason:"INDEXES_READY"</code>、<code>analyticsEnvironment:"douyin_release"</code>。</li></ol>
+<p>两项结果都应带 <code>manualSetupRevision:"manual-prod-20261011"</code>。只把<b>返回结果</b>发给我，不发密钥。这两项允许重复运行，不清空玩家数据；第一项会创建并清理本次专用测试记录。</p>
+<p>如果提示未配置密钥、请求头缺失或两边不一致，按返回的中文提示处理。如果提示数据库错误或访问路径被拒绝，先停止，提供返回结果，不关闭访问限制或改通配路径。</p>
+<p>完成后仍需适配连接 prod 的游戏包并真机验证；当前包仍限制 dev。统计查询、导出和合作/PVP 回放暂后置。</p></section>
+<p id="status" role="status"></p>
+<script>
+const files = /* DELIVERY_FILES */[];
+const byId = id => document.getElementById(id);
+const picker = byId('file'), code = byId('code'), secret = byId('secret');
+let credential = '';
+function tell(message) { byId('status').textContent = message; }
+for (const file of files.filter(file => file.replace)) {
+    const option = document.createElement('option'); option.value = file.name; option.textContent = file.name; picker.append(option);
+}
+function showFile() {
+    const file = files.find(file => file.name === picker.value);
+    if (!file) return;
+    code.value = file.code; byId('hash').textContent = 'SHA256 ' + file.sha256;
+}
+async function copy(value, label) {
+    try { await navigator.clipboard.writeText(value); tell('已复制' + label + '。'); }
+    catch (_) { tell('浏览器拒绝自动复制。代码可点“全选代码”后按 Ctrl+C；密钥可由你点“显示”后选中复制。'); }
+}
+function acceptCredential(value) {
+    if (!/^[a-f0-9]{64}$/.test(value)) { tell('密钥须为64位小写十六进制字符，不带空格或引号。'); return; }
+    credential = value; secret.value = value; secret.readOnly = true;
+    byId('generate').disabled = true; byId('useExisting').disabled = true;
+    byId('copyEnvSecret').disabled = false; byId('copyHeaderSecret').disabled = false;
+    tell('本次密钥已准备好。两处复制按钮使用同一份内容；请勿刷新或关闭此页。');
+}
+byId('generate').onclick = () => {
+    if (credential) return;
+    try {
+        const bytes = new Uint8Array(32); crypto.getRandomValues(bytes);
+        acceptCredential(Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join(''));
+    } catch (_) { tell('浏览器无法安全生成密钥，请用 Chrome 打开本地操作页；未生成密钥。'); }
+};
+byId('useExisting').onclick = () => { if (!credential) acceptCredential(secret.value); };
+byId('show').onclick = () => { secret.type = secret.type === 'password' ? 'text' : 'password'; };
+byId('copyEnvSecret').onclick = () => { if (credential) return copy(credential, '后台环境变量的值'); };
+byId('copyHeaderSecret').onclick = () => { if (credential) return copy(credential, '调试请求头的值'); };
+byId('copyCode').onclick = () => copy(code.value, picker.value + ' 的全部内容');
+byId('selectCode').onclick = () => { code.focus(); code.select(); tell('代码已全选，请按 Ctrl+C。'); };
+picker.onchange = showFile;
+if (files.length) { picker.value = files[0].name; showFile(); }
+</script></body></html>

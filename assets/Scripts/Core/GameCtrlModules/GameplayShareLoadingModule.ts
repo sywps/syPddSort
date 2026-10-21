@@ -32,6 +32,10 @@ import type {
 } from '../GameCtrlShared';
 
 import { weChatShareReturnService } from '../../Platform/WeChatShareReturnService';
+import { getDouyinMiniGameRuntime, isMiniGameRuntime } from '../MiniGamePlatform';
+import { director, Director } from 'cc';
+import { reportWeChatEntry } from '../WeChatLevelPreparation';
+import { isDouyinShareCancelled } from '../../Platform/Douyin/DouyinShareService';
 import type { WeChatShareReturnHandle } from '../../Platform/WeChatShareReturnService';
 
 type WeChatDisplayShareOptions = {
@@ -105,8 +109,7 @@ export function installGameplayShareLoadingModule(target: any): void {
             const title = `我在拼豆豆通关了第${levelId}关，快来一起挑战！`;
         
             const wx: any = this.getWeChatRuntime();
-            const tt: any = (typeof globalThis !== 'undefined' ? (globalThis as any).tt : null)
-                || (typeof window !== 'undefined' ? (window as any).tt : null);
+            const tt = getDouyinMiniGameRuntime();
         
             if (wx && typeof wx.shareAppMessage === 'function') {
                 startWeChatDisplayShare(this, {
@@ -125,7 +128,7 @@ export function installGameplayShareLoadingModule(target: any): void {
                 AnalyticsMgr.inst.trackShareClick('level_win', 'win_share', levelId);
                 try {
                     tt.shareAppMessage({
-                        channel: 'video',
+                        channel: 'invite',
                         title,
                         desc: title,
                         query: `level=${levelId}`,
@@ -133,8 +136,9 @@ export function installGameplayShareLoadingModule(target: any): void {
                             AnalyticsMgr.inst.trackShareSuccess('level_win', 'win_share', levelId);
                             this.showToast('分享成功');
                         },
-                        fail: () => {
-                            this.showToast('分享已取消');
+                        fail: (error: any) => {
+                            if (!isDouyinShareCancelled(error)) console.warn('[shareCurrentWinLevel] share failed:', error);
+                            this.showToast(isDouyinShareCancelled(error) ? '分享已取消' : '分享失败');
                         },
                     });
                 } catch (e) {
@@ -228,6 +232,8 @@ export function installGameplayShareLoadingModule(target: any): void {
                     if (context.requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
                     if (this._levelDataLoadStopped || !this.isValid) return;
                     this._loadingWatchdogHandler = null;
+                    if (isMiniGameRuntime() && this.recoverWeChatFailedEntry?.(
+                        'gameplay_loading_timeout', `No loading progress: ${context.lastProgressStage}`)) return;
                     AppRoot.tryGet()?.startupLoading?.showSlowLoading(
                         () => this.restartGameFromRemoteLoadFatalError(),
                     );
@@ -286,6 +292,57 @@ export function installGameplayShareLoadingModule(target: any): void {
         },
 
         hideLoadingOverlayAfterGameplayReady() {
+            if (this._levelDataLoadStopped || this._weChatEntryRecoveryPending) return;
+            if (isMiniGameRuntime() && this._weChatPreparationId) {
+                this.setGameplayStartupRootVisible?.(true);
+                const generation = this._gameplayInitSeq;
+                const controller = this._pchConveyorGameplayController;
+                if (!controller?.isStartupInteractionReady()) {
+                    let wait = this._weChatInteractionWait;
+                    if (!wait || wait.generation !== generation) {
+                        if (wait?.timer) clearTimeout(wait.timer);
+                        wait = this._weChatInteractionWait = { generation, elapsed: 0, lastAt: Date.now(), timer: null };
+                    }
+                    if (wait.timer) return;
+                    const now = Date.now();
+                    if (this._gameForeground !== false) wait.elapsed += Math.max(0, now - wait.lastAt);
+                    wait.lastAt = now;
+                    if (this._gameForeground !== false && wait.elapsed >= 15000) {
+                        this.recoverWeChatFailedEntry?.('gameplay_interaction_not_ready', 'Original level input did not become ready');
+                        return;
+                    }
+                    wait.timer = setTimeout(() => {
+                        wait.timer = null;
+                        if (!this.isValid || this._gameplayInitSeq !== generation) return;
+                        this.hideLoadingOverlayAfterGameplayReady();
+                    }, 50);
+                    return;
+                }
+                if (this._weChatInteractionWait?.timer) clearTimeout(this._weChatInteractionWait.timer);
+                this._weChatInteractionWait = null;
+            }
+            if (isMiniGameRuntime()) {
+                const generation = this._gameplayInitSeq;
+                director.once(Director.EVENT_AFTER_DRAW, () => {
+                    if (!this.isValid || this._levelDataLoadStopped || this._weChatEntryRecoveryPending
+                        || this._gameplayInitSeq !== generation) return;
+                    const session = AppRoot.tryGet()?.session;
+                    if (session) session.weChatEntryVigorCharged = false;
+                    if (this._weChatPreparationId && this._weChatPreparedDrawReported !== this._weChatPreparationId) {
+                        this._weChatPreparedDrawReported = this._weChatPreparationId;
+                        reportWeChatEntry(this, 'level_entry_draw_ready', true);
+                        const app = AppRoot.tryGet();
+                        if (app?.isAppTransitionTargeting?.('Game')) {
+                            void app.whenWeChatTransitionFinished().then(() => {
+                                if (this.isValid && this._gameplayInitSeq === generation
+                                    && !this._levelDataLoadStopped && !this._weChatEntryRecoveryPending) {
+                                    this.reportWeChatRecoveryPlayable?.();
+                                }
+                            }, () => { /* The failed transition already records its original error. */ });
+                        } else this.reportWeChatRecoveryPlayable?.();
+                    }
+                });
+            }
             this.setGameplayStartupRootVisible?.(true);
             this.clearLoadingStageTimers();
             const appRoot = AppRoot.tryGet();

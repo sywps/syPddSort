@@ -27,6 +27,7 @@ function loadAdConfig({ buildMode, platform, query = {} }) {
         module,
         exports: module.exports,
         require(id) {
+            if (id === '../Core/CreatorWeb') return { isCreatorWeb: () => false };
             if (id === 'cc') {
                 return {
                     _decorator: { ccclass: () => (target) => target },

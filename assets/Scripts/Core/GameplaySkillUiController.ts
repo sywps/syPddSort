@@ -337,7 +337,8 @@ export class GameplaySkillUiController {
             }
             const shellOpacity = shell.getComponent(UIOpacity) || shell.addComponent(UIOpacity);
             this.configureSkillShell(shell);
-            const button = shell.getComponent(Button) || shell.addComponent(Button);
+            const button = shell.getComponent(Button);
+            if (!button) throw new Error(`[GameplayScene] missing authored Button on ${shell.name}`);
             shell.targetOff(runtime);
 
             if (!isGameplaySkillUnlocked(currentLevel, entryMode, skill.unlockLevel)) {

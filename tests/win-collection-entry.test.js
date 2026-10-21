@@ -74,7 +74,7 @@ assert.deepStrictEqual(
 
 const routeIconMeta = readJson('assets/GameAssetsBundle/Textures/UI/collection_entry_icon.png.meta');
 const HOME_COLLECTION_UUID = '382d81c2-e3f4-5d6e-c6de-abcaed0907fd';
-const ROUTE_ICON_SHA256 = 'd9be673e6e2df386dcaa427fc7822c8f1499b68e2eeda2fd2fe82bc751000329';
+const ROUTE_ICON_SHA256 = 'cbc4eecfce52a87416248068fedd38872626fd85eb5cba526a13edabe5fd0599';
 assert.notStrictEqual(routeIconMeta.uuid, HOME_COLLECTION_UUID, 'WinPanel icon must not reuse the HomeAssetsBundle UUID');
 assert.strictEqual(
     iconSprite?._spriteFrame?.__uuid__,

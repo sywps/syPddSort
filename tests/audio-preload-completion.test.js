@@ -26,11 +26,13 @@ function harness() {
             if (id === './AudioManifest') return manifestModule.exports;
             if (id === './PackageNames') return { LOCAL_BOOTSTRAP_BUNDLE_NAME: 'bootstrap', GAME_ASSETS_BUNDLE_NAME: 'gameAssets' };
             if (id === './RuntimeLog') return { runtimeLog() {} };
+            if (id === './MiniGamePlatform') return { getDouyinMiniGameRuntime: () => null };
             throw new Error(id);
         },
     });
     const audio = new module.exports.AudioMgr();
-    audio.bootstrapBundle = { load(file, type, cb) { loads.push({ file, finish(error, clip = { file }) { cb(error, error ? null : clip); } }); } };
+    audio.bootstrapBundle = { load(file, type, cb) { loads.push({ file, finish(error, clip = { file, isValid: true,
+        addRef() { return this; }, decRef() { return this; } }) { cb(error, error ? null : clip); } }); } };
     audio.bootstrapBundleState = 'ready';
     audio.audioRoot = { isValid: true }; audio.sfxSources = [{}]; audio.sfxEnabled = true;
     audio._playLoadedClip = (name, clip) => played.push({ name, clip });

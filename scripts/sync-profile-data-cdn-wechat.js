@@ -4,8 +4,11 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const { extractRequiredWechatCdnSlot } = require('./wechat-cdn-slot-config');
+const { configureDouyinCdnEnvironment, extractRequiredDouyinCdnSlot } = require('./douyin-cdn-slot-config');
 async function main() {
-    const { target, remainingArgs } = extractRequiredWechatCdnSlot(process.argv.slice(2));
+    const isDouyin = process.env.PDD_CDN_PLATFORM === 'douyin';
+    const { target, remainingArgs } = (isDouyin ? extractRequiredDouyinCdnSlot : extractRequiredWechatCdnSlot)(process.argv.slice(2));
+    if (isDouyin) configureDouyinCdnEnvironment(target, process.env);
     if (remainingArgs.some(x => x !== '--dry-run')) throw Error('未知参数');
     const dry = remainingArgs.includes('--dry-run');
     const dir = path.resolve(__dirname, '../config/profile-assets');
@@ -24,8 +27,9 @@ async function main() {
         if (image.width !== row.width || image.height !== row.height) throw Error(`装扮尺寸校验失败 ${row.id}`);
     }
     const base = target.cdnRootUrl + 'profile/';
-    const oss = 'oss://game-pdd-v4/' + target.ossRootPath + 'profile/';
+    const oss = 'oss://' + (isDouyin ? 'game-pdd-v2' : 'game-pdd-v4') + '/' + target.ossRootPath + 'profile/';
     console.log(`${dry ? 'Dry-run' : 'Publish'}: ${manifest.items.length} images + manifests -> ${base}`);
+    console.log('OSS 路径: ' + oss);
     if (dry) return;
     const upload = file => {
         const result = spawnSync(process.env.PDD_OSSUTIL_BIN || 'ossutil', ['cp', '--acl', 'public-read', '--force', '--meta', file.endsWith('.json') ? 'Cache-Control:no-cache' : 'Cache-Control:public,max-age=31536000,immutable', '--endpoint', 'https://oss-cn-beijing.aliyuncs.com', path.join(dir, file), oss + file], { stdio: 'inherit', shell: false, windowsHide: true });

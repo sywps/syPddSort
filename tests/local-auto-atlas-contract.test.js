@@ -18,7 +18,7 @@ const groups = [
         bundle: 'bootstrap',
         directory: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall',
         atlas: 'game_scene_small',
-        names: ['倒计时', 'gameplay_skill_slot_background', 'guide_bubble_frame', 'guide_hand', 'pch_speed_inactive', 'popup_tool_add_badge', 'popup_tool_count_badge', 'solid_white', 'toast_bubble_background'],
+        names: ['倒计时', 'gameplay_skill_slot_background', 'guide_bubble_frame', 'guide_hand', 'popup_tool_add_badge', 'popup_tool_count_badge', 'solid_white', 'toast_bubble_background'],
     },
     {
         id: 'game_settings',
@@ -119,5 +119,5 @@ for (const [label, meta] of [['fill', fillMeta]]) {
     assert.ok(borders.borderLeft > 0 && borders.borderRight > 0, `${label} sliced horizontal borders must survive`);
 }
 
-assert.strictEqual(expectedRoutes.size, 36, 'atlas membership excludes ten archived conveyor images and adds four current images');
+assert.strictEqual(expectedRoutes.size, 35, 'dynamic atlas membership excludes the retired speed image');
 console.log('local-auto-atlas-contract.test.js passed');

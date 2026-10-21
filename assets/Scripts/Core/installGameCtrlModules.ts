@@ -28,7 +28,6 @@ import { installTutorialGuideModule } from './GameCtrlModules/TutorialGuideModul
 import { installEndgameHintModule } from './GameCtrlModules/EndgameHintModule';
 import { installDynamicCountdownDdaModule } from './GameCtrlModules/DynamicCountdownDdaModule';
 import { installPostPlayableWarmupModule } from './GameCtrlModules/PostPlayableWarmupModule';
-import { installTopHudModule } from './GameCtrlModules/TopHudModule';
 import { installPvpModeModule } from './GameCtrlModules/PvpModeModule';
 import { installCoopModeModule } from './GameCtrlModules/CoopModeModule';
 
@@ -41,7 +40,6 @@ export function installGameCtrlModules(runtime: any): void {
     installFirstLevelRouteModule(runtime);
     installAssetBootstrapModule(runtime);
     installBeanSkinModule(runtime);
-    installTopHudModule(runtime);
     installPvpModeModule(runtime);
     installCoopModeModule(runtime);
     installSkinBackgroundModule(runtime);

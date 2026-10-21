@@ -91,6 +91,7 @@ async function run() {
     if (id.endsWith('MiniGamePlatform')) return { getMiniGameBuildMode: () => 'release' };
     if (id.endsWith('RuntimeLog')) return { runtimeLog() {}, runtimeWarn() {} };
     if (id.endsWith('PlatformCloudMgr')) return { PlatformCloudMgr: { inst: { canUseCloud: () => true, getDiagnostics: () => ({}), callFunction: (_, event) => new Promise(resolve => calls.push({ event, resolve })) } } };
+    if (id === './LocalChapterRewards') return require('./helpers/local-chapter-runtime')();
     throw Error(id);
   };
   const sync = loadTs('assets/Scripts/Core/UserStateSyncMgr.ts', deps);

@@ -3,12 +3,13 @@ import {
     readStartupLocalProgress,
     resolveStartupLocalProgressFromRaw,
 } from './StartupLocalProgress';
+import { isCreatorWeb } from './CreatorWeb';
 
 export type StartupRouteDecision = {
     shouldMarkPendingGameplay: boolean;
     levelId: number;
     prefix: 'level_' | 'zt_level_';
-    reason: 'explicit_launch' | 'local_progress_home' | 'local_progress_gt_1' | 'default_level_1' | 'pvp-ranked' | 'coop-invite';
+    reason: 'explicit_launch' | 'local_progress_home' | 'local_progress_gt_1' | 'default_level_1' | 'pvp-ranked' | 'coop-invite' | 'creator_home';
 };
 
 function getGlobalScope(): any {
@@ -115,6 +116,7 @@ export function resolveStartupRouteDecisionFromInputs(
 }
 
 export function resolveStartupRouteDecision(): StartupRouteDecision {
+    if (isCreatorWeb()) return { shouldMarkPendingGameplay: false, levelId: 1, prefix: 'level_', reason: 'creator_home' };
     const localProgress = readStartupLocalProgress();
     return resolveStartupRouteDecisionFromInputs(readLaunchQuery(), localProgress.rawLevel);
 }

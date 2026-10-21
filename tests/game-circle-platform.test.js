@@ -49,8 +49,8 @@ assert.ok(sceneRuntime.includes('UserMgr.inst.destroyUserInfoButtons();'), 'scen
 
 assert.ok(sceneHome.includes("const GAME_CIRCLE_OPENLINK = '';"), 'default Game Circle entry must open the Game Circle home page instead of a stale hard-coded openlink');
 assert.ok(sceneHome.includes("const isDouyin = getMiniGameBuildPlatform() === 'douyin';"), 'Douyin leaderboard visibility must use the unified build/preview platform contract');
-assert.ok(sceneHome.includes('btn.active = !isDouyin;'), 'Douyin leaderboard entry must be hidden instead of left as a dead button');
-assert.ok(sceneHome.includes('if (isDouyin) return;'), 'Douyin leaderboard entry must return before icon work and click binding');
+assert.ok(!sceneHome.includes('btn.active = !isDouyin;'), 'Douyin leaderboard entry must remain visible');
+assert.ok(sceneHome.includes('DouyinLeaderboardService.inst.open(this.getSavedLevel())'), 'Douyin leaderboard entry must open the native ranking UI with saved progress');
 assert.ok(!sceneHome.includes('排行榜暂未开放'), 'Douyin must not retain the dead leaderboard toast path');
 assert.ok(sceneHome.includes("const isWeChat = getMiniGameBuildPlatform() === 'wechat';"), 'Game Circle visibility must use the unified build/preview platform contract');
 assert.ok(sceneHome.includes('btn.active = isWeChat;'), 'Game Circle entry must be hidden outside WeChat');

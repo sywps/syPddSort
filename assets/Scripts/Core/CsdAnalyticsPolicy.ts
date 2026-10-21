@@ -4,7 +4,8 @@ export function isOfficialAnalyticsRuntime(wx: any): boolean {
         if (!wx || wx.getAccountInfoSync?.()?.miniProgram?.envVersion !== 'release') return false;
         const info = wx.getDeviceInfo?.() || wx.getSystemInfoSync?.();
         const platform = String(info?.platform || '').toLowerCase();
-        return ['android', 'ios', 'windows', 'mac'].includes(platform);
+        // WeChat uses ohos for HarmonyOS phones and ohos_pc for HarmonyOS PCs.
+        return ['android', 'ios', 'ohos', 'ohos_pc', 'windows', 'mac'].includes(platform);
     } catch (_) { return false; }
 }
 

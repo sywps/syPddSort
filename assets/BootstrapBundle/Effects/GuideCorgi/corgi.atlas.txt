@@ -1,0 +1,20 @@
+
+corgi.png
+size: 512,400
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+corgi_body
+  rotate: false
+  xy: 2, 2
+  size: 322, 394
+  orig: 322, 394
+  offset: 0, 0
+  index: -1
+corgi_arm
+  rotate: false
+  xy: 330, 2
+  size: 168, 189
+  orig: 168, 189
+  offset: 0, 0
+  index: -1

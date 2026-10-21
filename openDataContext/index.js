@@ -7,7 +7,7 @@ const Canvas = wx.getSharedCanvas();
 const ctx = Canvas.getContext('2d');
 
 const CANVAS_WIDTH = 596;
-const CANVAS_HEIGHT = 640;
+const CANVAS_HEIGHT = 696;
 // Keep the saved row origin fixed while extending only the viewport bottom.
 const ROW_ORIGIN_FROM_TOP = 290;
 const ROW_HEIGHT = 101.082731;
@@ -24,7 +24,10 @@ const MAX_AVATAR_CACHE = 24;
 const OPEN_DATA_DEBUG = false;
 
 // Shared canvas dimensions are owned by main-domain Cocos SubContextView.
-// The open-data view is read-only; drawing coordinates remain 596 x 640.
+// The list remains 596 x CANVAS_HEIGHT; a transparent suffix draws the prefab self-rank badge.
+let selfRankLayout = null;
+let selfIdentity = '';
+let selfRank = null; // null = pending/unavailable, 0 = confirmed outside the displayed top 100.
 
 let scrollOffset = 0;
 let lastRenderedScrollOffset = -1;
@@ -66,7 +69,35 @@ const COLORS = {
 };
 
 function drawBackground() {
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.clearRect(0, 0, Canvas.width, Canvas.height);
+    drawFriendSelfRank();
+}
+
+function configureSelfRank(data) {
+    const layout = data.selfRankLayout;
+    selfRankLayout = layout && ['x', 'y', 'width', 'fontSize'].every(key => Number.isFinite(layout[key]))
+        && layout.width > 0 && layout.fontSize > 0 && layout.y > CANVAS_HEIGHT ? layout : null;
+    selfIdentity = typeof data.selfIdentity === 'string' ? data.selfIdentity : '';
+    selfRank = null;
+}
+
+function friendIdentity(item) {
+    const kv = (item.KVDataList || []).find(row => row.key === 'friend_identity_v1');
+    return typeof kv?.value === 'string' ? kv.value : '';
+}
+
+function resolveFriendSelfRank(sortedEntries, identity) {
+    if (!identity) throw new Error('好友榜本人身份缺失');
+    const matches = sortedEntries.filter(entry => friendIdentity(entry) === identity);
+    if (matches.length > 1) throw new Error('好友榜本人身份重复');
+    return matches.length && matches[0].rank <= MAX_ENTRIES ? matches[0].rank : 0;
+}
+
+function drawFriendSelfRank() {
+    if (!selfRankLayout) return;
+    const layout = selfRankLayout;
+    const text = selfRank === null ? '—' : selfRank > 0 ? `第${selfRank}名` : '未上榜';
+    drawRowText(text, layout.x, layout.y, layout.fontSize, layout.width, 'center', layout.color || COLORS.text);
 }
 
 function drawHeader() {
@@ -297,6 +328,9 @@ function clearAvatarCache() {
 }
 
 function deactivateFriendRankView(message) {
+    selfRankLayout = null;
+    selfIdentity = '';
+    selfRank = null;
     friendRankActive = false;
     friendRankDataState = 'idle';
     friendRankDataError = '';
@@ -484,11 +518,14 @@ function renderFullLeaderboard(friendData, source) {
             if (b.progressLevel !== a.progressLevel) return b.progressLevel - a.progressLevel;
             return getDisplayName(a).localeCompare(getDisplayName(b));
         })
-        .slice(0, MAX_ENTRIES)
         .map((entry, index) => ({
             ...entry,
             rank: index + 1,
         }));
+
+    try { selfRank = resolveFriendSelfRank(allSortedEntries, selfIdentity); }
+    catch (error) { selfRank = null; console.error('[FriendRank] self rank unavailable:', error); }
+    allSortedEntries = allSortedEntries.slice(0, MAX_ENTRIES);
 
     drawBackground();
 
@@ -526,6 +563,10 @@ function renderVisibleRows(source, force) {
     lastRenderedScrollOffset = normalizedOffset;
     drawBackground();
 
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.clip();
     for (let i = 0; i < allSortedEntries.length; i++) {
         const y = getRowTop(i) - scrollOffset * ROW_HEIGHT;
         if (y > CANVAS_HEIGHT || y + ROW_BOX_HEIGHT < 0) continue;
@@ -535,6 +576,7 @@ function renderVisibleRows(source, force) {
         if (allSortedEntries[i].frameUrl) downloadAvatar(allSortedEntries[i].frameUrl);
         drawRow(allSortedEntries[i], y, i);
     }
+    ctx.restore();
 
     if (allSortedEntries.length === 0) {
         drawEmpty(source === 'wechat-friend' ? '暂无好友排行数据' : '尚未提交成绩');
@@ -582,6 +624,7 @@ wx.onMessage((data) => {
     debugLog('[OpenData] onMessage:', data);
 
     if (data.type === 'getFriendRankings') {
+        configureSelfRank(data);
         profileLocalFiles = data.profileFiles || {};
         friendRankActive = true;
         loadRankingArt(); // 主域确认 rankingArt 分包加载成功后才会发送本消息。
@@ -589,15 +632,30 @@ wx.onMessage((data) => {
         friendRankDataError = '';
         resetAvatarDownloads();
         const requestVersion = avatarLoadVersion;
+        let requestSettled = false;
+        const failRequest = (err) => {
+            if (requestSettled || !friendRankActive || requestVersion !== avatarLoadVersion) return;
+            requestSettled = true;
+            clearTimeout(requestTimeout);
+            console.warn('[OpenData] getFriendCloudStorage failed:', err);
+            selfRank = null;
+            friendRankDataState = 'error';
+            friendRankDataError = formatFriendRankError(err);
+            drawBackground();
+            drawEmpty(friendRankDataError);
+        };
+        const requestTimeout = setTimeout(() => failRequest({ errMsg: '好友排行加载超时' }), 10000);
         scrollOffset = 0;
         lastRenderedScrollOffset = -1;
         debugLog('[OpenData] Received getFriendRankings request');
         drawBackground();
         drawEmpty('加载好友排行中...');
         wx.getFriendCloudStorage({
-            keyList: ['score', 'profile_v1'],
+            keyList: ['score', 'profile_v1', 'friend_identity_v1'],
             success: (res) => {
-                if (!friendRankActive || requestVersion !== avatarLoadVersion) return;
+                if (requestSettled || !friendRankActive || requestVersion !== avatarLoadVersion) return;
+                requestSettled = true;
+                clearTimeout(requestTimeout);
                 const renderStarted = Date.now();
                 const friendData = res.data || [];
                 debugLog('[OpenData] getFriendCloudStorage SUCCESS, count:', friendData.length);
@@ -625,16 +683,10 @@ wx.onMessage((data) => {
                 renderFullLeaderboard(friendData, 'wechat-friend');
                 measureFriendRank('friend-data-sort-render', renderStarted);
             },
-            fail: (err) => {
-                if (!friendRankActive || requestVersion !== avatarLoadVersion) return;
-                console.warn('[OpenData] getFriendCloudStorage failed:', err);
-                friendRankDataState = 'error';
-                friendRankDataError = formatFriendRankError(err);
-                drawBackground();
-                drawEmpty(friendRankDataError);
-            },
+            fail: failRequest,
         });
     } else if (data.type === 'getSelfRanking') {
+        selfRankLayout = null;
         loadRankingArt(); // 调用方同样必须先加载 rankingArt 分包。
         wx.getUserCloudStorage({
             keyList: ['score', 'profile_v1'],
@@ -650,6 +702,7 @@ wx.onMessage((data) => {
         drawBackground();
         drawEmpty('排行榜资源加载失败，请重新进入');
     } else if (data.type === 'clearCanvas') {
+        configureSelfRank(data);
         drawBackground();
         drawEmpty('加载中...');
     } else if (data.type === 'scroll') {

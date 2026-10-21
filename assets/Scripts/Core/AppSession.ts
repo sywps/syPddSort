@@ -56,6 +56,8 @@ export class AppSession {
     private _pendingHomeToast: PendingHomeToast | null = null;
     private _pvpBattleContext: PvpBattleContext | null = null;
     pixelPuzzleLobbyActive: boolean = false;
+    // One charged mainline entry, cleared only on playability or compensation.
+    weChatEntryVigorCharged = false;
     private _pchSpeedMultiplier: PchSpeedMultiplier = 1;
     private readonly _routedBundles = new Map<string, Bundle>();
 

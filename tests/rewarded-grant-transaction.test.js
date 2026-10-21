@@ -62,10 +62,12 @@ function loadInstaller(timerApi = {}, adApi = {}) {
                     AnalyticsMgr: { inst: analyticsInst },
                     AudioMgr: adApi.AudioMgr || { inst: { beginExternalInterruption() {}, endExternalInterruptionWithBgmRestart() {} } },
                     PerformanceMgr: { inst: { markUserActivity() {} } },
-                    SySDKMgr: { inst: { reportAdClick() {}, reportAdShow() {}, reportAdFinish() {} } },
+                    SySDKMgr: { inst: { reportAdClick() {}, reportAdShow() {}, reportAdFinish() {},
+                        createRewardTransactionId: id => id, reportRewardGranted() {}, ...(adApi.SySDKMgr?.inst || {}) } },
                 };
             }
             if (id === '../AppRoot') return { AppRoot: {} };
+            if (id === '../CreatorWeb') return { isCreatorWeb: () => false };
             if (id === '../GameplayResultPanelController') {
                 return { ensureGameplayResultPanelController: () => ({}) };
             }
@@ -74,9 +76,12 @@ function loadInstaller(timerApi = {}, adApi = {}) {
             }
             if (id === '../RuntimeLog') return { runtimeLog() {} };
             if (id === '../Panels/FeedbackPanelController') return { openFeedbackPanel() {} };
+            if (['../Panels/ProfilePanelController', '../ProfileCustomizationMgr', '../ProfileAvatarView', '../HomeChapterView', '../HomeContentLayout'].includes(id)) return {};
             if (id === '../../Platform/WeChatShareReturnService') {
                 return { weChatShareReturnService: { start: () => ({ started: false, reason: 'unavailable' }) } };
             }
+            if (id === '../../Platform/Douyin/DouyinShareService') return {};
+            if (id === '../MiniGamePlatform') return { isDouyinMiniGameRuntime: () => false };
             throw new Error(`unexpected require: ${id}`);
         },
         console,
@@ -101,6 +106,47 @@ function adOutcome(status, attemptId = 1, detail = {}) {
 
 async function main() {
     const installHomeAdFlowModule = loadInstaller();
+
+    const vendorReports = [];
+    const vendorRuntime = {};
+    const pendingAds = [];
+    loadInstaller({}, { SySDKMgr: { inst: {
+        reportRewardGranted: (page, transaction) => vendorReports.push([page, transaction]),
+    } } })(vendorRuntime);
+    vendorRuntime.showTrackedRewardedAd = (_page, callback) => pendingAds.push(callback);
+    let resolveReward;
+    let rewards = 0;
+    vendorRuntime.runRewardedGrant('vendor-reward', () => new Promise(resolve => { resolveReward = resolve; }));
+    pendingAds[0](adOutcome('verified_complete'));
+    pendingAds[0](adOutcome('verified_complete'));
+    await flushMicrotasks();
+    assert.strictEqual(vendorReports.length, 0, 'complete video is not yet a granted reward');
+    rewards++;
+    resolveReward(true);
+    await flushMicrotasks();
+    assert.strictEqual(vendorReports.length, 1, 'granted reward reports once despite repeated native callbacks');
+    assert.strictEqual(rewards, 1);
+    for (const outcome of ['verified_incomplete', 'unknown']) {
+        vendorRuntime.runRewardedGrant('vendor-reward', () => { throw Error('must not grant'); });
+        pendingAds.at(-1)(adOutcome(outcome));
+        await flushMicrotasks();
+    }
+    for (const grant of [() => false, () => Promise.reject(Error('grant failed'))]) {
+        vendorRuntime.runRewardedGrant('vendor-reward', grant);
+        pendingAds.at(-1)(adOutcome('verified_complete'));
+        await flushMicrotasks();
+    }
+    assert.strictEqual(vendorReports.length, 1, 'unverified ads and failed rewards never report to vendor');
+    vendorRuntime.runRewardedGrant('vendor-reward', () => true, { afterGrant: () => false });
+    pendingAds.at(-1)(adOutcome('verified_complete'));
+    await flushMicrotasks();
+    assert.strictEqual(vendorReports.length, 2, 'post-grant UI failure must not erase a completed reward or report twice');
+    vendorRuntime.runRewardedGrant('vendor-late-reward', () => new Promise(resolve => { resolveReward = resolve; }));
+    pendingAds.at(-1)(adOutcome('verified_complete'));
+    vendorRuntime.cancelRewardedGrantInteraction('scene-destroy');
+    resolveReward(true);
+    await flushMicrotasks();
+    assert.strictEqual(vendorReports.length, 3, 'confirmed late reward is still reported after scene teardown');
 
     const directHandoffEvents = [];
     let directHandoffComplete = null;

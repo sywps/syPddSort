@@ -948,6 +948,7 @@ export function installFirstLevelRouteModule(target: any): void {
             errorMessage: string,
             context: { levelId?: number; eventName?: string; extra?: Record<string, unknown> } = {},
         ): void {
+            if (this.recoverWeChatFailedEntry?.(errorCode, errorMessage)) return;
             if (this._remoteLoadErrorOverlay?.isValid) return;
             runtimeWarn('[LevelDataLoad] fatal error surfaced with non-technical recovery actions', {
                 levelPath,
@@ -981,6 +982,10 @@ export function installFirstLevelRouteModule(target: any): void {
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorTitle', true);
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorPath', false);
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorDetail', false);
+            if (context.eventName === 'gameplay_init_failed') {
+                const title = this.requireUiChild(card, 'RemoteLoadFatalErrorTitle', 'RemoteLoadFatalErrorCard/RemoteLoadFatalErrorTitle').getComponent(Label);
+                if (title) title.string = '游戏加载失败，请重启重试';
+            }
             if (getBrowserLevelPreview().active) {
                 const title = this.requireUiChild(card, 'RemoteLoadFatalErrorTitle', 'RemoteLoadFatalErrorCard/RemoteLoadFatalErrorTitle').getComponent(Label);
                 if (title) title.string = getBrowserLevelPreview().error || `预览第 ${getBrowserLevelPreview().currentLevel} 关失败，请检查关卡号或资源`;

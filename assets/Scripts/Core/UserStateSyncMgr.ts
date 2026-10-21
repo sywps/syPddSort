@@ -2,6 +2,7 @@ import { _decorator } from 'cc';
 import { getMiniGameBuildMode } from './MiniGamePlatform';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
 import { runtimeLog, runtimeWarn } from './RuntimeLog';
+import { rebaseChapterSnapshot, validateChapterReceipts } from './LocalChapterRewards';
 
 const { ccclass } = _decorator;
 
@@ -47,6 +48,8 @@ export type CloudUserProfile = {
 };
 
 export type CloudGameState = {
+    chapterRewardProtocol?: number;
+    chapterRewardReceipts?: import('./ChapterRewardPolicy').ChapterReward[];
     wechatGiftProtocol?: number;
     wechatGiftTotals?: Record<string, number>;
     customization?: import('./ProfileCustomizationMgr').CustomizationState;
@@ -453,7 +456,11 @@ export class UserStateSyncMgr {
             // A newer queued snapshot still contains the old gift watermark. Preserve its
             // gameplay changes while rebasing both balances and watermark before the next save.
             if (this.pendingPatch?.gameState && result.gameState?.wechatGiftProtocol === 1) {
-                rebaseWechatGiftState(this.pendingPatch.gameState, result.gameState.wechatGiftTotals || {});
+                const pending = this.pendingPatch.gameState;
+                const response = pending.chapterRewardProtocol === 1
+                    ? rebaseChapterSnapshot(result.gameState, pending.chapterRewardReceipts || []) : result.gameState;
+                rebaseWechatGiftState(pending, response.wechatGiftTotals || {});
+                if (pending.chapterRewardProtocol === 1) pending.chapterRewardReceipts = response.chapterRewardReceipts;
             }
             this.consecutiveSaveFailures = 0;
             emitCloudSyncDiagnostic('save:success', {
@@ -510,6 +517,14 @@ export class UserStateSyncMgr {
         const problems: Record<string, unknown> = {};
         const patchGameState = patch.gameState || null;
         const returnedGameState = result?.gameState || null;
+        if (patchGameState?.chapterRewardProtocol === 1) {
+            if (returnedGameState?.chapterRewardProtocol !== 1) throw Error('章节奖励同步服务尚未更新');
+            const receipts = validateChapterReceipts(returnedGameState.chapterRewardReceipts);
+            for (const row of patchGameState.chapterRewardReceipts || []) {
+                const returned = receipts.find(receipt => receipt.key === row.key);
+                if (!returned || Object.keys(row).some(key => row[key] !== returned[key])) throw Error('章节奖励记录尚未同步');
+            }
+        }
         const patchProfile = patch.profile || null;
         const returnedProfile = result?.profile || null;
         const expectedSavedLevel = normalizePositiveInt(patchGameState?.savedLevel);

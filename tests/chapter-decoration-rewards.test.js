@@ -9,6 +9,10 @@ for(let chapter=1;chapter<=16;chapter++){
  if(reward.beanSkinId){assert(r.patch.ownedBeanSkinIds.includes(reward.beanSkinId));const row=beans.find(x=>x.id===reward.beanSkinId);assert.equal(row.unlockType,'chapter');assert.equal(row.unlockValue,level);assert(fs.existsSync('assets/GameAssetsBundle/'+row.iconKey+'.png'));}
  if(reward.backgroundSkinId){assert(r.patch.ownedBackgroundSkinIds.includes(reward.backgroundSkinId));const row=backgrounds.find(x=>x.id===reward.backgroundSkinId);assert.equal(row.unlockType,'chapter');assert.equal(row.unlockValue,level);assert(fs.existsSync('assets/GameAssetsBundle/'+row.iconKey+'.png'));}
  if(reward.avatarId||reward.frameId){const id=reward.avatarId||reward.frameId,row=profiles.find(x=>x.id===id);assert.equal(row.value,level);assert((reward.avatarId?r.state.ownedAvatarIds:r.state.ownedFrameIds).includes(id));}
- assert.equal(policy.chapterReward(chapter,4).gold,50);assert.equal(policy.chapterReward(chapter,4).brushCount,0);
+ const fourth=policy.chapterReward(chapter,4);
+ assert.equal(fourth.gold,50);
+ assert.deepEqual([fourth.brushCount,fourth.magnetCount],chapter%2?[1,0]:[0,1]);
+ assert.deepEqual([reward.brushCount,reward.magnetCount],chapter%2?[0,1]:[1,0]);
+ assert.equal(r.patch.brushCount,reward.brushCount);assert.equal(r.patch.magnetCount,reward.magnetCount);
 }
 console.log('16 chapter decoration grants, source rules, icons, ownership preservation and no auto-equip verified');

@@ -30,6 +30,7 @@ vm.runInNewContext(code, {
     if (id.endsWith('MiniGamePlatform')) return { getMiniGameBuildMode: () => 'debug' };
     if (id.endsWith('PlatformCloudMgr')) return { PlatformCloudMgr: { inst: platform } };
     if (id.endsWith('RuntimeLog')) return { runtimeLog() {}, runtimeWarn() {} };
+    if (id.endsWith('LocalChapterRewards')) return require('./helpers/local-chapter-runtime')();
     throw new Error(`unexpected require: ${id}`);
   },
 }, { filename: 'UserStateSyncMgr.js' });

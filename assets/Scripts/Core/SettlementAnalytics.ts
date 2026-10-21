@@ -19,6 +19,13 @@ export class SettlementAnalytics {
 
     constructor(private emit: (event: FunnelEventOptions) => void, private allowed: () => boolean) {}
 
+    /** Copy before starting an async action; a later levelStarted must not reassign its source. */
+    captureWinContext(): SettlementContext | null {
+        const state = this.current;
+        if (!this.allowed() || !state || state.context.extra?.settlementOutcome !== 'win') return null;
+        return { ...state.context, extra: { ...state.context.extra } };
+    }
+
     begin(context: SettlementContext, outcome: string, target: SettlementTarget | null): string {
         if (!this.allowed()) return '';
         if (!context.roundId) {

@@ -2,6 +2,7 @@ import { assetManager, ImageAsset, Node, Sprite, SpriteFrame, Texture2D } from '
 import { ProfileResourceService } from './ProfileResourceService';
 import { reportProfileFailure } from './ProfileDiagnostics';
 import { RETIRED_PROFILE_ITEMS } from './ProfileCustomizationConfig';
+import { loadLeaderboardAvatarFrame, retireLeaderboardAvatarFrame } from './LeaderboardAvatarImage';
 
 type Identity = { avatarUrl?: string; avatarId?: number; frameId?: number };
 const generations = new WeakMap<Node, number>();
@@ -9,10 +10,10 @@ const identities = new WeakMap<Node, string>();
 const privateFrames = new WeakMap<Node, SpriteFrame>();
 const watched = new WeakSet<Node>();
 const retryAfter = new WeakMap<Node, { key: string; until: number }>();
-function destroyPrivateFrame(frame: SpriteFrame | undefined): void { if (frame) { frame.texture?.destroy(); frame.destroy(); } }
+function destroyPrivateFrame(frame: SpriteFrame | undefined): void { retireLeaderboardAvatarFrame(frame); }
 export function invalidateProfileAvatar(avatar: Node): void { generations.set(avatar, (generations.get(avatar) || 0) + 1); identities.delete(avatar); }
 /** Bind existing prefab sprites; stale requests never overwrite a newer selection. */
-export async function renderProfileAvatar(avatar: Node, frame: Node, identity: Identity): Promise<void> {
+export async function renderProfileAvatar(avatar: Node, frame: Node, identity: Identity, leaderboard: boolean = false): Promise<void> {
     if (RETIRED_PROFILE_ITEMS.some(row => row.id === identity.avatarId)) identity = { ...identity, avatarId: 1001 };
     if (RETIRED_PROFILE_ITEMS.some(row => row.id === identity.frameId)) identity = { ...identity, frameId: 2001 };
     const key = JSON.stringify([identity.avatarId || 0, identity.avatarUrl || '', identity.frameId || 2001]);
@@ -33,6 +34,7 @@ export async function renderProfileAvatar(avatar: Node, frame: Node, identity: I
     let privateFrame: SpriteFrame | undefined;
     const portrait = identity.avatarId || !identity.avatarUrl
         ? ProfileResourceService.load(identity.avatarId || 1001)
+        : leaderboard ? loadLeaderboardAvatarFrame(identity.avatarUrl!, valid).then(result => { privateFrame = result; return result; })
         : new Promise<SpriteFrame>((resolve, reject) => {
             assetManager.loadRemote<ImageAsset>(identity.avatarUrl!, { ext: '.png' }, (error, image) => {
                 if (error || !image) { reject(error || Error('头像加载失败')); return; }

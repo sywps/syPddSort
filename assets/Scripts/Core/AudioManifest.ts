@@ -8,6 +8,9 @@ export const AUDIO_BGM_VOLUME = AUDIO_GAME_BGM_VOLUME;
 export const AUDIO_SFX_RESOURCE_PATH = {
     guideA1: 'Audio/guide_a_1',
     guideA2: 'Audio/guide_a_2',
+    guideSpeed: 'Audio/voices/guide_speed',
+    guideCapacity: 'Audio/voices/guide_capacity',
+    guideZoom: 'Audio/voices/guide_zoom',
     select: 'Audio/pindd/bean_pickup',
     settle: 'Audio/pindd/bean_return_settle',
     conveyorEnter: 'Audio/pindd/bean_return_settle',
@@ -36,13 +39,17 @@ export const AUDIO_SFX_RESOURCE_PATH = {
 } as const;
 
 export type SfxName = keyof typeof AUDIO_SFX_RESOURCE_PATH;
+export type GuideVoiceName = 'guideA1' | 'guideA2' | 'guideSpeed' | 'guideCapacity' | 'guideZoom';
 
 export const AUDIO_SFX_VOLUME: Record<SfxName, number> = {
     guideA1: 1,
     guideA2: 1,
+    guideSpeed: 0.85,
+    guideCapacity: 0.85,
+    guideZoom: 0.85,
     select: 0, // Temporarily muted for return-sound audition; previous volume: 0.55.
     settle: 0.32,
-    conveyorEnter: 0, // Temporarily muted for return-sound audition; previous volume: 0.32.
+    conveyorEnter: 0.32,
     conveyorReturn: 1,
     fly: 0.40,
     button: 0.52,

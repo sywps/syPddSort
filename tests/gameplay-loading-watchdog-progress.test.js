@@ -1,3 +1,4 @@
+const recoveryPlatform = require('./helpers/recovery-platform');
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -22,7 +23,7 @@ const completionFxSource = fs.readFileSync(
     'utf8',
 );
 
-function createRuntime() {
+function createRuntime(wechat = false) {
     const notices = [];
     const milestones = [];
     let restartCount = 0;
@@ -42,6 +43,7 @@ function createRuntime() {
         module,
         exports: module.exports,
         require(id) {
+            if (id === '../MiniGamePlatform') return { isMiniGameRuntime: () => wechat && recoveryPlatform.isMiniGameRuntime() };
             if (id === '../AppRoot') return { AppRoot: { tryGet: () => ({ startupLoading: loading }) } };
             if (id === '../../Platform/WeChatShareReturnService') {
                 return { weChatShareReturnService: {} };
@@ -145,4 +147,12 @@ assert.ok(
     'the initGame-gating Spine prewarm must report completion before running queued callbacks',
 );
 
+const wechatCase = createRuntime(true);
+let recoveries = 0;
+wechatCase.runtime.recoverWeChatFailedEntry = code => { assert.equal(code, 'gameplay_loading_timeout'); recoveries++; return true; };
+wechatCase.runtime.beginGameplayLoadingWatchdog(3, 'level_3', 'remote');
+wechatCase.scheduled.at(-1).handler();
+wechatCase.scheduled.at(-1).handler();
+assert.equal(recoveries, 1);
+assert.equal(wechatCase.notices.length, 0, 'WeChat must not offer a forced restart on loading timeout');
 console.log('gameplay-loading-watchdog-progress.test.js passed');

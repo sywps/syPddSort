@@ -52,7 +52,7 @@ assert.ok(
     'terminal settlement failures must be recorded once instead of escaping the scheduler',
 );
 assert.ok(
-    settlement.includes('this.requestWinSettlementReveal?.(logicalLevelId, revealToken);'),
+    settlement.includes('() => this.requestWinSettlementReveal?.(logicalLevelId, revealToken)'),
     'the scheduled completion callback must enter the guarded reveal path',
 );
 assert.ok(

@@ -1,6 +1,7 @@
 import { JsonAsset, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
-import { getWeChatMiniGameRuntime, isMiniGameRuntime } from './MiniGamePlatform';
+import { AnalyticsMgr } from './AnalyticsMgr';
+import { getWeChatMiniGameRuntime, getDouyinMiniGameRuntime, isMiniGameRuntime } from './MiniGamePlatform';
 import { isLocalBrowserPreview } from './RemoteDataCdnClient';
 import { applyLocalWeChatShareMaterial } from '../Platform/WeChatShareReturnService';
 import { UserMgr } from './UserMgr';
@@ -55,15 +56,22 @@ export class CoopServiceMgr {
                 ...data, action, rulesVersion: COOP_RULES_VERSION, displayName: `模拟玩家 ${player}`,
             }) as T;
         }
-        if (PlatformCloudMgr.inst.getPlatform() !== 'wechat') throw new Error('合作模式需要微信云服务，请在微信中体验');
-        if (!await PlatformCloudMgr.inst.init()) throw new Error('合作云服务不可用，请重试');
-        const result = await PlatformCloudMgr.inst.callFunction<any>('coopService', {
-            ...data, action, rulesVersion: COOP_RULES_VERSION, displayName: UserMgr.inst.getDisplayProfile().displayName || '像素玩家',
-            avatarUrl: UserMgr.inst.getDisplayProfile().avatarUrl,
-            avatarId: UserMgr.inst.getDisplayProfile().avatarId, frameId: UserMgr.inst.getDisplayProfile().frameId,
-        });
-        if (!result?.ok) throw new Error(result?.errorMessage || '合作服务返回异常');
-        return result as T;
+        if (!['wechat', 'douyin'].includes(PlatformCloudMgr.inst.getPlatform())) throw new Error('合作模式需要小游戏云服务');
+        const startedAt = Date.now();
+        try {
+            if (!await PlatformCloudMgr.inst.init()) throw new Error('合作云服务不可用，请重试');
+            const result = await PlatformCloudMgr.inst.callFunction<any>('coopService', {
+                ...data, action, rulesVersion: COOP_RULES_VERSION, displayName: UserMgr.inst.getDisplayProfile().displayName || '像素玩家',
+                avatarUrl: UserMgr.inst.getDisplayProfile().avatarUrl,
+                avatarId: UserMgr.inst.getDisplayProfile().avatarId, frameId: UserMgr.inst.getDisplayProfile().frameId,
+            });
+            if (!result?.ok) throw new Error(result?.errorMessage || '合作服务返回异常');
+            if (PlatformCloudMgr.inst.getPlatform() === 'douyin') AnalyticsMgr.inst.trackMultiplayerLobby('coop', 'multiplayer_service_result', action, true, Date.now() - startedAt);
+            return result as T;
+        } catch (error) {
+            if (PlatformCloudMgr.inst.getPlatform() === 'douyin') AnalyticsMgr.inst.trackMultiplayerLobby('coop', 'multiplayer_service_result', action, false, Date.now() - startedAt);
+            throw error;
+        }
     }
 
     private loadAsset<T>(runtime: any, name: string): Promise<T> {
@@ -90,7 +98,7 @@ export class CoopServiceMgr {
     async fullLevel(runtime: any, id: number): Promise<LevelData> {
         if (!this.levels.has(id)) {
             let level: LevelData;
-            if (PlatformCloudMgr.inst.getPlatform() === 'wechat' || id >= 1000) {
+            if (['wechat', 'douyin'].includes(PlatformCloudMgr.inst.getPlatform()) || id >= 1000) {
                 const result = await this.call<{ level: LevelData; levelHash: string }>('level', { levelId: id });
                 if (!result.level || coopLevelHash(result.level) !== result.levelHash) throw new Error('合作关卡数据校验失败');
                 level = result.level;
@@ -157,7 +165,7 @@ export class CoopServiceMgr {
     }
 
     launchPostId(): string {
-        const wx = getWeChatMiniGameRuntime();
+        const wx = getWeChatMiniGameRuntime() || getDouyinMiniGameRuntime();
         const id = String((wx?.getEnterOptionsSync?.() || wx?.getLaunchOptionsSync?.() || {}).query?.coopPost || '');
         return /^[a-f0-9]{24}$/.test(id) ? id : '';
     }
@@ -169,10 +177,10 @@ export class CoopServiceMgr {
             return;
         }
         const wx = getWeChatMiniGameRuntime();
-        if (!wx?.shareAppMessage) throw new Error('当前环境不支持微信分享');
-        wx.shareAppMessage({
-            ...applyLocalWeChatShareMaterial({ query: `coopPost=${post.id}` }),
-        });
+        const runtime = wx || getDouyinMiniGameRuntime();
+        if (!runtime?.shareAppMessage) throw new Error('当前环境不支持邀请分享');
+        const payload = { title: '我拼好了一半，来一起完成这幅拼图！', query: `coopPost=${post.id}` };
+        runtime.shareAppMessage(wx ? applyLocalWeChatShareMaterial(payload) : payload);
     }
 
     overview(): Promise<{ overview: CoopOverview }> { return this.call('overview'); }

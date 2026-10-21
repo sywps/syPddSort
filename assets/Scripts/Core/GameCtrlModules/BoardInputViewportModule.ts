@@ -196,8 +196,11 @@ export function installBoardInputViewportModule(target: any): void {
         getBoardInitialFitObstacles(): Array<{ left: number; right: number; bottom: number; top: number; sideControl: boolean }> {
             const obstacles = [];
             const visit = (node: Node, sideControl: boolean) => {
-                if (!node?.activeInHierarchy) return;
-                const bounds = this.getGameplayNodeBoundsInFixedRoot(node);
+                // The gameplay root is hidden while opening is prepared. Its
+                // locally active HUD still defines the upcoming board area.
+                if (!node?.active) return;
+                const bounds = GAMEPLAY_LAYOUT_CONTAINER_NODE_NAMES.has(node.name)
+                    ? null : this.getGameplayNodeBoundsInFixedRoot(node);
                 if (bounds) obstacles.push({ ...bounds, sideControl });
                 for (const child of node.children) visit(child, sideControl);
             };

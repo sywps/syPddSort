@@ -36,9 +36,10 @@ function chapterReward(chapter, milestone) {
     const cycle = Math.floor((chapter - 1) / 4), kind = (chapter - 1) % 4;
     const decoration = milestone === 9 && cycle < 4;
     const late = milestone === 9 && !decoration;
+    const brush = milestone === 4 ? chapter % 2 === 1 : chapter % 2 === 0;
     return { key: `v1:${chapter}:${milestone}`, chapter, milestone,
         gold: milestone === 4 ? 50 : late ? 100 : 0,
-        brushCount: late ? 1 : 0, magnetCount: late ? 1 : 0,
+        brushCount: late || brush ? 1 : 0, magnetCount: late || !brush ? 1 : 0,
         avatarId: decoration && kind === 1 ? exports.CHAPTER_AVATAR_IDS[cycle] : 0,
         frameId: decoration && kind === 2 ? exports.CHAPTER_FRAME_IDS[cycle] : 0,
         beanSkinId: decoration && kind === 0 ? exports.CHAPTER_BEAN_IDS[cycle] : 0,

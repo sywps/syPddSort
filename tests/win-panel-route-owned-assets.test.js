@@ -90,11 +90,13 @@ assert.ok(winPanel.includes('d301f7b8-b783-6861-36c5-31dbb54a2ac0@f9941'), 'sett
 const settlementGoldMeta = readJson('assets/GameAssetsBundle/Textures/UI/settlement_gold_banner.png.meta');
 assert.strictEqual(settlementGoldMeta.uuid, '2cdb93ff-01d5-4df6-9159-c7102c6a27a1', 'settlement gold banner must have a route-owned GameAssets UUID');
 assert.ok(winPanel.includes(`${settlementGoldMeta.uuid}@f9941`), 'WinPanel must bind the route-owned settlement gold banner');
-assert.ok(
-    fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/settlement_gold_banner.png'))
-        .equals(fs.readFileSync(path.join(root, 'assets/HomeAssetsBundle/GameUI/金币框 (2).png'))),
-    'route-owned settlement gold art must preserve the approved visual bytes',
+const settlementGoldImage = fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/settlement_gold_banner.png'));
+assert.deepStrictEqual(
+    readPngSize(settlementGoldImage),
+    { width: settlementGoldMeta.subMetas.f9941.userData.rawWidth, height: settlementGoldMeta.subMetas.f9941.userData.rawHeight },
+    'route-owned settlement gold art must resolve independently of the retired Home image',
 );
+assert.ok(!fs.existsSync(path.join(root, 'assets/HomeAssetsBundle/GameUI/金币框 (2).png')), 'the retired Home gold banner must not be required by settlement');
 assert.ok(!winPanel.includes('0e1ed6f8-e8e5-4b18-b013-3b127dc041cd@f9941'), 'WinPanel must not depend on the Home settings UUID');
 assert.ok(!winPanel.includes('47b2f68a-ec42-b2e7-59e3-7ceba831b196@f9941'), 'WinPanel must not depend on the Home gold-banner UUID');
 

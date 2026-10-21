@@ -27,8 +27,8 @@ for (const chapter of [1, 4]) {
  const current={...initial,...gift.patch};
  const merged={...current,...m.exports.merge(queued,current)};
  assert.equal(merged.gold,120,`chapter ${chapter}: concurrent income retained`);
- assert.equal(merged.brushCount,1);
- assert.equal(merged.magnetCount,1,'consumed tools must not be restored');
+ assert.equal(merged.brushCount,chapter===4?2:1);
+ assert.equal(merged.magnetCount,chapter===1?2:1,'consumed tools stay consumed while the new gift is added');
  assert.equal(merged.stateUpdatedAt,1100);
  const skinField=chapter===1?'ownedBeanSkinIds':'ownedBackgroundSkinIds';
  const skinId=chapter===1?2004:1002;
@@ -42,7 +42,7 @@ for (const chapter of [1, 4]) {
  for(const stale of [{stateUpdatedAt:900},{pvpEconomyRevision:1},{savedLevel:initial.savedLevel-1}]) {
   const rejected=m.exports.merge({...queued,...stale,gold:999,brushCount:9},current);
   assert.equal(rejected.gold,100);
-  assert.equal(rejected.brushCount,0);
+  assert.equal(rejected.brushCount,chapter===4?1:0);
   assert(rejected[skinField].includes(skinId));
  }
 }

@@ -11,7 +11,9 @@ function transpile(relPath) {
     return ts.transpileModule(source, {
         compilerOptions: {
             module: ts.ModuleKind.CommonJS,
-            target: ts.ScriptTarget.ES2019,
+            // Mini-game builds lower iteration; exercise Set listeners after lowering too.
+            target: ts.ScriptTarget.ES5,
+            downlevelIteration: false,
         },
     }).outputText;
 }
@@ -96,9 +98,9 @@ function loadWechatProvider(behavior = {}, unitIds = {
         require(id) {
             if (id === '../Core/MiniGamePlatform') {
                 return {
-                    getDouyinMiniGameRuntime: () => null,
-                    getMiniGameBuildMode: () => 'release',
-                    getMiniGameBuildPlatform: () => 'wechat',
+                    getDouyinMiniGameRuntime: () => behavior.platform === 'douyin' ? wxRuntime : null,
+                    getMiniGameBuildMode: () => behavior.buildMode || 'release',
+                    getMiniGameBuildPlatform: () => behavior.platform || 'wechat',
                     getWeChatMiniGameRuntime: () => wxRuntime,
                 };
             }
@@ -495,6 +497,31 @@ async function testThrowingCallerCannotLeaveProviderBusy() {
 }
 
 async function main() {
+    for (const platform of ['douyin', 'wechat']) for (const buildMode of ['release', 'debug']) {
+        let finishLoad;
+        const harness = loadWechatProvider({ platform, buildMode, load: () => new Promise(resolve => { finishLoad = resolve; }) });
+        const outcomes = []; let shown = 0;
+        harness.provider.show(outcome => outcomes.push(outcome.status + ':' + outcome.reason), { onShow: () => shown++ });
+        await flushMicrotasks();
+        harness.fireTimer(platform === 'douyin' && buildMode === 'debug' ? 2000 : 10000);
+        assert.deepStrictEqual(outcomes, ['technical_error:load-wait-timeout']);
+        assert.equal(shown, 0, 'timeout never fabricates ad visibility or completion');
+        finishLoad(); await flushMicrotasks();
+        assert.equal(outcomes.length, 1, 'late load completion cannot settle twice');
+        assert(!harness.adCalls.some(x => x.endsWith(':show')), 'late load does not show timed-out ad');
+    }
+    for (const buildMode of ['release', 'debug']) {
+        for (const [closeResult, expected] of [[undefined, 'unknown'], [{ isEnded: false }, 'verified_incomplete'], [{ isEnded: true }, 'verified_complete']]) {
+            const harness = loadWechatProvider({ platform: 'douyin', buildMode });
+            const outcomes = [];
+            harness.provider.show(outcome => outcomes.push(outcome.status));
+            await flushMicrotasks();
+            assert.strictEqual(harness.currentAd().options.adUnitId, 'douyin-test-ad');
+            harness.triggerClose(closeResult);
+            harness.triggerClose(closeResult);
+            assert.deepStrictEqual(outcomes, [expected], 'Douyin rewards require explicit completion and settle only once, including debug builds');
+        }
+    }
     await testCompletedAdHasNoCompletionWatchdog();
     await testNativeLoadLifecycleSuccessHasLatency();
     await testNativeLoadLifecycleFailureHasCodeAndNoDuplicate();

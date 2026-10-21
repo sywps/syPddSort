@@ -468,7 +468,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 287.549,
+      "y": 293.833,
       "z": 0
     },
     "_lrot": {
@@ -518,7 +518,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 0,
+      "y": 3,
       "z": 0
     },
     "_lrot": {
@@ -558,8 +558,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 192,
-      "height": 63.059
+      "width": 318,
+      "height": 67
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -598,9 +598,9 @@
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 42,
-    "_fontSize": 42,
+    "_fontSize": 48,
     "_fontFamily": "Arial",
-    "_lineHeight": 53,
+    "_lineHeight": 58,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -667,8 +667,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 220,
-      "height": 75.059
+      "width": 358,
+      "height": 83
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -755,6 +755,9 @@
       },
       {
         "__id__": 32
+      },
+      {
+        "__id__": 77
       }
     ],
     "_prefab": {
@@ -1424,6 +1427,9 @@
       },
       {
         "__id__": 66
+      },
+      {
+        "__id__": 78
       }
     ],
     "_prefab": {
@@ -1819,5 +1825,121 @@
     "fileId": "GameCirclePanel-GameCirclePanel-1-node",
     "instance": null,
     "targetOverrides": null
+  },
+  {
+    "__type__": "cc.Button",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 29
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 79
+    },
+    "clickEvents": [],
+    "_interactable": true,
+    "_transition": 3,
+    "_normalColor": {
+      "__type__": "cc.Color",
+      "r": 214,
+      "g": 214,
+      "b": 214,
+      "a": 255
+    },
+    "_hoverColor": {
+      "__type__": "cc.Color",
+      "r": 211,
+      "g": 211,
+      "b": 211,
+      "a": 255
+    },
+    "_pressedColor": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_disabledColor": {
+      "__type__": "cc.Color",
+      "r": 124,
+      "g": 124,
+      "b": 124,
+      "a": 255
+    },
+    "_normalSprite": null,
+    "_hoverSprite": null,
+    "_pressedSprite": null,
+    "_disabledSprite": null,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
+    "_target": {
+      "__id__": 29
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.Button",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 57
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 80
+    },
+    "clickEvents": [],
+    "_interactable": true,
+    "_transition": 3,
+    "_normalColor": {
+      "__type__": "cc.Color",
+      "r": 214,
+      "g": 214,
+      "b": 214,
+      "a": 255
+    },
+    "_hoverColor": {
+      "__type__": "cc.Color",
+      "r": 211,
+      "g": 211,
+      "b": 211,
+      "a": 255
+    },
+    "_pressedColor": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_disabledColor": {
+      "__type__": "cc.Color",
+      "r": 124,
+      "g": 124,
+      "b": 124,
+      "a": 255
+    },
+    "_normalSprite": null,
+    "_hoverSprite": null,
+    "_pressedSprite": null,
+    "_disabledSprite": null,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
+    "_target": {
+      "__id__": 57
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "GameCirclePanel-component-77"
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "GameCirclePanel-component-78"
   }
 ]

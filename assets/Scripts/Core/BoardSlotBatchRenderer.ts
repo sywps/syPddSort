@@ -292,8 +292,10 @@ function updateUVs(batch: BoardSlotBatchRenderer, renderData: RenderData): void 
     const stride = renderData.floatStride;
     let vertexIndex = 0;
     for (const cell of cells) {
-        const settledSampleU = cell.uv[0] * 0.8 + cell.uv[6] * 0.2;
-        const settledSampleV = cell.uv[1] * 0.8 + cell.uv[7] * 0.2;
+        // Match the slot's outer background; 20% falls inside the recessed shadow.
+        // Keep a small inset to avoid sampling adjacent atlas frames.
+        const settledSampleU = cell.uv[0] * 0.98 + cell.uv[6] * 0.02;
+        const settledSampleV = cell.uv[1] * 0.98 + cell.uv[7] * 0.02;
         for (let i = 0; i < 4; i++) {
             const offset = vertexIndex * stride + 3;
             const uvIndex = i * 2;

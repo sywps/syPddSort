@@ -235,7 +235,7 @@ assert.ok(
 );
 
 for (const [fileName, meta, uuid, width, height] of [
-    ['revive_title_ribbon.png', titleArtMeta, '00895f15-d856-44a5-acd0-326ccedb359a', 1024, 279],
+    ['revive_title_ribbon.png', titleArtMeta, '00895f15-d856-44a5-acd0-326ccedb359a', 640, 174],
     ['revive_timeout_illustration.png', timeoutArtMeta, '123c4ced-f82b-4826-9499-1d90c53d8478', 640, 452],
     ['tc_img_40.png', bufferArtMeta, 'de393821-f4c5-4114-9a15-70b4e5ebc12a', 644, 308],
 ]) {

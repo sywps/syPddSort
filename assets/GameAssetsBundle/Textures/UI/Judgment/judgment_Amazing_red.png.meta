@@ -8,6 +8,30 @@
     ".png"
   ],
   "subMetas": {
+    "6c48a": {
+      "importer": "texture",
+      "uuid": "9417782e-a3bc-40bf-b858-bc6f32e469b4@6c48a",
+      "displayName": "judgment_Amazing_red",
+      "id": "6c48a",
+      "name": "texture",
+      "userData": {
+        "wrapModeS": "clamp-to-edge",
+        "wrapModeT": "clamp-to-edge",
+        "imageUuidOrDatabaseUri": "9417782e-a3bc-40bf-b858-bc6f32e469b4",
+        "isUuid": true,
+        "visible": false,
+        "minfilter": "linear",
+        "magfilter": "linear",
+        "mipfilter": "none",
+        "anisotropy": 0
+      },
+      "ver": "1.0.22",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
     "f9941": {
       "importer": "sprite-frame",
       "uuid": "9417782e-a3bc-40bf-b858-bc6f32e469b4@f9941",
@@ -94,30 +118,6 @@
         "trimType": "none"
       },
       "ver": "1.0.12",
-      "imported": true,
-      "files": [
-        ".json"
-      ],
-      "subMetas": {}
-    },
-    "6c48a": {
-      "importer": "texture",
-      "uuid": "9417782e-a3bc-40bf-b858-bc6f32e469b4@6c48a",
-      "displayName": "judgment_Amazing_red",
-      "id": "6c48a",
-      "name": "texture",
-      "userData": {
-        "wrapModeS": "clamp-to-edge",
-        "wrapModeT": "clamp-to-edge",
-        "imageUuidOrDatabaseUri": "9417782e-a3bc-40bf-b858-bc6f32e469b4",
-        "isUuid": true,
-        "visible": false,
-        "minfilter": "linear",
-        "magfilter": "linear",
-        "mipfilter": "none",
-        "anisotropy": 0
-      },
-      "ver": "1.0.22",
       "imported": true,
       "files": [
         ".json"

@@ -1,7 +1,9 @@
-import { Label, Node, UITransform, UIOpacity, Tween, tween, Vec3 } from 'cc';
+import { Button, Label, Node, UITransform, UIOpacity, Tween, tween, Vec3 } from 'cc';
 import { getPhysicalMainLevelId } from './LevelRouteService';
 import { getBrowserLevelPreview } from './BrowserLevelPreview';
+import { isCreatorWeb } from './CreatorWeb';
 import { openHomeArtworkPreview } from './HomeArtworkPreview';
+import { AudioMgr } from './AudioMgr';
 import { renderCompletedPatternPreview, releaseCompletedPatternPreviewTree } from './CompletedPatternPreview';
 
 // Survives Home/Game scene switches, but never replays historical progress on launch.
@@ -39,14 +41,33 @@ export function renderHomeChapter(runtime: any, heroCard: Node, currentLevel: nu
     const previewState = getBrowserLevelPreview();
     const savedLevel = previewState.active ? previewState.getLevel() : runtime.getSavedLevel();
     const model = getHomeChapter(currentLevel, savedLevel);
+    if (isCreatorWeb()) {
+        const completed = new Set(previewState.completedLevels());
+        model.cells.forEach(cell => { cell.completed = completed.has(cell.level); });
+        model.completed = model.cells.filter(cell => cell.completed).length;
+    }
     const previous = (previewState.active ? lastShownPreviewProgress : lastShownProgress) ?? savedLevel;
     if (previewState.active) lastShownPreviewProgress = savedLevel;
     else lastShownProgress = savedLevel;
     const reveals: Array<() => void> = [];
     runtime._cancelHomeChapterLoad?.();
+    const restoreCells: Array<() => void> = [];
+    let interrupted = false;
+    let animating = 0;
+    let recoveryTimer: ReturnType<typeof setTimeout> | undefined;
+    const restore = () => {
+        interrupted = true;
+        reveals.length = 0;
+        clearTimeout(recoveryTimer);
+        restoreCells.forEach(restoreCell => restoreCell());
+    };
     let waiting = model.completed;
     let finished = false;
     let failure: Error | null = null;
+    const reveal = () => {
+        if (!finished || failure || interrupted) return;
+        reveals.splice(0).forEach(start => start());
+    };
     let resolveReady!: (error: Error | null) => void;
     runtime._homeChapterReady = new Promise<Error | null>(resolve => { resolveReady = resolve; });
     const finish = (error: Error | null = failure) => {
@@ -54,15 +75,19 @@ export function renderHomeChapter(runtime: any, heroCard: Node, currentLevel: nu
         finished = true;
         clearTimeout(timeout);
         resolveReady(error);
-        if (!error && !runtime._homeChapterEntryPending) reveals.forEach(reveal => reveal());
+        if (!error && !runtime._homeChapterEntryPending) reveal();
     };
     const timeout = setTimeout(() => {
         if (!heroCard.isValid) { finish(new Error('首页已离开')); return; }
         console.error('[home-chapter] Preview preparation timed out');
         finish(new Error('首页图案加载超时'));
     }, 20000);
-    runtime._cancelHomeChapterLoad = () => finish(new Error('首页图案加载已取消'));
-    runtime._revealHomeChapter = () => { if (!failure) reveals.splice(0).forEach(reveal => reveal()); };
+    runtime._cancelHomeChapterLoad = () => {
+        restore();
+        finish(new Error('首页图案加载已取消'));
+    };
+    runtime._restoreHomeChapter = restore;
+    runtime._revealHomeChapter = reveal;
     const settled = (error?: Error) => {
         failure ||= error || null;
         if (--waiting === 0) finish();
@@ -79,14 +104,17 @@ export function renderHomeChapter(runtime: any, heroCard: Node, currentLevel: nu
         const token = {};
         (slot as any).__homeChapterToken = token;
         const oldClick = (slot as any).__homeArtworkClick;
-        if (oldClick) slot.off(Node.EventType.TOUCH_END, oldClick);
-        const click = (event: any) => {
-            event.propagationStopped = true;
+        if (oldClick) slot.off(Button.EventType.CLICK, oldClick);
+        const button = slot.getComponent(Button);
+        if (!button) throw new Error('[HomeScene] Chapter cell requires an authored Button');
+        button.interactable = cell.completed;
+        const click = () => {
             if (!cell.completed) return;
+            AudioMgr.inst.play('button');
             openHomeArtworkPreview(runtime, model.cells.filter(item => item.completed).map(item => item.level), cell.level);
         };
         (slot as any).__homeArtworkClick = click;
-        slot.on(Node.EventType.TOUCH_END, click);
+        slot.on(Button.EventType.CLICK, click);
         const wanted = () => slot.isValid && preview.isValid && (slot as any).__homeChapterToken === token;
         const animate = cell.completed && cell.level >= previous;
         const delay = animate ? revealIndex++ * 0.1 : 0;
@@ -94,7 +122,7 @@ export function renderHomeChapter(runtime: any, heroCard: Node, currentLevel: nu
         const numberOpacity = number.node.getComponent(UIOpacity) || number.node.addComponent(UIOpacity);
         [slot, preview, opacity, numberOpacity].forEach(target => Tween.stopAllByTarget(target));
         slot.setScale(1, 1, 1); preview.setScale(1, 1, 1);
-        opacity.opacity = animate ? 0 : 255;
+        opacity.opacity = 255;
         numberOpacity.opacity = 255;
         releaseCompletedPatternPreviewTree(preview);
         for (const old of [...preview.children]) { old.removeFromParent(); old.destroy(); }
@@ -105,11 +133,14 @@ export function renderHomeChapter(runtime: any, heroCard: Node, currentLevel: nu
             number.node.active = !cell.completed;
         };
         showCompleted();
-        if (animate) {
-            child(slot, 'CompletedBackground').active = false;
-            child(slot, 'PendingBackground').active = true;
-            number.node.active = true;
-        }
+        const restoreCell = () => {
+            if (!wanted()) return;
+            [slot, preview, opacity, numberOpacity].forEach(target => Tween.stopAllByTarget(target));
+            showCompleted();
+            slot.setScale(1, 1, 1); preview.setScale(1, 1, 1);
+            opacity.opacity = numberOpacity.opacity = 255;
+        };
+        restoreCells.push(restoreCell);
         number.string = `${cell.level}`;
         status.node.active = false;
         status.string = '';
@@ -133,8 +164,17 @@ export function renderHomeChapter(runtime: any, heroCard: Node, currentLevel: nu
             }, runtime, success => {
                 if (finished || !wanted()) return;
                 if (!success) { showCompleted(); opacity.opacity = 255; settled(new Error(`第${cell.level}关图案生成失败`)); return; }
-                if (animate) reveals.push(() => {
-                    if (!wanted()) return;
+                if (animate && !interrupted) reveals.push(() => {
+                    if (!wanted() || interrupted) return;
+                    animating++;
+                    // Saved progress owns the resting view; the number card is only a flip effect.
+                    child(slot, 'CompletedBackground').active = false;
+                    child(slot, 'PendingBackground').active = true;
+                    number.node.active = true;
+                    opacity.opacity = 0;
+                    // Independent of Tween completion: stopped tweens must not leave a locked-looking card.
+                    clearTimeout(recoveryTimer);
+                    recoveryTimer = setTimeout(restore, (revealIndex * 0.1 + 0.68) * 1000 + 250);
                     tween(numberOpacity).delay(delay).to(0.12, { opacity: 0 }).start();
                     tween(slot).delay(delay + 0.12)
                         .to(0.14, { scale: new Vec3(0.04, 1, 1) })
@@ -144,7 +184,11 @@ export function renderHomeChapter(runtime: any, heroCard: Node, currentLevel: nu
                             if (!wanted()) return;
                             preview.setScale(0.82, 0.82, 1);
                             opacity.opacity = 255;
-                            tween(preview).to(0.24, { scale: new Vec3(1, 1, 1) }, { easing: 'backOut' }).start();
+                            tween(preview).to(0.24, { scale: new Vec3(1, 1, 1) }, { easing: 'backOut' })
+                                .call(() => {
+                                    restoreCell();
+                                    if (--animating === 0) clearTimeout(recoveryTimer);
+                                }).start();
                         }).start();
                 });
                 settled();

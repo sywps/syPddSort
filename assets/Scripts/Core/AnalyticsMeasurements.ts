@@ -11,19 +11,22 @@ export class AnalyticsMeasurements {
     private restored = false;
     constructor(private storage: { getItem(k: string): string | null; setItem(k: string, v: string): void },
         private emit: (event: Event) => boolean | void,
-        private allowed: () => boolean = () => false) { this.restore(); }
+        private allowed: () => boolean = () => false, private key = KEY, private strictOwner = false) { this.restore(); }
 
     private restore(): void {
         if (this.restored || !this.allowed()) return;
         this.restored = true;
         try {
-            const saved = JSON.parse(this.storage.getItem(KEY) || '[]');
-            for (const g of saved) if (g?.key && g.base) this.guides.set(g.key, g);
+            const saved = JSON.parse(this.storage.getItem(this.key) || '[]');
+            for (const g of saved) if (g?.key && g.base) {
+                if (this.strictOwner && !g.base.owner) { console.error('[AnalyticsMeasurements] unowned restored summary rejected'); continue; }
+                this.guides.set(g.key, g);
+            }
         } catch (error) { console.error('[AnalyticsMeasurements] restore failed', error); }
     }
     private persist(): void {
         if (!this.allowed()) return;
-        try { this.storage.setItem(KEY, JSON.stringify([...this.guides.values()])); }
+        try { this.storage.setItem(this.key, JSON.stringify([...this.guides.values()])); }
         catch (error) { console.error('[AnalyticsMeasurements] counters not persisted', error); }
     }
     accept(event: Event): boolean {

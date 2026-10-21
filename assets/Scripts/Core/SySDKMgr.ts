@@ -1,5 +1,7 @@
 import { runtimeLog } from './RuntimeLog';
 import { installLocalWeChatPassiveShare } from '../Platform/WeChatShareReturnService';
+import { isDouyinMiniGameRuntime, getDouyinMiniGameRuntime } from './MiniGamePlatform';
+import { DouyinCloudMgr } from './DouyinCloudMgr';
 
 // 不在模块顶层捕获，延迟到每次调用时从 globalThis 读取，防止时序问题
 function getSygame() {
@@ -45,6 +47,68 @@ class SySDKMgr {
     private _loginSucceeded = false;
     private _adCount = 0;
     private _levelEnded = true;  // 初始为true，防止未进入关卡时误报exit
+    private _rewardSequence = 0;
+    private _rewardSessionId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+    private readonly _douyinRoleIdentity = () => DouyinCloudMgr.inst.getSdkRoleId();
+
+    private getDouyinSdk(): any {
+        if (!isDouyinMiniGameRuntime() || !getDouyinMiniGameRuntime()) return null;
+        const g = globalThis as any;
+        try {
+            const sdk = g.__PDD_DOUYIN_SYSDK__ || g.__PDD_LOAD_DOUYIN_SYSDK__?.();
+            if (!sdk) throw new Error('Douyin SDK loader unavailable');
+            sdk.setRoleIdentityProvider(this._douyinRoleIdentity);
+            return sdk;
+        } catch (error) {
+            console.error('[DouyinSySDK] load failed:', error);
+            return null;
+        }
+    }
+
+    getDouyinSidebarState(): { canShow: boolean; eligibleToday: boolean; error?: string } {
+        return this.getDouyinSdk()?.getSidebarState() || { canShow: false, eligibleToday: false, error: 'sdk_unavailable' };
+    }
+
+    subscribeDouyinSidebar(listener: (state: { canShow: boolean; eligibleToday: boolean }) => void): () => void {
+        const sdk = this.getDouyinSdk();
+        if (!sdk) {
+            listener({ canShow: false, eligibleToday: false });
+            return () => {};
+        }
+        return sdk.subscribeSidebar(listener);
+    }
+
+    refreshDouyinSidebar(): void {
+        const sdk = this.getDouyinSdk();
+        // The adapter logs an explicit failure and clears visibility on error.
+        if (sdk) void sdk.refreshSidebar().catch(() => {});
+    }
+
+    openDouyinSidebar(): Promise<boolean> {
+        const sdk = this.getDouyinSdk();
+        return sdk ? sdk.sySidebarGuide() : Promise.reject(new Error('[DouyinSySDK] SDK unavailable'));
+    }
+
+    createRewardTransactionId(analyticsTransactionId: string): string {
+        return isDouyinMiniGameRuntime()
+            ? this._rewardSessionId + '-' + (++this._rewardSequence)
+            : analyticsTransactionId;
+    }
+
+    reportRewardGranted(position: string, transactionId: string): void {
+        if (!isDouyinMiniGameRuntime()) return;
+        const sdk = this.getDouyinSdk();
+        if (!sdk) {
+            console.error('[DouyinSySDK] reward granted but SDK report unavailable');
+            return;
+        }
+        // Reporting is independent from the completed reward transaction. Never regrant or retry it here.
+        try {
+            void sdk.reportRewardGranted(position, transactionId).catch(() => {});
+        } catch (error) {
+            console.error('[DouyinSySDK] reward granted but report dispatch failed:', error);
+        }
+    }
 
     private shouldSkipExternalSdk(): boolean {
         const g = globalThis as any;
@@ -57,6 +121,11 @@ class SySDKMgr {
 
     init() {
         if (this._inited) return;
+        if (isDouyinMiniGameRuntime()) {
+            const sdk = this.getDouyinSdk();
+            if (sdk) this._inited = sdk.getDiagnostics().initialized === true;
+            return;
+        }
         if (this.shouldSkipExternalSdk()) {
             this._inited = true;
             this._disabledForPreview = true;
@@ -125,6 +194,16 @@ class SySDKMgr {
     }
 
     login(): Promise<boolean> {
+        if (isDouyinMiniGameRuntime()) {
+            const sdk = this.getDouyinSdk();
+            if (!sdk) return Promise.resolve(false);
+            return sdk.syLogin().then(() => {
+                this.refreshDouyinSidebar();
+                // Do not block startup or sidebar login on role reporting; the adapter exposes failures.
+                void sdk.ensureRole().catch(() => {});
+                return true;
+            }, () => false);
+        }
         const sdk = getSygame();
         sySdkDebug('[SySDK] login() called, Sygame=', typeof sdk);
         if (this._disabledForPreview || !sdk?.syLogin) return Promise.resolve(false);
@@ -168,34 +247,34 @@ class SySDKMgr {
         return pending;
     }
 
-    reportLoadFinish()      { if (this._disabledForPreview) return; const s=getSygame(); if (!s?.syIaaLoadFinish) return; try { s.syIaaLoadFinish(); } catch(e) { console.warn('[SySDK] reportLoadFinish:', e); } }
-    reportTutorialStart()   { if (this._disabledForPreview) return; const s=getSygame(); if (!s?.syIaaTutorialTrack) return; try { s.syIaaTutorialTrack(1); } catch(e) { console.warn('[SySDK] reportTutorialStart:', e); } }
-    reportTutorialFinish()  { if (this._disabledForPreview) return; const s=getSygame(); if (!s?.syIaaTutorialTrack) return; try { s.syIaaTutorialTrack(2); } catch(e) { console.warn('[SySDK] reportTutorialFinish:', e); } }
+    reportLoadFinish()      { if (this._disabledForPreview || isDouyinMiniGameRuntime()) return; const s=getSygame(); if (!s?.syIaaLoadFinish) return; try { s.syIaaLoadFinish(); } catch(e) { console.warn('[SySDK] reportLoadFinish:', e); } }
+    reportTutorialStart()   { if (this._disabledForPreview || isDouyinMiniGameRuntime()) return; const s=getSygame(); if (!s?.syIaaTutorialTrack) return; try { s.syIaaTutorialTrack(1); } catch(e) { console.warn('[SySDK] reportTutorialStart:', e); } }
+    reportTutorialFinish()  { if (this._disabledForPreview || isDouyinMiniGameRuntime()) return; const s=getSygame(); if (!s?.syIaaTutorialTrack) return; try { s.syIaaTutorialTrack(2); } catch(e) { console.warn('[SySDK] reportTutorialFinish:', e); } }
     reportLevelEnter(id: number) {
-        if (this._disabledForPreview) return;
+        if (this._disabledForPreview || isDouyinMiniGameRuntime()) return;
         if (!this._levelEnded) return;
         this._levelEnded = false;
         const s=getSygame(); if (!s?.syIaaLevelTrack) return; try { s.syIaaLevelTrack(1, {level_id: id}); } catch(e) { console.warn('[SySDK] reportLevelEnter:', e); }
     }
     reportLevelExit(id: number) {
-        if (this._disabledForPreview) return;
+        if (this._disabledForPreview || isDouyinMiniGameRuntime()) return;
         if (this._levelEnded) return;
         const s=getSygame(); if (!s?.syIaaLevelTrack) return; try { s.syIaaLevelTrack(2, {level_id: id, ad_cnt: this._adCount}); } catch(e) { console.warn('[SySDK] reportLevelExit:', e); }
     }
     reportLevelFail(id: number) {
-        if (this._disabledForPreview) return;
+        if (this._disabledForPreview || isDouyinMiniGameRuntime()) return;
         if (this._levelEnded) return;
         this._levelEnded = true;
         const s=getSygame(); if (!s?.syIaaLevelTrack) return; try { s.syIaaLevelTrack(3, {level_id: id, ad_cnt: this._adCount}); } catch(e) { console.warn('[SySDK] reportLevelFail:', e); }
     }
     reportLevelPass(id: number) {
-        if (this._disabledForPreview) return;
+        if (this._disabledForPreview || isDouyinMiniGameRuntime()) return;
         if (this._levelEnded) return;
         this._levelEnded = true;
         const s=getSygame(); if (!s?.syIaaLevelTrack) return; try { s.syIaaLevelTrack(4, {level_id: id, ad_cnt: this._adCount}); } catch(e) { console.warn('[SySDK] reportLevelPass:', e); }
     }
-    reportAdShow(pos: string)    { if (this._disabledForPreview) return; const s=getSygame(); if (!s?.syIaaAdTrack) return; try { s.syIaaAdTrack(4, {position: pos}); } catch(e) { console.warn('[SySDK] reportAdShow:', e); } }
-    reportAdFinish(pos: string)  { if (this._disabledForPreview) return; const s=getSygame(); if (!s?.syIaaAdTrack) return; this._adCount++; try { s.syIaaAdTrack(3, {position: pos}); } catch(e) { console.warn('[SySDK] reportAdFinish:', e); } }
+    reportAdShow(pos: string)    { if (this._disabledForPreview || isDouyinMiniGameRuntime()) return; const s=getSygame(); if (!s?.syIaaAdTrack) return; try { s.syIaaAdTrack(4, {position: pos}); } catch(e) { console.warn('[SySDK] reportAdShow:', e); } }
+    reportAdFinish(pos: string)  { if (this._disabledForPreview || isDouyinMiniGameRuntime()) return; const s=getSygame(); if (!s?.syIaaAdTrack) return; this._adCount++; try { s.syIaaAdTrack(3, {position: pos}); } catch(e) { console.warn('[SySDK] reportAdFinish:', e); } }
 }
 
 export default SySDKMgr;

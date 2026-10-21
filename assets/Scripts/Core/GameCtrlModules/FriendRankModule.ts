@@ -125,13 +125,33 @@ function withFriendRankTimeout<T>(promise: Promise<T>, timeoutMs: number, messag
 export function installFriendRankModule(target: any): void {
     Object.assign(target, {
         resetLeaderboardListState(listNode: Node) {
+            const friendView = listNode as any;
+            if (friendView.__friendSelfBadge?.isValid) friendView.__friendSelfBadge.enabled = true;
+            if (typeof friendView.__friendListSibling === 'number') listNode.setSiblingIndex(friendView.__friendListSibling);
+            delete friendView.__friendSelfBadge;
+            delete friendView.__friendListSibling;
             setFriendRankLoadingVisible(listNode, false);
             const viewport = listNode.getChildByName('LeaderboardViewport');
             this.clearLeaderboardScroll(viewport);
             if (viewport) {
                 viewport.active = false;
             }
-            listNode.getChildByName('OpenDataCanvasHost')?.destroy();
+            const oldHost = listNode.getChildByName('OpenDataCanvasHost');
+            if (oldHost) { oldHost.active = false; oldHost.removeFromParent(); oldHost.destroy(); }
+        },
+
+        async prepareFriendRankIdentity(): Promise<string> {
+            const wx = this.getWeChatRuntime();
+            const uuid = UserMgr.inst.getProfile().uuid;
+            if (!uuid || !wx?.setUserCloudStorage) throw new Error('[friend-rank] identity storage unavailable');
+            // A dedicated identity key: never change score, national data or equipped profile.
+            await withFriendRankTimeout(new Promise<void>((resolve, reject) => {
+                wx.setUserCloudStorage({
+                    KVDataList: [{ key: 'friend_identity_v1', value: uuid }],
+                    success: () => resolve(), fail: reject,
+                });
+            }), 10000, '好友榜身份同步超时');
+            return uuid;
         },
 
         /** 好友排行旧兜底：主域直接渲染，仅在开放数据域不可用时使用 */
@@ -447,9 +467,33 @@ export function installFriendRankModule(target: any): void {
             listNode.addChild(host);
             host.layer = Layers.Enum.UI_2D;
             // One-time alignment with the saved nationwide viewport, not live Prefab coupling.
-            host.setPosition(0, -34.933);
             const hostWidth = 596;
-            const hostHeight = 640;
+            const listHeight = 696;
+            const listTop = -62.933 + listHeight / 2;
+            const selfBox = requireFriendRankNode(box, 'LeaderboardSelfBox');
+            const badge = requireFriendRankNode(selfBox, 'LeaderboardSelfBadgeLbl');
+            const badgeLabel = badge.getComponent(Label)!;
+            const badgeTransform = badge.getComponent(UITransform)!;
+            // Only the self-rank label is mapped from the prefab. List layout remains a manual snapshot.
+            const badgeX = selfBox.position.x + badge.position.x * selfBox.scale.x - listNode.position.x;
+            const badgeY = selfBox.position.y + badge.position.y * selfBox.scale.y - listNode.position.y;
+            const badgeHeight = badgeTransform.height * selfBox.scale.y;
+            const hostHeight = Math.ceil(Math.max(listHeight, listTop - badgeY + badgeHeight / 2 + 4));
+            const selfRankLayout = {
+                x: hostWidth / 2 + badgeX, y: listTop - badgeY,
+                width: badgeTransform.width * selfBox.scale.x,
+                fontSize: badgeLabel.fontSize * selfBox.scale.y,
+                color: `rgb(${badgeLabel.color.r},${badgeLabel.color.g},${badgeLabel.color.b})`,
+            };
+            const friendView = listNode as any;
+            friendView.__friendSelfBadge = badgeLabel;
+            friendView.__friendListSibling = listNode.getSiblingIndex();
+            badgeLabel.enabled = false;
+            // Transparent canvas suffix overlays only the rank text, leaving prefab card art intact.
+            if (listNode.getSiblingIndex() < selfBox.getSiblingIndex()) {
+                listNode.setSiblingIndex(selfBox.getSiblingIndex());
+            }
+            host.setPosition(0, listTop - hostHeight / 2);
             host.addComponent(UITransform).setContentSize(hostWidth, hostHeight);
             const subContextView = host.addComponent(SubContextView);
             (subContextView as any)._designResolutionSize = new Size(hostWidth, hostHeight);
@@ -467,12 +511,19 @@ export function installFriendRankModule(target: any): void {
             this._friendRankTouchStartY = 0;
             this._friendRankLastMoveAt = 0;
             this._friendRankScrollVelocity = 0;
+            let draggingList = false;
             host.on(Node.EventType.TOUCH_START, (e: EventTouch) => {
+                const p = e.getUILocation();
+                const local = host.getComponent(UITransform)!.convertToNodeSpaceAR(new Vec3(p.x, p.y, 0));
+                const canvasY = hostHeight / 2 - local.y;
+                draggingList = canvasY >= 0 && canvasY <= listHeight;
+                if (!draggingList) return;
                 this.stopFriendRankInertia();
                 this._friendRankTouchStartY = e.getUILocation().y;
                 this._friendRankLastMoveAt = Date.now();
             }, this);
             host.on(Node.EventType.TOUCH_MOVE, (e: EventTouch) => {
+                if (!draggingList) return;
                 const currentY = e.getUILocation().y;
                 const delta = currentY - this._friendRankTouchStartY;
                 const now = Date.now();
@@ -483,23 +534,32 @@ export function installFriendRankModule(target: any): void {
                 this.postFriendRankScroll(openDataContext, this._friendRankScrollOffset + delta);
             }, this);
             host.on(Node.EventType.TOUCH_END, () => {
+                if (!draggingList) return;
+                draggingList = false;
                 this._friendRankTouchStartY = 0;
                 this.startFriendRankInertia(openDataContext);
             }, this);
             host.on(Node.EventType.TOUCH_CANCEL, () => {
+                if (!draggingList) return;
+                draggingList = false;
                 this._friendRankTouchStartY = 0;
                 this.startFriendRankInertia(openDataContext);
             }, this);
         
-            const isCurrentHost = () => box.isValid && listNode.isValid && host.isValid
+            const isCurrentHost = () => box.isValid && listNode.isValid && host.isValid && host.active
                 && listNode.getChildByName('OpenDataCanvasHost') === host
                 && this._friendRankOpenDataActive;
-            openDataContext.postMessage({ type: 'clearCanvas' });
-            void loadRankingArtPackage(wx).then(() => {
+            openDataContext.postMessage({ type: 'clearCanvas', canvasHeight: hostHeight, selfRankLayout });
+            void Promise.all([
+                loadRankingArtPackage(wx),
+                this.prepareFriendRankIdentity(),
+                withFriendRankTimeout(LeaderboardMgr.inst.submitProgress(UserMgr.inst.getProfile().lastLevelId || 1, UserMgr.inst.getProfile()),
+                    12000, '好友榜成绩同步超时'),
+            ]).then(([, selfIdentity]) => {
                 if (!isCurrentHost()) return;
-                openDataContext.postMessage({ type: 'getFriendRankings' });
+                openDataContext.postMessage({ type: 'getFriendRankings', selfIdentity, canvasHeight: hostHeight, selfRankLayout });
             }).catch((error) => {
-                console.error('[GameCtrl] 排行榜资源分包加载失败:', error);
+                console.error('[GameCtrl] 好友榜初始化失败:', error);
                 if (!isCurrentHost()) return;
                 openDataContext.postMessage({ type: 'rankingArtError' });
             });

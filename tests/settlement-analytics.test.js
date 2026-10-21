@@ -235,6 +235,7 @@ const experimentFixtures = Object.fromEntries([
     fields: method(`assets/Scripts/Core/${file}.ts`, 'fields', {}) }]));
 const queued = [];
 const managerGlobals = { ...experimentFixtures, Date,
+    isDouyinAnalyticsPlatform: () => false,
     normalizeAnalyticsText: (x, max) => String(x ?? '').slice(0, max),
     normalizeGameplayMode: x => x || '', normalizeGameplaySchemaVersion: x => x || 1,
     resolveClientBuildIdentity: () => ({ id: 'test-build', source: 'test' }), CSD_MEASUREMENT_VERSION: 3 };

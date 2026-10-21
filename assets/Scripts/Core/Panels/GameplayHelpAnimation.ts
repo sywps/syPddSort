@@ -31,7 +31,7 @@ const activePanels = new WeakMap<object, () => void>();
 /** Own the modal and pause independently of every other panel. */
 export function openGameplayHelp(runtime: any): void {
     if (activePanels.has(runtime) || runtime.isGameEnd || runtime._patternCompleteWinPending
-        || runtime._gameplayTransitionPromise || runtime.isPvpMode?.() || runtime.isCoopMode?.()) return;
+        || runtime._gameplayTransitionPromise || runtime.isCoopMode?.()) return;
     const parent = runtime.requireCanvasUiRoot('PopupRoot') as Node;
     const blocker = new Node('GameplayHelpLoading');
     blocker.layer = parent.layer;

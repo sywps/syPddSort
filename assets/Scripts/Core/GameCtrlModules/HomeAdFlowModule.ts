@@ -38,10 +38,13 @@ import type { ResultPanelKind } from '../GameplayResultPanelController';
 import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { runtimeLog } from '../RuntimeLog';
 import { openFeedbackPanel } from '../Panels/FeedbackPanelController';
+import { isCreatorWeb } from '../CreatorWeb';
 import { renderHomeChapter } from '../HomeChapterView';
 import { HomeContentLayout } from '../HomeContentLayout';
 import type { RewardedAdOutcome, RewardedAdStateSnapshot } from '../../Platform/RewardedAdProvider';
 import { weChatShareReturnService } from '../../Platform/WeChatShareReturnService';
+import { douyinShareService } from '../../Platform/Douyin/DouyinShareService';
+import { getDouyinMiniGameRuntime, isDouyinMiniGameRuntime } from '../MiniGamePlatform';
 import type { WeChatShareReturnHandle } from '../../Platform/WeChatShareReturnService';
 
 type RewardedGrantToast = string | (() => string);
@@ -693,15 +696,19 @@ export function installHomeAdFlowModule(target: any): void {
                 runFinally();
             };
 
-            const wx: any = typeof this.getWeChatRuntime === 'function' ? this.getWeChatRuntime() : null;
-            if (!wx) {
-                console.warn(`[ShareGrant] ${page} WeChat runtime unavailable`);
+            const isDouyin = isDouyinMiniGameRuntime();
+            const shareRuntime: any = isDouyin
+                ? getDouyinMiniGameRuntime()
+                : (typeof this.getWeChatRuntime === 'function' ? this.getWeChatRuntime() : null);
+            if (!shareRuntime) {
+                console.warn(`[ShareGrant] ${page} ${isDouyin ? 'Douyin' : 'WeChat'} runtime unavailable`);
                 runShareFail();
                 return false;
             }
 
             const levelId = options.levelId ?? this.getAnalyticsLevelId();
             const shareType = options.shareType || `rewardShare:${page}`;
+            const shareContext = AnalyticsMgr.inst.captureShareContext?.(page);
             const title = resolveRewardedGrantToast(options.title) || `我在拼豆豆通关了第${levelId}关，快来一起挑战！`;
             const query = resolveRewardedGrantToast(options.query) || `level=${levelId}`;
 
@@ -770,7 +777,7 @@ export function installHomeAdFlowModule(target: any): void {
                     } catch (error) {
                         console.warn(`[ShareGrant] ${page} share-qualified handler failed:`, error);
                     }
-                    AnalyticsMgr.inst.trackShareSuccess(shareType, page, levelId);
+                    AnalyticsMgr.inst.trackShareSuccess(shareType, page, levelId, shareContext);
                     runGrant();
                     return;
                 }
@@ -787,9 +794,10 @@ export function installHomeAdFlowModule(target: any): void {
                 runShareFail();
             };
 
-            AnalyticsMgr.inst.trackShareClick(shareType, page, levelId);
-            const startResult = weChatShareReturnService.start({
-                runtime: wx,
+            AnalyticsMgr.inst.trackShareClick(shareType, page, levelId, shareContext);
+            const shareService = isDouyin ? douyinShareService : weChatShareReturnService;
+            const startResult = shareService.start({
+                runtime: shareRuntime,
                 payload: {
                     title,
                     query,
@@ -836,6 +844,7 @@ export function installHomeAdFlowModule(target: any): void {
             const gameplayEntryMode = resolveActiveGameplayEntryMode(this, claimOptions.gameplayEntryMode);
             const analyticsRoundId = AnalyticsMgr.inst.getCurrentRoundId() || AnalyticsMgr.inst.getSessionId();
             const analyticsTransactionId = `${analyticsRoundId}:ad:${transactionId}`;
+            const sdkTransactionId = SySDKMgr.inst.createRewardTransactionId(analyticsTransactionId);
             const analyticsTriggerSource = String(
                 claimOptions.analyticsTriggerSource
                 || (page.includes('revive') ? 'revive' : 'manual_button'),
@@ -1023,6 +1032,8 @@ export function installHomeAdFlowModule(target: any): void {
                 );
                 grantPromise
                     .then(async (resolvedGrantResult) => {
+                        // A confirmed late grant still counts even when the scene/wait has already closed.
+                        if (resolvedGrantResult !== false) SySDKMgr.inst.reportRewardGranted(page, sdkTransactionId);
                         if (!isGrantStageActive(grantPromise)) return;
                         clearGrantStage(grantPromise);
                         if (resolvedGrantResult === false) {
@@ -1440,8 +1451,9 @@ export function installHomeAdFlowModule(target: any): void {
             this.drawSkinButton?.(leftEntries);
             this.drawGameCircleButton?.(rightEntries);
             const feedback = this.requireUiChild(topBarGroup, 'FeedbackButton', 'TopBarGroup/FeedbackButton');
+            feedback.active = !isCreatorWeb();
             feedback.targetOff(this);
-            feedback.getComponent(Button) || feedback.addComponent(Button);
+            if (!feedback.getComponent(Button)) throw new Error('[HomeScene] FeedbackButton requires an authored Button');
             feedback.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
                 openFeedbackPanel(this);
@@ -1452,8 +1464,9 @@ export function installHomeAdFlowModule(target: any): void {
                 legacyPvpEntry.destroy();
             }
             if (typeof this.drawSidebarEntry === 'function') {
-                this.drawSidebarEntry(entryLayer);
+                this.drawSidebarEntry(topBarGroup);
             }
+            this.drawDesktopEntry?.(topBarGroup);
         },
         refreshHomeMainlineProgress() {
             const fixedRoot = this.mainMenuNode;
@@ -1607,7 +1620,7 @@ export function installHomeAdFlowModule(target: any): void {
             this.requireSceneSpriteFrame(bannerNode, 'VigorGroup/LivesBanner');
             // Bind to the group so the banner, count, and timer share one hitbox.
             parent.targetOff(this);
-            parent.getComponent(Button) || parent.addComponent(Button);
+            if (!parent.getComponent(Button)) throw new Error('[HomeScene] VigorGroup requires an authored Button');
             parent.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
                 this.showNoLivesAdModal({ source: 'home_hud' });
@@ -1643,7 +1656,7 @@ export function installHomeAdFlowModule(target: any): void {
         drawTopRightBtns(parent: Node) {
             const profile = this.requireUiChild(parent, 'ProfileButton', 'TopBarGroup/ProfileButton');
             profile.targetOff(this);
-            profile.getComponent(Button) || profile.addComponent(Button);
+            if (!profile.getComponent(Button)) throw new Error('[HomeScene] ProfileButton requires an authored Button');
             profile.on(Button.EventType.CLICK, () => openProfilePanel(this), this);
             this._profileHomeUnsubscribe?.();
             this._profileHomeBadgeTween?.stop(); this._profileHomeBadgeTween = null;
@@ -1653,8 +1666,8 @@ export function installHomeAdFlowModule(target: any): void {
                 if (!profile.isValid) return;
                 profileBadge.active = ProfileCustomizationMgr.inst.hasNewItems;
                 if (profileBadge.active && !this._profileHomeBadgeTween) {
-                    this._profileHomeBadgeTween = tween(profileBadge).to(0.10, { angle: -18 }).to(0.18, { angle: 18 })
-                        .to(0.15, { angle: -12 }).to(0.12, { angle: 7.5 }).to(0.10, { angle: 0 })
+                    this._profileHomeBadgeTween = tween(profileBadge).to(0.10, { angle: -26 }).to(0.18, { angle: 26 })
+                        .to(0.15, { angle: -17.3 }).to(0.12, { angle: 10.8 }).to(0.10, { angle: 0 })
                         .delay(1.3).union().repeatForever().start();
                 } else if (!profileBadge.active) {
                     this._profileHomeBadgeTween?.stop(); this._profileHomeBadgeTween = null; profileBadge.angle = 0;
@@ -1669,7 +1682,7 @@ export function installHomeAdFlowModule(target: any): void {
             const iconNode = this.requireUiChild(gear, 'HomeSettingsIcon', 'SettingsButton/HomeSettingsIcon');
             this.requireSceneSpriteFrame(iconNode, 'SettingsButton/HomeSettingsIcon');
             gear.targetOff(this);
-            gear.getComponent(Button) || gear.addComponent(Button);
+            if (!gear.getComponent(Button)) throw new Error('[HomeScene] SettingsButton requires an authored Button');
             gear.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
                 this.openSettingsPanel();

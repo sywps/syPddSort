@@ -16,9 +16,10 @@ class Node {
 }
 class UITransform { setContentSize(width, height) { this.width = width; this.height = height; } }
 class Label { static HorizontalAlign = { CENTER: 0 }; static VerticalAlign = { CENTER: 0 }; }
+class Button { static EventType = { CLICK: 'click' }; }
 class Graphics { clear() {} roundRect() {} fill() {} }
 class Color { constructor(value) { this.value = value; } }
-const shared = { Node, UITransform, Label, Graphics, Color, Layers: { Enum: { UI_2D: 1 } }, AudioMgr: { inst: { play() {} } } };
+const shared = { Node, Button, UITransform, Label, Graphics, Color, Layers: { Enum: { UI_2D: 1 } }, AudioMgr: { inst: { play() {} } } };
 const catalog = require('../assets/GameAssetsBundle/coop-manifest.json').levels;
 const grid = [[1, 2]];
 let unlocked = { [catalog[0].collectionId]: 123 };
@@ -29,9 +30,11 @@ const service = {
 };
 const transpile = source => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
 const loaded = { exports: {} };
+let creatorMode = false;
 new Function('exports', 'require', transpile(read('Panels/CollectionPanelController.ts') + '\nexport { createCollectionTabs };'))(loaded.exports, id => {
     if (id.endsWith('GameCtrlShared')) return shared;
     if (id.endsWith('CoopServiceMgr')) return { CoopServiceMgr: { inst: service } };
+    if (id.endsWith('CreatorWeb')) return { isCreatorWeb: () => creatorMode };
     throw new Error(id);
 });
 function method(file, name, dependencies) {
@@ -70,7 +73,7 @@ async function main() {
     const tabs = box.getChildByName('CollectionTabs');
     assert.equal(tabs.children.filter(node => node.name.startsWith('CollectionTab_')).length, 3);
     const status = tabs.getChildByName('CollectionTabStatus');
-    const click = key => tabs.getChildByName(`CollectionTab_${key}`).handlers.touch();
+    const click = key => tabs.getChildByName(`CollectionTab_${key}`).handlers.click();
     assert.equal(tabs.getChildByName('CollectionTab_main').getChildByName('Selected').active, true);
     click('coop'); await settle();
     assert.equal(tabs.getChildByName('CollectionTab_main').getChildByName('Selected').active, false);
@@ -108,6 +111,15 @@ async function main() {
     click('coop'); tabs.isValid = false;
     resolveOverview({ overview: { unlocked } }); await settle();
     assert.equal(renders.length, afterRetry, 'closing panel discards pending response');
+
+    creatorMode = true;
+    tabs.isValid = true;
+    service.overview = async () => { throw new Error('creator must not fetch cloud completion'); };
+    click('coop'); await settle();
+    assert.equal(status.active, false, 'creator preview catalog needs no cloud completion service');
+    assert.equal(runtime._collectionContentNode.active, true);
+    assert.equal(runtime._collectionCoopEntries.filter(entry => entry.unlocked).length, 0, 'preview access must not fabricate completed coop entries');
+    creatorMode = false;
 
     const images = [];
     const draw = method('GameCtrlModules/CollectionAvatarModule.ts', 'drawCollectionPixelPreviewOnCard', {

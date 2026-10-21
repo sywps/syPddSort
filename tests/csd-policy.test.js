@@ -11,14 +11,47 @@ function load(name) {
 }
 const { isOfficialAnalyticsRuntime: allowed } = load('CsdAnalyticsPolicy');
 const runtime = (envVersion, platform) => ({ getAccountInfoSync: () => ({ miniProgram: { envVersion } }), getDeviceInfo: () => ({ platform }) });
-for (const version of ['develop', 'trial', '', undefined]) assert.equal(allowed(runtime(version, 'ios')), false);
-for (const platform of ['devtools', '', undefined]) assert.equal(allowed(runtime('release', platform)), false);
-for (const platform of ['ios', 'android', 'windows', 'mac']) assert.equal(allowed(runtime('release', platform)), true);
+const officialPlatforms = ['ios', 'android', 'ohos', 'ohos_pc', 'windows', 'mac'];
+for (const platform of officialPlatforms) {
+  assert.equal(allowed(runtime('release', platform)), true, `release ${platform} must collect`);
+  for (const version of ['develop', 'trial', '', undefined]) assert.equal(allowed(runtime(version, platform)), false);
+}
+for (const platform of ['devtools', 'unknown', 'harmony', 'harmonyos', '', undefined]) assert.equal(allowed(runtime('release', platform)), false);
+for (const platform of ['ohos', 'ohos_pc']) {
+  assert.equal(allowed({ getAccountInfoSync: runtime('release', platform).getAccountInfoSync,
+    getSystemInfoSync: () => ({ platform }) }), true, 'legacy device API must also admit official Harmony runtimes');
+}
+assert.equal(allowed({ ...runtime('release', 'devtools'), getSystemInfoSync: () => ({ platform: 'ohos' }) }), false);
 assert.equal(allowed(null), false);
 assert.equal(allowed({ getAccountInfoSync() { throw Error('unknown'); } }), false);
 const { AnalyticsDelivery } = load('AnalyticsDelivery');
 const { AnalyticsMeasurements } = load('AnalyticsMeasurements');
 async function main() {
+  for (const platform of ['ohos', 'ohos_pc']) for (const version of ['release', 'trial', 'develop', '']) {
+    const saved = new Map(), sent = [];
+    const enabled = () => allowed(runtime(version, platform));
+    const delivery = new AnalyticsDelivery({ getItem: k => saved.get(k), setItem: (k, value) => saved.set(k, value) },
+      async () => 'harmony-user', async (name, payload) => {
+        sent.push({ name, payload });
+        const items = name === 'addFunnelEvents' ? payload.events : [payload];
+        return { ok: true, count: items.length, acknowledgedIds: items.map(x => x.eventId) };
+      }, enabled, { strictOwner: true });
+    for (const [name, data] of [
+      ['addBehaviorData', { eventName: 'enter_level', levelId: 15 }],
+      ['addFunnelEvents', { eventName: 'runtime_error', levelId: 15, errorCode: 'test_runtime_error' }],
+      ['saveLevelRecord', { levelId: 15, passStatus: true, endReason: 'pass' }],
+    ]) assert.equal(delivery.enqueue(name, data, 'harmony-user'), version === 'release');
+    for (let index = 0; index < 3; index++) await delivery.flush();
+    assert.equal(delivery.size, 0);
+    assert.equal(sent.length, version === 'release' ? 3 : 0);
+    if (version !== 'release') assert.equal(saved.size, 0, 'nonofficial Harmony must not persist events');
+    for (const { name, payload } of sent) {
+      const event = name === 'addFunnelEvents' ? payload.events[0] : payload;
+      assert.equal(event.analyticsEnvironment, 'wechat_release');
+      assert.equal(event.csdVersion, 3);
+      if (name === 'addFunnelEvents') assert.equal(event.eventName, 'runtime_error');
+    }
+  }
   let sends = 0, writes = 0, enabled = false;
   const data = new Map([['pdd.analytics.delivery.v2', JSON.stringify([{ id: 'old', owner: '', name: 'addBehaviorData', data: { eventName: 'ad_show' } }])]]);
   const storage = { getItem: k => data.get(k), setItem(k, value) { writes++; data.set(k, value); } };

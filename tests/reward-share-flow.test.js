@@ -16,7 +16,7 @@ function transpile(relPath) {
     }).outputText;
 }
 
-function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}, resultPanelController = {}, shareReturnService = null) {
+function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}, resultPanelController = {}, shareReturnService = null, douyin = null) {
     const defaultShareReturnService = {
         start({ runtime, payload, onComplete }) {
             try {
@@ -59,6 +59,11 @@ function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}, resultPanelCont
             if (id === '../../Platform/WeChatShareReturnService') {
                 return { weChatShareReturnService: shareReturnService || defaultShareReturnService };
             }
+            if (id === '../MiniGamePlatform') return {
+                isDouyinMiniGameRuntime: () => !!douyin,
+                getDouyinMiniGameRuntime: () => douyin?.runtime,
+            };
+            if (id === '../../Platform/Douyin/DouyinShareService') return { douyinShareService: douyin?.service };
             throw new Error(`unexpected require: ${id}`);
         },
         console,
@@ -69,19 +74,22 @@ function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}, resultPanelCont
     return module.exports.installHomeAdFlowModule;
 }
 
-function loadSettlementInstaller() {
+function loadSettlementInstaller(showWinShareReward = () => {}) {
     const module = { exports: {} };
     vm.runInNewContext(transpile('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts'), {
         module,
         exports: module.exports,
         require(id) {
-            if (id === '../GameCtrlShared') return {};
+            if (id === '../GameCtrlShared') return { AnalyticsMgr: { inst: { settlement: {
+                action: () => 'test-settlement', gate() {}, transition() {}, finish() {},
+            } } } };
             if (id === 'cc') return { Widget: class Widget {} };
             if (id === '../BrowserLevelPreview') return { getBrowserLevelPreview: () => null };
-            if (id === '../ChapterRewardView') return { beginChapterRewards() {}, renderChapterRewards() {} };
+            if (id === '../ChapterRewardView') return { beginChapterRewards() {}, renderChapterRewards() {}, showWinShareReward };
             if (id === '../WorkbenchPreviewService') return { isWorkbenchPreviewRequested: () => false };
             if (id === '../CompletedPatternPreview') return { renderCompletedPatternPreview() {} };
             if (id === '../RuntimeLog') return { runtimeWarn() {} };
+            if (id === '../GameplayVoiceController') return { ensureGameplayVoiceController() { throw new Error('voice is outside share tests'); } };
             if (id === '../PixelPosterPreviewRenderer') return { renderPixelPosterPreview() {} };
             if (id === '../LevelExperimentService') return { getFrontLevelExperimentAnalyticsContext: () => ({ abBucket: 'control' }) };
             throw new Error(`unexpected require: ${id}`);
@@ -130,14 +138,18 @@ async function testSettlementShareGrantsFixedBonus() {
         runShareGrant(page, grant, options) {
             shareCalls.push({ page, options });
             this._shareShowing = true;
-            Promise.resolve().then(() => {
-                grant();
+            Promise.resolve().then(async () => {
+                if (grant() !== false) await options.afterGrant?.();
                 this._shareShowing = false;
             });
             return true;
         },
     };
-    loadSettlementInstaller()(runtime);
+    loadSettlementInstaller((owner, amount) => {
+        assert.strictEqual(owner, runtime);
+        assert.strictEqual(owner.gold, 125, 'popup opens after crediting gold');
+        events.push(`popup:${amount}`);
+    })(runtime);
     runtime.updateWinRewardLabel = (amount) => events.push(`label:${amount}`);
     runtime.syncWinSettlementGoldBox = () => events.push('sync');
 
@@ -153,7 +165,7 @@ async function testSettlementShareGrantsFixedBonus() {
     assert.strictEqual(runtime.gold, 125, '25 base gold plus the 100 share bonus must total 125');
     assert.strictEqual(runtime._winAdRewardClaimed, true);
     assert.strictEqual(runtime._shareShowing, false);
-    assert.deepStrictEqual(events, ['gold:100', 'label:125', 'sync']);
+    assert.deepStrictEqual(events, ['gold:100', 'label:125', 'sync', 'popup:100']);
 
     runtime.claimWinAdBonusReward();
     await flushMicrotasks();
@@ -408,6 +420,63 @@ async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {
     assert.strictEqual(events.filter((event) => event === 'finally').length, 1);
 }
 
+async function testDouyinShareGrantLifecycle() {
+    const serviceModule = { exports: {} };
+    vm.runInNewContext(transpile('assets/Scripts/Platform/Douyin/DouyinShareService.ts'), {
+        module: serviceModule, exports: serviceModule.exports, setTimeout, clearTimeout, console,
+    });
+    for (const outcome of ['success', 'cancel', 'failure', 'scene-destroy', 'sync-success', 'throw']) {
+        const events = [];
+        let payload;
+        let grantCount = 0;
+        let popupCount = 0;
+        const douyin = {
+            service: new serviceModule.exports.DouyinShareService(),
+            runtime: { shareAppMessage(options) {
+                payload = options;
+                if (outcome === 'sync-success') options.success();
+                if (outcome === 'throw') throw new Error('native dispatch failed');
+            } },
+        };
+        const runtime = {
+            getWeChatRuntime() { throw new Error('Douyin must not select WeChat'); },
+            getActiveLogicalLevelId: () => 6,
+            showToast: (text) => events.push(['toast', text]),
+        };
+        loadHomeAdFlowInstaller(events, {}, {}, null, douyin)(runtime);
+        assert.strictEqual(runtime.runShareGrant('win_bonus_reward', () => { grantCount++; }, {
+            busyFlag: '_shareShowing', shareFailToast: '分享失败',
+            afterGrant: () => { assert.strictEqual(grantCount, 1); popupCount++; },
+        }), outcome !== 'throw');
+        assert.strictEqual(payload.channel, 'invite');
+        assert.strictEqual(payload.query, 'level=6');
+        assert.strictEqual(payload.imageUrlId, undefined);
+        assert.strictEqual(grantCount, 0, 'dispatch must not synchronously grant');
+        if (outcome === 'success') {
+            assert.strictEqual(runtime._shareShowing, true);
+            assert.strictEqual(runtime.runShareGrant('win_bonus_reward', () => { grantCount++; }, {
+                busyFlag: '_shareShowing',
+            }), false);
+            payload.success();
+        } else if (outcome === 'cancel') {
+            payload.fail({ errNo: 10502, errMsg: 'shareAppMessage:fail cancel' });
+        } else if (outcome === 'failure') {
+            payload.fail({ errNo: 10103, errMsg: 'network unavailable' });
+        } else if (outcome === 'scene-destroy') {
+            runtime.cancelPendingShareReturn('scene-destroy:gameplay');
+        }
+        payload.success(); // Duplicate or late callback must never grant again.
+        payload.fail({ errMsg: 'late failure' });
+        await flushMicrotasks();
+        const expected = outcome === 'success' || outcome === 'sync-success' ? 1 : 0;
+        assert.strictEqual(grantCount, expected, outcome);
+        assert.strictEqual(popupCount, expected, `reward popup: ${outcome}`);
+        assert.strictEqual(events.filter(event => event[0] === 'success').length, expected, outcome);
+        assert.strictEqual(runtime._shareShowing, false, outcome);
+        assert.ok(!runtime._pendingShareReturn, outcome);
+    }
+}
+
 (async () => {
     const settlementSource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts'), 'utf8');
     const economySource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/EconomyConfig.ts'), 'utf8');
@@ -420,6 +489,7 @@ async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {
     assert.ok(!economySource.includes('winBonusGold'), 'settlement economy must not retain a misleading fixed bonus');
 
     await testSettlementShareGrantsFixedBonus();
+    await testDouyinShareGrantLifecycle();
     await testSynchronousShareFailureDoesNotGrant();
     await testShareGrantWaitsForQualifiedReturn();
     await testShareReviveAnalyticsWaitsForActualGrant();

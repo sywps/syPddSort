@@ -67,6 +67,7 @@ function harness({ deferPlayers = false } = {}) {
             if (id === 'cc') return cc;
             if (id === './AudioManifest') return manifest;
             if (id === './RuntimeLog') return { runtimeLog() {} };
+            if (id === './MiniGamePlatform') return { getDouyinMiniGameRuntime: () => null };
             if (id === './PackageNames') return { GAME_ASSETS_BUNDLE_NAME: 'gameAssets', LOCAL_BOOTSTRAP_BUNDLE_NAME: 'bootstrap' };
             throw new Error(`unexpected dependency ${id}`);
         },
@@ -81,7 +82,8 @@ function harness({ deferPlayers = false } = {}) {
     }
     function finishClip(index, error = null) {
         const request = clips[index]; assert(request && !request.done); request.done = true;
-        request.callback(error, error ? null : { name: request.file, isValid: true });
+        request.callback(error, error ? null : { name: request.file, isValid: true, refCount: 0,
+            addRef() { this.refCount++; return this; }, decRef() { this.refCount--; return this; } });
     }
     return { audio, requests, clips, cache, logs, timers, played, playerLoads, Node, bundle, finishBundle, finishClip,
         finishPlayer(index, error = null) {
@@ -100,6 +102,55 @@ function harness({ deferPlayers = false } = {}) {
     };
 }
 const networkError = () => new Error('temporary network failure');
+
+// Scene auto-release must not destroy audio cached by the persistent manager.
+{
+    const h = harness(); h.init();
+    h.audio.playGameBgm(); h.finishBundle(0); h.finishClip(0);
+    const bgm = h.audio.bgmClip;
+    h.audio.preload('button'); h.finishClip(1);
+    const button = h.audio.sfxClips.get('button');
+    const releaseScene = clip => {
+        clip.addRef(); // A scene temporarily also uses the same asset.
+        clip.decRef();
+        if (clip.refCount === 0) clip.isValid = false;
+    };
+    for (let i = 0; i < 3; i++) {
+        releaseScene(bgm); releaseScene(button);
+        h.audio.init(new h.Node('NextScene'));
+        assert.equal(bgm.refCount, 1);
+        assert.equal(button.refCount, 1);
+        assert.equal(h.audio.isSfxReady('button'), true);
+        h.audio.play('button');
+    }
+    assert.equal(h.audio.bgmSrc.clip, bgm);
+    assert.equal(h.audio.bgmSrc.playCount, 1, 'scene changes must not restart healthy music');
+    h.audio._cacheSfxClip('select', button);
+    h.audio._cacheSfxClip('button', button);
+    assert.equal(button.refCount, 1, 'aliases must share a single retained reference');
+    h.audio._setBgmResourcePath('Audio/another-track');
+    assert.equal(h.audio.bgmSrc.clip, null);
+    assert.equal(bgm.refCount, 0, 'switching tracks releases the old manager reference');
+    button.isValid = false; button.refCount = 0;
+    assert.equal(h.audio.isSfxReady('button'), false);
+    assert.equal(h.audio.sfxClips.has('select'), false, 'remove every alias of a destroyed clip');
+    const reload = h.preload('button'); h.finishClip(2);
+    assert.deepEqual(reload, [null]);
+    assert.notEqual(h.audio.sfxClips.get('button'), button);
+    assert.equal(h.audio.sfxClips.get('button').refCount, 1);
+}
+
+// A force-released BGM must reload on the next normal playback demand.
+{
+    const h = harness(); h.init();
+    h.audio.playGameBgm(); h.finishBundle(0); h.finishClip(0);
+    const old = h.audio.bgmClip; old.isValid = false; old.refCount = 0;
+    h.audio.ensureBgmPlaying('foreground'); h.finishClip(1);
+    assert.notEqual(h.audio.bgmClip, old);
+    assert.equal(h.audio.bgmClip.refCount, 1);
+    assert.equal(h.audio.bgmSrc.clip, h.audio.bgmClip);
+    assert.equal(h.audio.bgmSrc.playing, true);
+}
 
 // Real preload calls recover on new demand; the failed request is completed, not replayed.
 {
@@ -245,7 +296,7 @@ for (const cancel of ['deadline', 'scene', 'mute', 'stale-context']) {
 
 // Ordinary foreground actions retry failed BGM without requiring a scene or lifecycle change.
 {
-    const h = harness(); h.init(); h.audio.sfxClips.set('button', {});
+    const h = harness(); h.init(); h.audio.sfxClips.set('button', { isValid: true });
     h.audio.playGameBgm(); h.finishBundle(0, networkError()); h.finishBundle(1, networkError());
     for (let i = 0; i < 20; i++) h.audio.play('button');
     assert.equal(h.requests.length, 2); assert.equal(h.audio.bgmClipFailures, 0, 'bundle cooldown refusals are not clip failures');
@@ -258,7 +309,7 @@ for (const cancel of ['deadline', 'scene', 'mute', 'stale-context']) {
 
 // Actual BGM clip failures have their own capped backoff even when both packages are already cached.
 {
-    const h = harness(); h.init(); h.audio.sfxClips.set('button', {});
+    const h = harness(); h.init(); h.audio.sfxClips.set('button', { isValid: true });
     h.cache.set('bootstrap', h.bundle('bootstrap')); h.cache.set('gameAssets', h.bundle('gameAssets'));
     h.audio.playGameBgm();
     for (const [index, delay] of [2000, 5000, 15000, 30000, 30000].entries()) {
@@ -282,7 +333,7 @@ for (const cancel of ['deadline', 'scene', 'mute', 'stale-context']) {
 
 // A missing local clip is throttled even if remote fallback is unavailable or still cooling down.
 {
-    const h = harness(); h.init(); h.audio.sfxClips.set('button', {});
+    const h = harness(); h.init(); h.audio.sfxClips.set('button', { isValid: true });
     h.cache.set('bootstrap', h.bundle('bootstrap'));
     h.preload('voiceWarn'); h.finishBundle(0, networkError());
     h.audio.playGameBgm(); h.finishClip(0, networkError());
@@ -300,7 +351,7 @@ for (const cancel of ['deadline', 'scene', 'mute', 'stale-context']) {
 
 // A successful remote fallback completes one request and does not count the local miss as a failed attempt.
 {
-    const h = harness(); h.init(); h.audio.sfxClips.set('button', {});
+    const h = harness(); h.init(); h.audio.sfxClips.set('button', { isValid: true });
     h.cache.set('bootstrap', h.bundle('bootstrap'));
     h.audio.playGameBgm(); h.finishClip(0, networkError());
     h.audio.play('button'); assert.equal(h.requests.length, 1); assert.equal(h.clips.length, 1);
@@ -329,7 +380,7 @@ for (const cancel of ['deadline', 'scene', 'mute', 'stale-context']) {
 // Player preparation is part of the startup deadline, even after the clip itself is cached.
 for (const failedPlayer of [false, true]) {
     const h = harness({ deferPlayers: true }); h.init(); let starts = 0;
-    h.audio.sfxClips.set('voiceWarn', {}); h.audio.sfxClips.set('judgmentGreat', {});
+    h.audio.sfxClips.set('voiceWarn', { isValid: true }); h.audio.sfxClips.set('judgmentGreat', { isValid: true });
     h.audio.playVoice('voiceWarn', 'warning', { onStarted: () => starts++ });
     const oldSource = h.audio.guideVoiceSource;
     assert.equal(h.playerLoads.length, 1); assert.equal(h.timers.size, 1);
@@ -350,7 +401,7 @@ for (const failedPlayer of [false, true]) {
 // Timely speech can finish naturally, even if its duration exceeds the startup deadline.
 {
     const h = harness({ deferPlayers: true }); h.init(); let starts = 0, completes = 0;
-    h.audio.sfxClips.set('voiceWin1', {});
+    h.audio.sfxClips.set('voiceWin1', { isValid: true });
     h.audio.playVoice('voiceWin1', 'result', { onStarted: () => starts++, onCompleted: () => completes++ });
     h.advance(1199); h.finishPlayer(0);
     const source = h.audio.guideVoiceSource;
@@ -363,7 +414,7 @@ for (const failedPlayer of [false, true]) {
 // STARTED must also enforce the deadline when an overdue timer has not yet run.
 {
     const h = harness({ deferPlayers: true }); h.init(); let starts = 0;
-    h.audio.sfxClips.set('voiceWarn', {});
+    h.audio.sfxClips.set('voiceWarn', { isValid: true });
     h.audio.playVoice('voiceWarn', 'warning', { onStarted: () => starts++ });
     const source = h.audio.guideVoiceSource;
     h.advance(1200, false); h.finishPlayer(0);
@@ -373,7 +424,7 @@ for (const failedPlayer of [false, true]) {
 
 // Guides get a five-second startup window; an expired player can never resurrect that cue.
 {
-    const h = harness({ deferPlayers: true }); h.init(); h.audio.sfxClips.set('guideA1', {});
+    const h = harness({ deferPlayers: true }); h.init(); h.audio.sfxClips.set('guideA1', { isValid: true });
     h.audio.playGuideVoice('guideA1');
     h.advance(4999); assert(h.audio.guideVoiceSource);
     h.advance(1); assert.equal(h.audio.guideVoiceSource, null);
@@ -383,7 +434,7 @@ for (const failedPlayer of [false, true]) {
 // Both guide players prepare silently and are actually reused across the two tutorial steps.
 {
     const h = harness({ deferPlayers: true }); h.init();
-    h.audio.sfxClips.set('guideA1', {}); h.audio.sfxClips.set('guideA2', {});
+    h.audio.sfxClips.set('guideA1', { isValid: true }); h.audio.sfxClips.set('guideA2', { isValid: true });
     h.audio.prepareGuideVoices();
     const first = h.audio.preparedGuideVoices.get('guideA1'), second = h.audio.preparedGuideVoices.get('guideA2');
     assert.equal(h.playerLoads.length, 2); assert.equal(h.played.length, 0);
@@ -412,7 +463,7 @@ for (const cancel of ['releasePreparedGuideVoices', 'stopVoice', 'mute', 'suspen
 // Global cleanup also retires players whose native preparation is already in flight.
 {
     const h = harness({ deferPlayers: true }); h.init();
-    h.audio.sfxClips.set('guideA1', {}); h.audio.sfxClips.set('guideA2', {});
+    h.audio.sfxClips.set('guideA1', { isValid: true }); h.audio.sfxClips.set('guideA2', { isValid: true });
     h.audio.prepareGuideVoices();
     const players = [...h.audio.preparedGuideVoices.values()];
     h.audio.playGuideVoice('guideA1'); h.audio.stopVoice();
@@ -445,7 +496,7 @@ for (const cancel of ['releasePreparedGuideVoices', 'stopVoice', 'mute', 'suspen
 // Native preparation may fail silently or never finish. Neither case may exhaust the SFX pool.
 for (const failed of [false, true]) {
     const h = harness({ deferPlayers: true }); h.init();
-    h.audio.sfxClips.set('button', {});
+    h.audio.sfxClips.set('button', { isValid: true });
     for (let i = 0; i < 22; i++) {
         h.audio.play('button');
         if (failed) h.finishPlayer(i, networkError());
@@ -470,7 +521,7 @@ for (const failed of [false, true]) {
 
 // The deadline ends at STARTED, not after a fixed playback duration. Reuse stays intact.
 {
-    const h = harness({ deferPlayers: true }); h.init(); h.audio.sfxClips.set('button', {});
+    const h = harness({ deferPlayers: true }); h.init(); h.audio.sfxClips.set('button', { isValid: true });
     h.audio.play('button'); h.advance(4999); h.finishPlayer(0);
     const source = h.played[0];
     h.advance(60000);
@@ -487,7 +538,7 @@ for (const failed of [false, true]) {
 
 // Stop/mute/background/ad cancellation retires pending players and their deadline callbacks.
 for (const reason of ['stop', 'mute', 'background', 'ad', 'root-replaced']) {
-    const h = harness({ deferPlayers: true }); h.init(); h.audio.sfxClips.set('button', {});
+    const h = harness({ deferPlayers: true }); h.init(); h.audio.sfxClips.set('button', { isValid: true });
     h.audio.play('button');
     const obsolete = h.playerLoads[0].source;
     if (reason === 'stop') h.audio.stopSfx();
@@ -511,7 +562,7 @@ for (const reason of ['stop', 'mute', 'background', 'ad', 'root-replaced']) {
 
 // Normal reinitialization must preserve pending deadlines, including their original expiry.
 {
-    const h = harness({ deferPlayers: true }); h.init(); h.audio.sfxClips.set('button', {});
+    const h = harness({ deferPlayers: true }); h.init(); h.audio.sfxClips.set('button', { isValid: true });
     h.audio.play('button'); h.advance(4999); h.init();
     assert.equal(h.timers.size, 1);
     h.advance(1); assert.equal(h.audio.busySfxSources.size, 0); assert.equal(h.timers.size, 0);
@@ -519,7 +570,7 @@ for (const reason of ['stop', 'mute', 'background', 'ad', 'root-replaced']) {
 
 // Synchronous platform failures use the same cleanup path and permit a fresh player on next demand.
 {
-    const h = harness(); h.init(); h.audio.sfxClips.set('button', {});
+    const h = harness(); h.init(); h.audio.sfxClips.set('button', { isValid: true });
     const broken = h.audio.sfxSources[0];
     broken.play = () => { throw new Error('play failed synchronously'); };
     h.audio.play('button');

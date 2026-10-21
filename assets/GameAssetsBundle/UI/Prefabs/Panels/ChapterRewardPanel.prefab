@@ -749,7 +749,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 140,
+      "width": 180,
       "height": 42
     },
     "_anchorPoint": {
@@ -785,7 +785,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "×1",
+    "_string": "金币 ×1",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 28,
@@ -1278,7 +1278,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 140,
+      "width": 180,
       "height": 42
     },
     "_anchorPoint": {
@@ -1314,7 +1314,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "×1",
+    "_string": "画笔 ×1",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 28,
@@ -1807,7 +1807,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 140,
+      "width": 180,
       "height": 42
     },
     "_anchorPoint": {
@@ -1843,7 +1843,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "×1",
+    "_string": "磁铁 ×1",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 28,
@@ -1952,7 +1952,7 @@
       "__id__": 1
     },
     "_children": [],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 81
@@ -2043,7 +2043,7 @@
       "b": 205,
       "a": 255
     },
-    "_string": "点击任意空白处关闭",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 24,
@@ -2122,6 +2122,9 @@
       },
       {
         "__id__": 95
+      },
+      {
+        "__id__": 105
       }
     ],
     "_prefab": {
@@ -2513,5 +2516,63 @@
   {
     "__type__": "cc.CompPrefabInfo",
     "fileId": "cb7188cd-084d-4ed1-9914-6cb92c04c195"
+  },
+  {
+    "__type__": "cc.Button",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 86
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 106
+    },
+    "clickEvents": [],
+    "_interactable": true,
+    "_transition": 3,
+    "_normalColor": {
+      "__type__": "cc.Color",
+      "r": 214,
+      "g": 214,
+      "b": 214,
+      "a": 255
+    },
+    "_hoverColor": {
+      "__type__": "cc.Color",
+      "r": 211,
+      "g": 211,
+      "b": 211,
+      "a": 255
+    },
+    "_pressedColor": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_disabledColor": {
+      "__type__": "cc.Color",
+      "r": 124,
+      "g": 124,
+      "b": 124,
+      "a": 255
+    },
+    "_normalSprite": null,
+    "_hoverSprite": null,
+    "_pressedSprite": null,
+    "_disabledSprite": null,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
+    "_target": {
+      "__id__": 86
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "ChapterRewardPanel-component-105"
   }
 ]

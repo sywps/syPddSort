@@ -2,51 +2,51 @@
 module.exports = {
   "1001": {
     "kind": "avatar",
-    "asset": "1001.28f25bebd850.png"
+    "asset": "1001.f159458b8c4e.png"
   },
   "1002": {
     "kind": "avatar",
-    "asset": "1002.6abe2f7d6408.png"
+    "asset": "1002.48810ed58d78.png"
   },
   "1003": {
     "kind": "avatar",
-    "asset": "1003.77957fcf0314.png"
+    "asset": "1003.dded6419e9ce.png"
   },
   "1004": {
     "kind": "avatar",
-    "asset": "1004.1205a7823de8.png"
+    "asset": "1004.63e4fef724f2.png"
   },
   "1005": {
     "kind": "avatar",
-    "asset": "1005.e8511bfcea47.png"
+    "asset": "1005.ea9177b5f9e0.png"
   },
   "1009": {
     "kind": "avatar",
-    "asset": "1009.322e8d284485.png"
+    "asset": "1009.c901b248548b.png"
   },
   "1010": {
     "kind": "avatar",
-    "asset": "1010.7993d4487841.png"
+    "asset": "1010.8130912844ec.png"
   },
   "1011": {
     "kind": "avatar",
-    "asset": "1011.a0c026d48006.png"
+    "asset": "1011.6a45bf45e78c.png"
   },
   "1012": {
     "kind": "avatar",
-    "asset": "1012.150bde008f07.png"
+    "asset": "1012.1a9fda8f0d6d.png"
   },
   "1029": {
     "kind": "avatar",
-    "asset": "1029.0b34025e61a3.png"
+    "asset": "1029.1a7c83ade053.png"
   },
   "1030": {
     "kind": "avatar",
-    "asset": "1030.6566fb4b1619.png"
+    "asset": "1030.7613aece4a2c.png"
   },
   "1031": {
     "kind": "avatar",
-    "asset": "1031.1f941dafe970.png"
+    "asset": "1031.7f311f6cb473.png"
   },
   "2001": {
     "kind": "frame",

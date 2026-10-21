@@ -8,7 +8,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\
 
 function harness() {
     const storage = new Map(), played = [], timers = new Map(), logs = [];
-    let clock = new Date(2026, 8, 30, 12).getTime(), timerId = 0;
+    let clock = new Date(2026, 8, 30, 12).getTime(), timerId = 0, autoStart = true;
     class ClockDate extends Date {
         constructor(...args) { super(...(args.length ? args : [clock])); }
         static now() { return clock; }
@@ -24,17 +24,17 @@ function harness() {
     class Source {
         static EventType = { STARTED: 'started', ENDED: 'ended' };
         isValid = true; playing = false;
-        play() { this.playing = true; played.push(this); this.node.emit('started'); }
+        play() { this.playing = true; played.push(this); if (autoStart) this.node.emit('started'); }
         stop() { this.playing = false; }
         finish() { this.playing = false; this.node.emit('ended'); }
     }
     const cc = {
-        _decorator: { ccclass: () => value => value }, Node, AudioSource: Source,
+        _decorator: { ccclass: () => value => value }, Node, AudioSource: Source, isValid: value => !!value && value.isValid !== false,
         sys: { localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } },
         director: { getScene: () => ({ name: 'Game' }) },
     };
     const app = { router: { isTransitioning: false }, session: { pendingGameplayRequest: null } };
-    const modules = { cc, './PackageNames': {}, './RuntimeLog': { runtimeLog() {} }, './AppRoot': { AppRoot: { tryGet: () => app } } };
+    const modules = { cc, './MiniGamePlatform': {getDouyinMiniGameRuntime:()=>null}, './PackageNames': {}, './RuntimeLog': { runtimeLog() {} }, './AppRoot': { AppRoot: { tryGet: () => app } } };
     function load(file, id) {
         const source = read(`assets/Scripts/Core/${file}.ts`);
         const compiled = ts.transpileModule(source, { compilerOptions: {
@@ -68,6 +68,7 @@ function harness() {
     const controller = new GameplayVoiceController(runtime);
     runtime._gameplayVoiceController = controller;
     return { audio, runtime, controller, manifest, popup, app, played, storage, logs, Node,
+        delayStarts() { autoStart = false; },
         advance(ms) { clock += ms; for (const [id, task] of [...timers]) if (task.at <= clock) { timers.delete(id); task.fn(); } },
         daily() { return JSON.parse(storage.get('pdd.voice.daily')); },
         finish() { audio.guideVoiceSource?.finish(); },
@@ -91,7 +92,7 @@ function harness() {
     h.audio.playVoice('judgmentGreat', 'judgment');
     assert.equal(h.played.length, 2, 'English voice must not overlap warning');
     dangerous = false; h.controller.update(.1);
-    assert.equal(h.audio.guideVoiceSource, null, 'safe board must cancel stale warning');
+    assert.ok(h.audio.guideVoiceSource?.playing, 'started warning finishes after danger clears');
     dangerous = true; h.controller.warn(() => dangerous); assert.equal(h.played.length, 2);
     h.controller.resumedAfterRevive(); h.controller.warn(() => dangerous); assert.equal(h.played.length, 2);
     h.controller.beginLevel(); h.controller.warn(() => dangerous); assert.equal(h.played.length, 3);
@@ -113,15 +114,17 @@ function harness() {
     conveyor.rules.bufferCount = 50; returnable = true;
     method.call(conveyor, 10); assert.equal(h.played.length, 0);
     returnable = false; method.call(conveyor, 10); assert.equal(h.played.length, 1);
-    conveyor.rules = null; h.controller.update(.1); assert.equal(h.audio.guideVoiceSource, null);
+    conveyor.rules = null; h.runtime._gameplayInitSeq++; h.controller.update(.1); assert.equal(h.audio.guideVoiceSource, null);
 }
 
-// Win selection, result preemption and guide-only cleanup isolation.
+// Win selection, result waiting and guide-only cleanup isolation.
 {
     const h = harness(), panel = new h.Node(); h.controller.beginLevel();
     h.controller.warn(() => true); const warning = h.audio.guideVoiceSource;
     h.runtime.isGameEnd = true; h.controller.win(panel, 1);
-    assert.equal(warning.playing, false);
+    assert.equal(warning.playing, true, 'result waits until the warning finishes');
+    assert.equal(h.played.length, 1);
+    h.finish();
     assert.equal(h.played.at(-1).clip.name, 'voiceWin1');
     h.audio.stopGuideVoice(); assert.ok(h.audio.guideVoiceSource, 'guide cleanup must not stop a result');
     h.controller.win(panel, 1); assert.equal(h.played.length, 2);
@@ -139,6 +142,8 @@ function harness() {
         assert.ok(['voiceRebirth1', 'voiceRebirth2'].includes(h.played.at(-1).clip.name));
         const count = h.played.length; h.controller.revive(panel); assert.equal(h.played.length, count);
         h.controller.resumedAfterRevive();
+        assert.ok(h.audio.guideVoiceSource?.playing, 'reviving preserves an already started sentence');
+        h.finish();
     }
     // Inspect the actual selection with controlled randomness in the module VM.
     const original = Math.random;
@@ -147,7 +152,8 @@ function harness() {
         h.runtime.getBoardCompletionStats = () => ({ completePercent: 80 });
         h.controller.revive(panel); assert.equal(h.played.at(-1).clip.name, 'voiceRebirth3');
     } finally { Math.random = original; }
-    panel.activeInHierarchy = false; h.controller.update(.1); assert.equal(h.audio.guideVoiceSource, null);
+    panel.activeInHierarchy = false; h.controller.update(.1); assert.ok(h.audio.guideVoiceSource?.playing);
+    h.finish();
 }
 
 // Delayed loads cannot outlive the event, channel replacement, mute, or ads.
@@ -177,7 +183,7 @@ for (const cancel of ['mute', 'background', 'ad', 'route', 'stale', 'timeout', '
 }
 
 // Reminder: only a natural finish counts; all interruptions allow a fresh idle-home retry.
-for (const interruption of ['none', 'background', 'mute', 'ad', 'popup', 'popup-at-end', 'route']) {
+for (const interruption of ['none', 'background', 'mute', 'ad', 'route']) {
     const h = harness();
     for (let i = 0; i < 5; i++) { h.controller.beginLevel(); h.controller.warn(() => true); h.finish(); }
     h.runtime.getRuntimeSceneName = () => 'Home';
@@ -196,9 +202,7 @@ for (const interruption of ['none', 'background', 'mute', 'ad', 'popup', 'popup-
         if (interruption === 'background') h.audio.suspendForBackground();
         if (interruption === 'mute') h.audio.setVoiceEnabled(false);
         if (interruption === 'ad') h.audio.beginExternalInterruption();
-        if (interruption.startsWith('popup')) blocker.activeInHierarchy = true;
         if (interruption === 'route') { h.app.router.isTransitioning = true; h.audio.stopVoice(); }
-        if (interruption === 'popup-at-end') oldSource.finish();
         h.controller.update(.25);
         oldSource.node.emit('ended');
         assert.equal(h.daily().hintCount, 0, `${interruption} must not use quota`);
@@ -274,5 +278,82 @@ for (const mode of ['coop', 'pvp', 'external']) {
         assert.ok(!read('scripts/extract-bootstrap-bundle.js').includes(`'${resource}'`));
         assert.ok(!read('scripts/patch-bootstrap-dynamic-assets.js').includes(`'${resource}'`));
     }
+}
+// A started reminder survives opening settings and consumes its quota exactly once.
+{
+    const h = harness();
+    for (let i=0;i<5;i++) { h.controller.beginLevel(); h.controller.warn(()=>true); h.finish(); }
+    h.runtime.getRuntimeSceneName=()=> 'Home'; h.controller.homeShown();
+    for(let i=0;i<12;i++)h.controller.update(.25);
+    const source=h.audio.guideVoiceSource;
+    h.popup.children.push(new h.Node()); h.runtime._modalFocusRefs=1;
+    h.controller.update(.25); assert.equal(source.playing,true);
+    h.finish(); source.node.emit('ended');
+    assert.equal(h.daily().hintCount,1);
+    assert(h.daily().lastHintAt>0);
+}
+// Only the latest result waits; its event must still exist when the current sentence ends.
+for(const stale of [false,true]) {
+    const h=harness(); h.controller.beginLevel(); h.controller.warn(()=>true);
+    h.runtime.isGameEnd=true;
+    const first=new h.Node(),latest=new h.Node();
+    h.controller.revive(first); h.controller.win(latest,1);
+    assert.equal(h.played.length,1);
+    if(stale)latest.activeInHierarchy=false;
+    h.finish();
+    assert.equal(h.played.length,stale?1:2);
+    assert.equal(h.audio.queuedResultVoice,null);
+    if(!stale)assert.equal(h.audio.guideVoiceSource.clip.name,'voiceWin1');
+}
+// Gameplay changes, judgments, guides and ordinary effects cannot cut a started warning.
+{
+    const h=harness(); h.controller.beginLevel(); h.controller.warn(()=>true);
+    const source=h.audio.guideVoiceSource;
+    h.runtime._modalFocusRefs=1;h.runtime.isGameEnd=true;
+    h.controller.update(.1);
+    assert.equal(h.audio.playVoice('voiceHint','hint'),false);
+    assert.equal(h.audio.playVoice('judgmentGreat','judgment'),false);
+    h.audio.playGuideVoice('guideA1');h.audio.stopGuideVoice();
+    h.audio.stopEffectSources();h.audio.setSfxEnabled(false);
+    assert.equal(h.audio.guideVoiceSource,source);assert.equal(source.playing,true);
+    h.finish();assert.equal(h.audio.guideVoiceSource,null);
+}
+// Hard interruptions discard both the playing sentence and the pending result.
+for(const reason of ['mute','background','ad','share','scene','next-level','restart','dispose']) {
+    const h=harness();h.controller.beginLevel();h.controller.warn(()=>true);
+    const old=h.audio.guideVoiceSource;h.runtime.isGameEnd=true;h.controller.win(new h.Node(),1);
+    if(reason==='mute')h.audio.setVoiceEnabled(false);
+    if(reason==='background')h.audio.suspendForBackground();
+    if(reason==='ad')h.audio.beginExternalInterruption();
+    if(reason==='share')h.runtime._shareShowing=true;
+    if(reason==='scene')h.runtime.getRuntimeSceneName=()=> 'Home';
+    if(reason==='next-level')h.runtime._gameplayInitSeq++;
+    if(reason==='restart')h.controller.beginLevel();
+    if(reason==='dispose')h.controller.dispose();
+    h.controller.update(.1);old.node.emit('ended');
+    assert.equal(h.audio.guideVoiceSource,null,reason);assert.equal(h.audio.queuedResultVoice,null,reason);
+    assert.equal(h.played.length,1,reason+' must not replay a stale result');
+}
+// STARTED, not request acceptance or play(), is the protection boundary.
+{
+    const h=harness();h.delayStarts();h.controller.beginLevel();let danger=true;
+    h.controller.warn(()=>danger);const old=h.audio.guideVoiceSource;
+    danger=false;h.controller.update(.1);old.node.emit('started');
+    assert.equal(h.audio.guideVoiceSource,null);assert.equal(h.storage.has('pdd.voice.daily'),false);
+}
+// A slow-loaded queued result is still canceled if its panel has disappeared.
+{
+    const h=harness();h.controller.beginLevel();h.controller.warn(()=>true);
+    const pending=[];h.audio.preload=(name,done)=>pending.push(done);
+    const panel=new h.Node();h.runtime.isGameEnd=true;h.controller.win(panel,1);h.finish();
+    assert.equal(pending.length,1);panel.activeInHierarchy=false;pending[0]();
+    assert.equal(h.played.length,1);assert.equal(h.audio.guideVoiceSource,null);
+}
+// Reviving cancels a queued/starting result, while preserving any sentence already playing.
+{
+    const h=harness();h.controller.beginLevel();h.controller.warn(()=>true);
+    h.runtime.isGameEnd=true;h.controller.revive(new h.Node());h.controller.resumedAfterRevive();
+    h.runtime.isGameEnd=false;h.controller.update(.1);assert.equal(h.audio.guideVoiceSource.playing,true);
+    h.finish();assert.equal(h.played.length,1);
 }
 console.log('gameplay-voice.test.js passed');

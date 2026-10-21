@@ -57,7 +57,7 @@ assert.ok(analytics.includes('endReason,'), 'saveLevelRecord payload must includ
 assert.ok(methodBody(analytics, 'trackSmartHintShow').includes("eventName: 'smart_hint_show'"), 'smart idle hints must emit smart_hint_show behavior events');
 assert.ok(methodBody(analytics, 'trackSmartHintShow').includes('this.trackFunnelEvent'), 'smart idle hints must also emit funnel events');
 assert.ok(methodBody(analytics, 'markLevelPassed').includes('smartHintShownCount'), 'level_pass behavior event must carry smartHintShownCount');
-assert.ok(analytics.includes("export type GameplayEntryMode = '' | 'main' | 'theme' | 'external'"), 'analytics must define the bounded gameplay entry mode');
+assert.ok(analytics.includes("export type GameplayEntryMode = '' | 'main' | 'theme' | 'external' | 'coop' | 'pvp'"), 'analytics must define the bounded gameplay entry mode');
 assert.ok(methodBody(analytics, 'setLevelContext').includes('normalizeGameplayEntryMode'), 'level context must normalize gameplayEntryMode');
 assert.ok(methodBody(analytics, 'beginLevel').includes('gameplayEntryMode'), 'level entry must snapshot gameplayEntryMode');
 assert.ok(methodBody(analytics, 'beginLevel').includes('roundId'), 'every level start must create a roundId');

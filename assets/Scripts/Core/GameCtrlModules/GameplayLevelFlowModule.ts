@@ -196,7 +196,7 @@ export function installGameplayLevelFlowModule(target: any): void {
 
         getCriticalUiTextureNamesForLevel(data: LevelData | null): string[] {
             if (!data) return [];
-            const names: string[] = ['设置', ...GAMEPLAY_SLOT_TEXTURE_NAMES];
+            const names: string[] = [...GAMEPLAY_SLOT_TEXTURE_NAMES];
             if (data.levelId >= 2) {
                 names.push(...SKILL_BUTTON_TEXTURE_NAMES);
             }
@@ -205,7 +205,7 @@ export function installGameplayLevelFlowModule(target: any): void {
 
         getCriticalGameplayShellTextureNamesForLevel(data: LevelData | null): string[] {
             if (!data) return [];
-            const names: string[] = ['设置', ...GAMEPLAY_SLOT_TEXTURE_NAMES];
+            const names: string[] = [...GAMEPLAY_SLOT_TEXTURE_NAMES];
             if (data.levelId >= 2) {
                 names.push(...SKILL_BUTTON_TEXTURE_NAMES);
             }

@@ -1,15 +1,17 @@
-import { _decorator, Component, assetManager, instantiate, Prefab, BlockInputEvents, Label, Node, Sprite, SpriteFrame, Tween, UITransform, tween } from 'cc';
+import { _decorator, Button, Component, assetManager, instantiate, Prefab, BlockInputEvents, Label, Node, Sprite, SpriteFrame, Tween, UITransform, tween } from 'cc';
 import { chapterReward, ChapterReward, mergeChapterRewardDisplay } from './ChapterRewardPolicy';
 import { Mask, ScrollView } from 'cc';
 import { ProfileCustomizationMgr } from './ProfileCustomizationMgr';
 import { ProfileResourceService } from './ProfileResourceService';
 import { UserStateSyncMgr } from './UserStateSyncMgr';
-import { isMiniGameRuntime } from './MiniGamePlatform';
+import { isMiniGameRuntime, isDouyinMiniGameRuntime } from './MiniGamePlatform';
 import { getBrowserLevelPreview } from './BrowserLevelPreview';
 import { isWorkbenchPreviewRequested } from './WorkbenchPreviewService';
 import { PreviewRewardSave } from './PreviewRewardSave';
+import { AudioMgr } from './AudioMgr';
 
 type Settlement = { level: number; token: number; claimed: string[]; pending: boolean; error: string; rewards: ChapterReward[]; showing: boolean };
+type RewardDisplay = Pick<ChapterReward, 'gold' | 'brushCount' | 'magnetCount' | 'avatarId' | 'frameId' | 'beanSkinId' | 'backgroundSkinId'>;
 const sessions = new WeakMap<object, Settlement>();
 const child = (node: Node, name: string): Node => { const value = node.getChildByName(name); if (!value) throw Error(`章节奖励预制体缺少 ${name}`); return value; };
 const label = (node: Node, name: string, text: string) => { const component = child(node, name).getComponent(Label); if (!component) throw Error('章节奖励文字组件缺失'); component.string = text; };
@@ -24,8 +26,11 @@ class ChapterRewardGlowRotation extends Component {
 }
 
 export function beginChapterRewards(runtime: any, level: number): void {
-    const previousOverlay = runtime.panelWin?.getChildByName('ChapterRewardMount')?.getChildByName('ChapterRewardPanel');
-    if (previousOverlay) previousOverlay.active = false;
+    const mount = runtime.panelWin?.getChildByName('ChapterRewardMount');
+    for (const name of ['ChapterRewardPanel', 'WinShareRewardPanel']) {
+        const previousOverlay = mount?.getChildByName(name);
+        if (previousOverlay) previousOverlay.active = false;
+    }
     if (runtime._isThemeLevel) { sessions.delete(runtime); return; }
     const session: Settlement = { level, token: runtime._settlementRevealToken, claimed: [], pending: true, error: '', rewards: [], showing: false };
     sessions.set(runtime, session);
@@ -44,7 +49,7 @@ export function beginChapterRewards(runtime: any, level: number): void {
     // Start on settlement, independent of opening the panel or completing its animations.
     void (async () => {
         try {
-            if (isMiniGameRuntime()) {
+            if (isMiniGameRuntime() && !isDouyinMiniGameRuntime()) {
                 if (!runtime.queueCloudGameStateSync()) throw Error('通关进度暂时无法同步，章节奖励待确认');
                 if (!await UserStateSyncMgr.inst.flushPendingSave()) throw Error('通关进度未同步，章节奖励待确认');
             }
@@ -106,26 +111,20 @@ function renderRewardPreview(bubble: Node, reward: ChapterReward): void {
     const decoration = reward.avatarId || reward.frameId || reward.beanSkinId || reward.backgroundSkinId;
     avatar.active = !!decoration;
     const resources = [['Gold', reward.gold], ['Brush', reward.brushCount], ['Magnet', reward.magnetCount]] as const;
-    const visibleCount = resources.filter(([, count]) => count > 0).length;
-    const origin = (bubble as any).__rewardPreviewOrigin ||= {
-        x: bubble.position.x, y: bubble.position.y, resourceY: child(bubble, 'Gold').position.y,
-    };
-    const size = bubble.getComponent(UITransform)!;
-    size.width = visibleCount > 1 ? 224 : 176;
-    size.height = visibleCount === 3 ? 104 : 80;
-    bubble.setPosition(origin.x - (visibleCount > 1 ? 20 : 0), origin.y + (visibleCount === 3 ? 8 : 0));
+    const visibleCount = resources.filter(([, count]) => count > 0).length + (decoration ? 1 : 0);
+    bubble.getComponent(UITransform)!.width = visibleCount === 3 ? 196 : visibleCount === 2 ? 160 : 120;
+    const slotX = (index: number) => (index - (visibleCount - 1) / 2) * (visibleCount === 3 ? 56 : 72);
     let visibleIndex = 0;
+    if (decoration) avatar.setPosition(slotX(visibleIndex++), avatar.position.y);
     for (const [name, count] of resources) {
         const slot = child(bubble, name);
         slot.active = count > 0;
         if (slot.active) {
-            // Keep each icon/count pair horizontal; three rewards use two rows inside the same bubble.
+            // Decoration and resource icons share one centered row.
             const index = visibleIndex++;
-            slot.setPosition(visibleCount === 3 ? (index === 0 ? 0 : index === 1 ? -50 : 50)
-                : (index - (visibleCount - 1) / 2) * 112,
-                origin.resourceY + (visibleCount === 3 ? (index === 0 ? 16 : -22) : 0));
+            slot.setPosition(slotX(index), 0);
         }
-        label(slot, 'Count', `×${count}`);
+        child(slot, 'Count').active = false;
     }
     const artKey = `${reward.avatarId}/${reward.frameId}/${reward.beanSkinId}/${reward.backgroundSkinId}`;
     if (!decoration || (bubble as any).__avatarId === artKey) return;
@@ -144,7 +143,7 @@ function renderRewardPreview(bubble: Node, reward: ChapterReward): void {
     });
 }
 
-function loadRewardArt(reward: ChapterReward): Promise<SpriteFrame> {
+function loadRewardArt(reward: RewardDisplay): Promise<SpriteFrame> {
     if (reward.avatarId || reward.frameId) return ProfileResourceService.load(reward.avatarId || reward.frameId);
     const path = reward.beanSkinId
         ? `BeanSkins/icons/bean_skin_${String(reward.beanSkinId - 1999).padStart(2, '0')}/spriteFrame`
@@ -156,9 +155,9 @@ function loadRewardArt(reward: ChapterReward): Promise<SpriteFrame> {
     });
 }
 
-async function rewardOverlay(panel: Node): Promise<Node> {
-    const mount = child(panel, 'ChapterRewardMount');
-    const existing = mount.getChildByName('ChapterRewardPanel');
+async function rewardOverlay(panel: Node, name: string, standalone = false): Promise<Node> {
+    const mount = standalone ? panel : child(panel, 'ChapterRewardMount');
+    const existing = mount.getChildByName(name);
     if (existing) return existing;
     const bundle = assetManager.getBundle('gameAssets');
     if (!bundle) throw Error('章节奖励资源包未加载');
@@ -167,25 +166,59 @@ async function rewardOverlay(panel: Node): Promise<Node> {
     }));
     if (!mount.isValid) throw Error('胜利界面已关闭');
     const overlay = instantiate(prefab);
+    overlay.name = name;
     mount.addChild(overlay);
-    mount.setSiblingIndex(panel.children.length - 1);
+    if (standalone) overlay.setSiblingIndex(panel.children.length - 1);
+    else mount.setSiblingIndex(panel.children.length - 1);
     return overlay;
 }
 
 async function showNextReward(runtime: any, session: Settlement): Promise<void> {
-    const panel = runtime.panelWin as Node;
-    if (!panel?.isValid || !panel.active || sessions.get(runtime) !== session || runtime._settlementNextTransitioning) return;
-    const overlay = await rewardOverlay(panel);
-    if (!panel.isValid || !panel.active || sessions.get(runtime) !== session || session.token !== runtime._settlementRevealToken || runtime._settlementNextTransitioning) { overlay.active = false; return; }
-    const rewards = mergeChapterRewardDisplay(session.rewards);
-    if (!rewards.length) { overlay.active = false; session.showing = false; return; }
-    overlay.active = true;
+    await showRewardPopup(runtime, mergeChapterRewardDisplay(session.rewards),
+        () => sessions.get(runtime) === session && session.token === runtime._settlementRevealToken,
+        () => { session.rewards.length = 0; session.showing = false; }, 'ChapterRewardPanel');
+}
+
+// Display only: the share grant owns the balance update and duplicate-claim guard.
+export async function showWinShareReward(runtime: any, gold: number, revealToken: number): Promise<void> {
+    if (!Number.isSafeInteger(gold) || gold <= 0) throw Error('分享奖励展示金额无效');
+    await showRewardPopup(runtime,
+        [{ gold, brushCount: 0, magnetCount: 0, avatarId: 0, frameId: 0, beanSkinId: 0, backgroundSkinId: 0 }],
+        () => runtime._settlementRevealToken === revealToken,
+        () => {}, 'WinShareRewardPanel');
+}
+
+// Desktop owns eligibility and inventory. Prepare the existing popup before committing its grant.
+export async function showDouyinDesktopReward(runtime: any, host: Node, kind: 'freeze' | 'brush' | 'magnet', isCurrent: () => boolean, grant: () => void): Promise<void> {
+    let frame: SpriteFrame | undefined;
+    if (kind === 'freeze') {
+        const bundle = assetManager.getBundle('bootstrap');
+        if (!bundle) throw Error('冻结道具资源包未加载');
+        frame = await new Promise<SpriteFrame>((resolve, reject) => bundle.load(
+            'GameUI/Atlases/GameSceneSmall/popup_tool_freeze_icon/spriteFrame', SpriteFrame,
+            (error, asset) => error || !asset ? reject(error || Error('冻结道具图标缺失')) : resolve(asset)));
+    }
+    await showRewardPopup(runtime,
+        [{ gold: 0, brushCount: kind === 'brush' ? 1 : 0, magnetCount: kind === 'magnet' ? 1 : 0, avatarId: 0, frameId: 0, beanSkinId: 0, backgroundSkinId: 0 }],
+        isCurrent, () => {}, 'DouyinDesktopRewardPanel', { host, frame, grant });
+}
+
+async function showRewardPopup(runtime: any, rewards: RewardDisplay[], isCurrent: () => boolean, onDismiss: () => void, name: string,
+    desktop?: { host: Node; frame?: SpriteFrame; grant: () => void }): Promise<void> {
+    const panel = desktop?.host || runtime.panelWin as Node;
+    const current = () => panel?.isValid && panel.active && isCurrent()
+        && (!!desktop || (runtime.panelWin === panel && !runtime._settlementNextTransitioning));
+    if (!current()) return;
+    const overlay = await rewardOverlay(panel, name, !!desktop);
+    if (!current()) { overlay.active = false; return; }
+    if (!rewards.length) { overlay.active = false; onDismiss(); return; }
+    overlay.active = !desktop;
     if (!overlay.getComponent(BlockInputEvents)) overlay.addComponent(BlockInputEvents);
     const shade = child(overlay, 'Shade');
     if (!shade.getComponent(BlockInputEvents)) shade.addComponent(BlockInputEvents);
     const confirm = child(overlay, 'Confirm');
     shade.off(Node.EventType.TOUCH_END);
-    confirm.off(Node.EventType.TOUCH_END);
+    confirm.off(Button.EventType.CLICK);
     const slots = [0, 1, 2].map(i => child(overlay, `Reward${i}`));
     // Preserve editor-authored spacing before centering a smaller reward set.
     const positions = (overlay as any).__chapterPositions || slots.map(slot => slot.position.clone());
@@ -193,10 +226,9 @@ async function showNextReward(runtime: any, session: Settlement): Promise<void> 
     const icons = slots.map(slot => child(slot, 'Icon').getComponent(Sprite)!);
     const frames: SpriteFrame[] = (overlay as any).__chapterFrames || icons.map(icon => icon.spriteFrame!);
     (overlay as any).__chapterFrames = frames;
-    const items: { frame: SpriteFrame; count: string }[] = [];
-    const hint = child(overlay, 'Detail').getComponent(Label)!;
-    if (!(overlay as any).__closeHint) (overlay as any).__closeHint = hint.string;
-    hint.string = (overlay as any).__closeHint;
+    const items: { frame: SpriteFrame; text: string }[] = [];
+    if (desktop?.frame) items.push({ frame: desktop.frame, text: '冻结道具 ×1' });
+    child(overlay, 'Detail').active = false;
     // Reward artwork and title are content, not the blank dismissal area.
     for (const content of [child(overlay, 'Title'), ...slots.flatMap(slot => [slot, ...slot.children])]) {
         if (!content.getComponent(BlockInputEvents)) content.addComponent(BlockInputEvents);
@@ -206,12 +238,15 @@ async function showNextReward(runtime: any, session: Settlement): Promise<void> 
     if (previousScroll) { previousScroll.active = false; previousScroll.destroy(); }
     try {
         for (const reward of rewards) {
-        if (reward.avatarId || reward.frameId || reward.beanSkinId || reward.backgroundSkinId) items.push({ frame: await loadRewardArt(reward), count: '' });
-        if (reward.gold) items.push({ frame: frames[0], count: `×${reward.gold}` });
-        if (reward.brushCount) items.push({ frame: frames[1], count: `×${reward.brushCount}` });
-        if (reward.magnetCount) items.push({ frame: frames[2], count: `×${reward.magnetCount}` });
+        if (reward.avatarId || reward.frameId || reward.beanSkinId || reward.backgroundSkinId) items.push({
+            frame: await loadRewardArt(reward),
+            text: reward.avatarId ? '头像' : reward.frameId ? '头像框' : reward.beanSkinId ? '豆豆皮肤' : '背景皮肤',
+        });
+        if (reward.gold) items.push({ frame: frames[0], text: `金币 ×${reward.gold}` });
+        if (reward.brushCount) items.push({ frame: frames[1], text: `画笔 ×${reward.brushCount}` });
+        if (reward.magnetCount) items.push({ frame: frames[2], text: `磁铁 ×${reward.magnetCount}` });
         }
-        if (!overlay.isValid || !panel.active || sessions.get(runtime) !== session || session.token !== runtime._settlementRevealToken || runtime._settlementNextTransitioning) return;
+        if (!overlay.isValid || !current()) return;
         let content: Node | null = null;
         if (items.length > 3) {
             const viewport = new Node('RewardScroll'); viewport.layer = overlay.layer; overlay.addChild(viewport);
@@ -236,22 +271,27 @@ async function showNextReward(runtime: any, session: Settlement): Promise<void> 
             } else slot.setPosition(positions[i].x - center, positions[i].y, positions[i].z);
             slot.active = true;
             child(slot, 'Icon').getComponent(Sprite)!.spriteFrame = item.frame;
-            label(slot, 'Count', item.count);
+            label(slot, 'Count', item.text);
             const glow = child(slot, 'Glow');
             if (!glow.getComponent(ChapterRewardGlowRotation)) glow.addComponent(ChapterRewardGlowRotation);
         });
     } catch (error) {
-        console.error('[chapter-reward] avatar art failed', error);
+        overlay.active = false;
+        throw error;
     }
-    if (!overlay.isValid) return;
+    if (!overlay.isValid || !current()) return;
+    if (desktop) {
+        desktop.grant();
+        overlay.active = true;
+    }
     let dismissed = false;
     const dismiss = () => {
-        if (dismissed || sessions.get(runtime) !== session) return;
+        if (dismissed || !current()) return;
         dismissed = true;
-        session.rewards.length = 0;
-        session.showing = false;
+        AudioMgr.inst.play('button');
+        onDismiss();
         overlay.active = false;
     };
-    confirm.on(Node.EventType.TOUCH_END, dismiss);
+    confirm.on(Button.EventType.CLICK, dismiss);
     shade.on(Node.EventType.TOUCH_END, dismiss);
 }

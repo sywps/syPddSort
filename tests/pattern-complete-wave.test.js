@@ -73,4 +73,28 @@ assert.equal(created, before, 'reuse pooled nodes');
 wave.stop(); wave.update(3);
 assert.equal(done, 1, 'cancelled playback must not reveal settlement');
 assert.ok(Math.abs(getPatternWaveDuration([cell(99, 99)]) - 6.34) < 1e-8, 'large boards use the 0.03s diagonal interval without a 1s cap');
-console.log('pattern-complete-wave.test.js passed: resource references, frame timing, diagonal grouping, pooling, cancellation, completion.');
+for (const failAt of ['acquire', 'sample']) {
+  const broken = new PatternCompleteWaveFx();
+  let failures = 0, finished = 0;
+  broken.play({}, [cell(1, 0)], () => finished++, error => {
+    assert.match(String(error), /injected/); failures++;
+  });
+  if (failAt === 'acquire') broken.acquire = () => { throw Error('injected acquire'); };
+  else {
+    broken.update(0.03);
+    broken.node.children[0].animation.state.sample = () => { throw Error('injected sample'); };
+  }
+  broken.update(0.04);
+  broken.update(10);
+  assert.equal(failures, 1);
+  assert.equal(finished, 1, 'optional visual failure completes original settlement exactly once');
+  assert.ok(broken.node.children.every(node => !node.active));
+}
+const callbackFailure = new PatternCompleteWaveFx();
+callbackFailure.play({}, [cell(0, 0)], () => { throw Error('core callback failed'); }, () => assert.fail('core callback must not become a visual failure'));
+assert.throws(() => callbackFailure.update(0.4), /core callback failed/);
+const noRecovery = new PatternCompleteWaveFx();
+noRecovery.play({}, [cell(1, 0)]);
+noRecovery.acquire = () => { throw Error('original failure'); };
+assert.throws(() => noRecovery.update(0.04), /original failure/, 'without an error handler, original failure behavior is preserved');
+console.log('pattern-complete-wave.test.js passed: resources, timing, pooling, cancellation, visual failure recovery and callback isolation.');

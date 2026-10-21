@@ -33,7 +33,9 @@ import { AppRoot } from '../AppRoot';
 import type { AppGameplayEntryCoverMode, AppRouteCoverMode } from '../AppSession';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 import { isWorkbenchPreviewRequested, WorkbenchPreviewService } from '../WorkbenchPreviewService';
-import { getMiniGameBuildPlatform } from '../MiniGamePlatform';
+import { getMiniGameBuildPlatform, isMiniGameRuntime } from '../MiniGamePlatform';
+import { prepareWeChatMainlineLevel, reportWeChatEntry } from '../WeChatLevelPreparation';
+import { DouyinLeaderboardService } from '../../Platform/Douyin/DouyinLeaderboardService';
 import { ensureGameCirclePanelController } from '../Panels/GameCirclePanelController';
 import { shouldUseLocalLevelDataMirror } from '../RemoteDataCdnClient';
 import { markStartupTrace } from '../StartupTrace';
@@ -111,7 +113,7 @@ export function installSceneHomeEntryModule(target: any): void {
             await appRoot.requestHomeRoute(source, coverMode);
         },
 
-        requestGameplayTransition(key: string, task: () => void): Promise<boolean> {
+        requestGameplayTransition(key: string, task: () => void, prepare?: () => Promise<void>): Promise<boolean> {
             if (key === 'restart' && !this._gameplayTransitionPromise) AnalyticsMgr.inst.trackLevelExitIntent?.('restart');
             if (this._gameplayTransitionPromise) {
                 if (this._gameplayTransitionKey === key) return this._gameplayTransitionPromise;
@@ -120,7 +122,14 @@ export function installSceneHomeEntryModule(target: any): void {
             }
             this._gameplayTransitionKey = key;
             this.disposeSettingsPanel?.();
-            const pending = Promise.resolve().then(() => AppRoot.inst.runGameplayTransition(key, () => {
+            let preparationFailed = false;
+            const pending = Promise.resolve().then(() => AppRoot.inst.runGameplayTransition(key, async () => {
+                if (prepare) {
+                    AppRoot.inst.holdAppTransitionReadiness?.();
+                    try { await prepare(); }
+                    catch (error) { preparationFailed = true; throw error; }
+                    AppRoot.inst.resetAppTransitionReadiness?.('Game');
+                }
                 if (!this.isValid || this.getRuntimeSceneName('Game') !== 'Game') {
                     throw new Error('[AppTransition] gameplay runtime is no longer available');
                 }
@@ -132,10 +141,15 @@ export function installSceneHomeEntryModule(target: any): void {
                 task();
             })).then(() => true, (error) => {
                 console.error('[AppTransition] gameplay transition failed:', key, error);
-                AnalyticsMgr.inst.settlement.failTransition('gameplay_transition_failed', String(error));
+                try { AnalyticsMgr.inst.settlement.failTransition('gameplay_transition_failed', String(error)); }
+                catch (reportError) { console.error('[AppTransition] failure telemetry unavailable:', reportError); }
                 if (this.isValid) {
                     this.endSettlementNextTransition?.();
-                    if (!this._levelDataLoadStopped) {
+                    if (preparationFailed) {
+                        // Nothing from the old level/settlement has been discarded.
+                        this.refundWeChatEntryVigor();
+                        this.showToast('关卡暂未加载完成，请再试一次');
+                    } else if (!this._levelDataLoadStopped) {
                         this._stopGameplayEntryWithFatalError(key, 'gameplay_transition_failed', String(error));
                     }
                 }
@@ -149,10 +163,102 @@ export function installSceneHomeEntryModule(target: any): void {
         },
 
         requestLevelTransition(levelId: number, prefix: string = 'level_', routeReason: string = ''): Promise<boolean> {
+            let prepared: LevelData | undefined;
+            const prepare = this.shouldPrepareWeChatMainline(prefix) ? async () => {
+                prepared = await prepareWeChatMainlineLevel(this, mapLogicalToPhysicalLevelId(levelId));
+            } : undefined;
             return this.requestGameplayTransition(`level:${prefix}${levelId}:${routeReason}`, () => {
                 this.deactivateMainMenuNode();
-                this.loadLevel(levelId, prefix, false, routeReason);
+                this.loadLevel(levelId, prefix, false, routeReason, prepared);
+            }, prepare);
+        },
+
+        shouldPrepareWeChatMainline(prefix: string): boolean {
+            return isMiniGameRuntime() && prefix === 'level_' && !this._isThemeLevel
+                && !this._currentExternalLevelFilePath && !this.isCoopMode?.() && !this.isRankedPvpMode?.()
+                && !isWorkbenchPreviewRequested();
+        },
+
+        startPreparedWeChatLevel(data: LevelData, levelId: number): void {
+            const source = LevelDataCdnService.inst.getLevelAnalyticsMetadata(data)?.source || 'bootstrap';
+            const levelPath = this.getLevelDataPath(levelId, 'level_');
+            this.beginGameplayLoadingWatchdog?.(levelId, levelPath, source === 'bootstrap' ? 'local' : 'remote');
+            this.reportLevelDataLoadDiagnostic(levelId, 'first_level_json_loaded', true, levelPath, { extra: { source } });
+            this.startGameplayWithBackgroundSkinReady(data, levelId, () => {
+                if (!this.isValid || this._levelDataLoadStopped) return;
+                const previous = this._bootstrapOnlyGameplayStartup;
+                this._bootstrapOnlyGameplayStartup = true;
+                try { this.initGame(data, levelId); }
+                finally { this._bootstrapOnlyGameplayStartup = previous; }
             });
+        },
+
+        prepareWeChatMainlineUi(data: LevelData, done: (missing: string[]) => void): void {
+            if (this.shouldUseLocalBootstrapBundle(data.levelId, 'level_')) {
+                // Preserve the first-level fast path's full HUD/tutorial set.
+                const names = Array.from(LOCAL_BOOTSTRAP_TEXTURE_NAMES);
+                this._preloadBootstrapTextureSet(names, () => done(names.filter(name => !this.sfCache.has(name))));
+                return;
+            }
+            this.prepareCriticalUiTexturesForLevel(data,
+                () => done(this.getMissingCriticalGameplayShellTextureNamesForLevel(data)), { bootstrapOnly: true });
+        },
+
+        recoverWeChatFailedEntry(errorCode: string, errorMessage: string): boolean {
+            if (!isMiniGameRuntime() || this.isCoopMode?.() || this.isRankedPvpMode?.()
+                || isWorkbenchPreviewRequested() || this.getRuntimeSceneName('Game') !== 'Game') return false;
+            const app = AppRoot.tryGet();
+            if (!app) return false;
+            if (this._weChatEntryRecoveryPending) return true;
+            this._weChatEntryRecoveryPending = true;
+            this._levelDataLoadStopped = true;
+            this.isGameEnd = true;
+            this.unschedule(this.tickTimer);
+            this.clearLoadingStageTimers?.();
+            reportWeChatEntry(this, 'gameplay_entry_recovery_failed', false, errorMessage, errorCode);
+            const failure = new Error(`${errorCode}: ${errorMessage}`);
+            this.refundWeChatEntryVigor();
+            app.redirectFailedGameplayTransitionToHome(failure);
+            app.session.setPendingHomeToast('关卡暂未加载完成，请再试一次');
+            // Home's own ready-after-draw signal opens the cover. A failed entry
+            // is never reported as a playable level or retried as a new charge.
+            void app.requestHomeRoute('gameplay_entry_failed', 'none').catch(error => {
+                reportWeChatEntry(this, 'gameplay_recovery_home_failed', false, error);
+                app.completeAppTransitionAfterDraw('Home', error);
+                this.hideLoadingOverlay?.();
+                if (this.isValid) this.showToast('连接暂未恢复，请稍后重试');
+            });
+            return true;
+        },
+
+        refundWeChatEntryVigor(): void {
+            const session = AppRoot.tryGet()?.session;
+            if (!isMiniGameRuntime() || !session?.weChatEntryVigorCharged) return;
+            session.weChatEntryVigorCharged = false;
+            try {
+                const refunded = this.grantVigorByAmount(1);
+                reportWeChatEntry(this, 'gameplay_entry_vigor_refunded', true, `amount=${refunded}`);
+            } catch (error) {
+                reportWeChatEntry(this, 'gameplay_entry_vigor_refund_failed', false, error);
+                console.error('[GameEntry] vigor compensation failed:', error);
+            }
+        },
+
+        reportWeChatRecoveryPlayable(): void {
+            if (!isMiniGameRuntime() || !this._weChatPreparationId
+                || this._levelDataLoadStopped || this._weChatEntryRecoveryPending
+                || AppRoot.tryGet()?.isAppTransitionTargeting('Game')
+                || this._weChatPlayableReported === this._weChatPreparationId) return;
+            this._weChatPlayableReported = this._weChatPreparationId;
+            if (this._weChatPreparationHadFailure) reportWeChatEntry(this, 'level_recovery_playable', true);
+            // Warm only the next original mainline level, through the same CDN
+            // validation/cache path. This is optional and never gates input.
+            if (!this.shouldPrepareWeChatMainline('level_')) return;
+            const next = mapLogicalToPhysicalLevelId(this.getActiveLogicalLevelId() + 1);
+            const telemetry = { _weChatPreparingLevel: next, _weChatPreparationId: this._weChatPreparationId };
+            void LevelDataCdnService.inst.loadLevel(next, 'level_', 'A').then(data => {
+                if (!data) reportWeChatEntry(telemetry, 'next_level_prefetch_failed', false, `level_${next}`);
+            }).catch(error => reportWeChatEntry(telemetry, 'next_level_prefetch_failed', false, error));
         },
 
         shouldPrewarmHomeGameplayEntry(): boolean {
@@ -257,12 +363,18 @@ export function installSceneHomeEntryModule(target: any): void {
             const btn = this.requireUiChild(parent, 'LeaderboardBtn', 'EntryLayer/LeaderboardBtn');
             const isDouyin = getMiniGameBuildPlatform() === 'douyin';
             btn.targetOff(this);
-            btn.active = !isDouyin;
-            if (isDouyin) return;
+            btn.active = true;
 
-            btn.getComponent(Button) || btn.addComponent(Button);
+            if (!btn.getComponent(Button)) throw new Error('[HomeScene] LeaderboardBtn requires an authored Button');
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
+                if (isDouyin) {
+                    void DouyinLeaderboardService.inst.open(this.getSavedLevel()).catch((error) => {
+                        console.error('[DouyinRank] open failed:', error);
+                        if (this.mainMenuNode?.isValid) this.showToast('排行榜打开失败，请稍后重试', 2);
+                    });
+                    return;
+                }
                 void this.openLeaderboard();
             }, this);
             const iconNode = this.requireUiChild(btn, 'LeaderboardIcon', 'LeaderboardBtn/LeaderboardIcon');
@@ -274,7 +386,7 @@ export function installSceneHomeEntryModule(target: any): void {
             const btn = this.requireUiChild(parent, 'CollectionBtn', 'EntryLayer/CollectionBtn');
         
             btn.targetOff(this);
-            btn.getComponent(Button) || btn.addComponent(Button);
+            if (!btn.getComponent(Button)) throw new Error('[HomeScene] CollectionBtn requires an authored Button');
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
                 this.openCollection();
@@ -294,7 +406,7 @@ export function installSceneHomeEntryModule(target: any): void {
             const iconNode = this.requireUiChild(btn, GAME_CIRCLE_ICON_NAME, 'GameCircleBtn/GameCircleIcon');
             this.requireSceneSpriteFrame(iconNode, 'GameCircleBtn/GameCircleIcon');
 
-            btn.getComponent(Button) || btn.addComponent(Button);
+            if (!btn.getComponent(Button)) throw new Error('[HomeScene] GameCircleBtn requires an authored Button');
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
                 void this.openGameCircle();
@@ -310,6 +422,7 @@ export function installSceneHomeEntryModule(target: any): void {
             prefix: string = 'level_',
             _mapMainLevel: boolean = true,
             routeReason: string = '',
+            preparedData?: LevelData,
         ) {
             if (this.shouldUseCurrentExternalLevelFile(levelId, prefix)) {
                 this.loadExternalLevelFile(this._currentExternalLevelFilePath, prefix);
@@ -321,6 +434,19 @@ export function installSceneHomeEntryModule(target: any): void {
                 : normalizedLevelId;
             this.syncAppSessionForGameplayRequest(resolvedLevelId, prefix, false, 'auto', routeReason);
             this.clearCurrentExternalLevelFile();
+            if (this.shouldPrepareWeChatMainline(prefix)) {
+                if (preparedData) {
+                    this.startPreparedWeChatLevel(preparedData, resolvedLevelId);
+                } else {
+                    void prepareWeChatMainlineLevel(this, resolvedLevelId).then(data => {
+                        if (this.isValid) this.startPreparedWeChatLevel(data, resolvedLevelId);
+                    }).catch(error => {
+                        if (this.isValid) this._stopGameplayEntryWithFatalError(
+                            `${prefix}${resolvedLevelId}`, 'level_preparation_failed', String(error));
+                    });
+                }
+                return;
+            }
             if (this.shouldUseLocalBootstrapBundle(resolvedLevelId, prefix)) {
                 this.loadLocalLevel(resolvedLevelId, prefix, resolvedLevelId);
                 return;
@@ -772,6 +898,10 @@ export function installSceneHomeEntryModule(target: any): void {
          * 普通主线关卡优先走 bootstrap-only；主题/外部资源仍走 gameAssets。
          */
         startGameAssetsLevelFast(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
+            if (this.shouldPrepareWeChatMainline(prefix)) {
+                this.loadLevel(activeLevelId, prefix);
+                return;
+            }
             if (this._levelDataLoadStopped) return;
             if (prefix === 'level_') {
                 levelId = mapLogicalToPhysicalLevelId(levelId);
@@ -929,6 +1059,10 @@ export function installSceneHomeEntryModule(target: any): void {
         },
 
         startLocalBootstrapLevelFast(levelId: number, prefix: string = LOCAL_BOOTSTRAP_LEVEL_PREFIX, activeLevelId: number = levelId) {
+            if (this.shouldPrepareWeChatMainline(prefix)) {
+                this.loadLevel(activeLevelId, prefix);
+                return;
+            }
             this.syncAppSessionForGameplayRequest(activeLevelId, prefix, false);
             this.beginGameplayLoadingWatchdog?.(
                 activeLevelId,

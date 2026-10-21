@@ -28,6 +28,7 @@ const MINIGAME_ENGINE_MODULES = [
     'legacy-pipeline',
     'mask',
     'rich-text',
+    'spine-3.8',
     'tween',
     'ui',
 ];
@@ -74,6 +75,10 @@ const config = {
     server: '',
     engineModulesConfigKey: 'defaultConfig',
     includeModules: MINIGAME_ENGINE_MODULES,
+    flags: {
+        WASM_SUBPACKAGE: false,
+        LOAD_SPINE_MANUALLY: false,
+    },
     buildPath: 'project://build',
     debug: false,
     md5Cache: true,
@@ -83,11 +88,11 @@ const config = {
             cleanupImageCache: 'on',
         },
         includeModules: {
-            animation: 'off',
+            animation: 'on',
             physics: 'inherit-project-setting',
             'physics-2d': 'inherit-project-setting',
             'gfx-webgl2': 'off',
-            'rich-text': 'off',
+            'rich-text': 'on',
         },
     },
     polyfills: {
@@ -99,6 +104,8 @@ const config = {
         {
             root: 'db://assets/BootstrapBundle',
             name: 'bootstrap',
+            compressionType: 'subpackage',
+            isRemote: false,
             output: true,
         },
         {

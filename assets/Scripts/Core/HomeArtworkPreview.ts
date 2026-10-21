@@ -1,7 +1,9 @@
-import { Color, Label, Node } from 'cc';
+import { Button, Color, Label, Node } from 'cc';
 import { openCollectionShellOverlay } from './Panels/CollectionShellOverlay';
 import { getPhysicalMainLevelId } from './LevelRouteService';
 import { renderCompletedPatternPreview, releaseCompletedPatternPreviewTree } from './CompletedPatternPreview';
+
+import { AudioMgr } from './AudioMgr';
 
 export function openHomeArtworkPreview(runtime: any, levels: number[], selectedLevel: number): void {
     let index = levels.indexOf(selectedLevel);
@@ -23,7 +25,7 @@ export function openHomeArtworkPreview(runtime: any, levels: number[], selectedL
                 const status = statusNode.addComponent(Label);
                 status.fontSize = 24;
                 status.color = new Color(112, 72, 38, 255);
-                status.string = '加载中';
+                status.string = '';
                 runtime.loadLevelData(getPhysicalMainLevelId(levels[index]), (data: { correctColorArr?: number[][] } | null) => {
                     if (!overlay.isValid || !overlay.active || request !== token || !statusNode.isValid) return;
                     const grid = data?.correctColorArr;
@@ -34,12 +36,16 @@ export function openHomeArtworkPreview(runtime: any, levels: number[], selectedL
                     }
                     statusNode.destroy();
                     renderCompletedPatternPreview(content, grid, {
-                        name: 'Artwork', maxW: 540, maxH: 540, padding: 12, cropToContent: true,
+                        name: 'Artwork', maxW: 540, maxH: 540, padding: 12, cropToContent: true, hideLoadingStatus: true,
                     }, runtime);
                 }, 'level_');
             };
-            runtime.bindPanelButton(leftArrow!, () => { if (index > 0) { index--; draw(); } });
-            runtime.bindPanelButton(rightArrow!, () => { if (index < levels.length - 1) { index++; draw(); } });
+            for (const arrow of [leftArrow!, rightArrow!]) {
+                if (!arrow.getComponent(Button)) throw new Error(`[artwork-preview] missing authored Button on ${arrow.name}`);
+                arrow.targetOff(runtime);
+            }
+            leftArrow!.on(Button.EventType.CLICK, () => { if (index > 0) { AudioMgr.inst.play('button'); index--; draw(); } }, runtime);
+            rightArrow!.on(Button.EventType.CLICK, () => { if (index < levels.length - 1) { AudioMgr.inst.play('button'); index++; draw(); } }, runtime);
             draw();
         },
     });

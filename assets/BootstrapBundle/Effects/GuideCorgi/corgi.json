@@ -1,0 +1,133 @@
+{
+  "skeleton": {
+    "spine": "3.8.75",
+    "images": ""
+  },
+  "bones": [
+    {
+      "name": "root"
+    },
+    {
+      "name": "corgi_body",
+      "parent": "root",
+      "x": 123,
+      "y": -10.230000000000004
+    },
+    {
+      "name": "corgi_shoulder",
+      "parent": "corgi_body",
+      "x": 62,
+      "y": 22
+    }
+  ],
+  "slots": [
+    {
+      "name": "wave",
+      "bone": "corgi_shoulder",
+      "attachment": "corgi_arm"
+    },
+    {
+      "name": "body",
+      "bone": "corgi_body",
+      "attachment": "corgi_body"
+    }
+  ],
+  "skins": [
+    {
+      "name": "default",
+      "attachments": {
+        "wave": {
+          "corgi_arm": {
+            "name": "corgi_arm",
+            "x": 23,
+            "y": 32,
+            "width": 80,
+            "height": 90
+          }
+        },
+        "body": {
+          "corgi_body": {
+            "name": "corgi_body",
+            "x": 0,
+            "y": 85,
+            "width": 158,
+            "height": 194
+          }
+        }
+      }
+    }
+  ],
+  "animations": {
+    "qicr": {
+      "bones": {
+        "corgi_body": {
+          "translate": [
+            {
+              "time": 0
+            },
+            {
+              "time": 0.5,
+              "y": 1.5
+            },
+            {
+              "time": 1
+            },
+            {
+              "time": 1.5,
+              "y": 1.5
+            },
+            {
+              "time": 2
+            }
+          ],
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0
+            },
+            {
+              "time": 0.5,
+              "angle": 0.4
+            },
+            {
+              "time": 1,
+              "angle": 0
+            },
+            {
+              "time": 1.5,
+              "angle": -0.4
+            },
+            {
+              "time": 2,
+              "angle": 0
+            }
+          ]
+        },
+        "corgi_shoulder": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": -6
+            },
+            {
+              "time": 0.5,
+              "angle": 6
+            },
+            {
+              "time": 1,
+              "angle": -6
+            },
+            {
+              "time": 1.5,
+              "angle": 6
+            },
+            {
+              "time": 2,
+              "angle": -6
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1385,7 +1385,7 @@
     "__prefab": null,
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 255,
@@ -1418,8 +1418,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 29
     },
@@ -2689,8 +2689,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 0.92,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 55
     },
@@ -9861,8 +9861,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 0.94,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 251
     },
@@ -10117,6 +10117,9 @@
       },
       {
         "__id__": 287
+      },
+      {
+        "__id__": 515
       }
     ],
     "_prefab": null,
@@ -10867,6 +10870,9 @@
       },
       {
         "__id__": 306
+      },
+      {
+        "__id__": 516
       }
     ],
     "_prefab": null,
@@ -11620,6 +11626,9 @@
       },
       {
         "__id__": 331
+      },
+      {
+        "__id__": 517
       }
     ],
     "_prefab": null,
@@ -13334,6 +13343,9 @@
       },
       {
         "__id__": 460
+      },
+      {
+        "__id__": 504
       }
     ],
     "_active": true,
@@ -14270,8 +14282,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.04,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 373
     },
@@ -18409,7 +18421,7 @@
         "__id__": 501
       }
     ],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 498
@@ -18624,7 +18636,7 @@
     "__prefab": null,
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 255,
@@ -18657,8 +18669,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 494
     },
@@ -18795,5 +18807,561 @@
     },
     "_shadowBlur": 2,
     "_id": "GameplayHelpLabel_text_lilac"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "TutorialGuideCorgiBubble",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 356
+    },
+    "_children": [
+      {
+        "__id__": 506
+      },
+      {
+        "__id__": 509
+      },
+      {
+        "__id__": 512
+      }
+    ],
+    "_active": false,
+    "_components": [
+      {
+        "__id__": 505
+      }
+    ],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "CorgiGuide_TutorialGuideCorgiBubble"
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 504
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 706,
+      "height": 205
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": "CorgiGuide_TutorialGuideCorgiBubble_ui"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "Character",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 504
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 507
+      },
+      {
+        "__id__": 508
+      }
+    ],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": -353,
+      "y": 102.5,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "CorgiGuide_Character"
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 506
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 220,
+      "height": 180
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": "CorgiGuide_Character_ui"
+  },
+  {
+    "__type__": "sp.Skeleton",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_enabled": true,
+    "_id": "CorgiGuide_Skeleton",
+    "node": {
+      "__id__": 506
+    },
+    "_skeletonData": {
+      "__uuid__": "0c241242-3320-490e-a83f-2748a636adb4",
+      "__expectedType__": "sp.SkeletonData"
+    },
+    "defaultSkin": "default",
+    "defaultAnimation": "qicr",
+    "_animationName": "qicr",
+    "_preCacheMode": 0,
+    "_cacheMode": 0,
+    "loop": true,
+    "premultipliedAlpha": true,
+    "_color": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_timeScale": 1,
+    "_useTint": false,
+    "debugSlots": false,
+    "debugBones": false,
+    "debugMesh": false,
+    "__prefab": null
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "Frame",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 504
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 510
+      },
+      {
+        "__id__": 511
+      }
+    ],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "CorgiGuide_Frame"
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 509
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 706,
+      "height": 205
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": "CorgiGuide_Frame_ui"
+  },
+  {
+    "__type__": "cc.Sprite",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 509
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_customMaterial": null,
+    "_srcBlendFactor": 2,
+    "_dstBlendFactor": 4,
+    "_color": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_spriteFrame": {
+      "__uuid__": "3c8184d0-41c9-495a-89de-cb43ce974cbf@f9941",
+      "__expectedType__": "cc.SpriteFrame"
+    },
+    "_type": 1,
+    "_fillType": 0,
+    "_sizeMode": 0,
+    "_fillCenter": {
+      "__type__": "cc.Vec2",
+      "x": 0,
+      "y": 0
+    },
+    "_fillStart": 0,
+    "_fillRange": 0,
+    "_isTrimmedMode": true,
+    "_useGrayscale": false,
+    "_atlas": null,
+    "_id": "CorgiGuide_Frame_sprite"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "RestingPaw",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 504
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 513
+      },
+      {
+        "__id__": 514
+      }
+    ],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": -270,
+      "y": 100.27,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "CorgiGuide_RestingPaw"
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 512
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 43,
+      "height": 35.6
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": "CorgiGuide_RestingPaw_ui"
+  },
+  {
+    "__type__": "cc.Sprite",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 512
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_customMaterial": null,
+    "_srcBlendFactor": 2,
+    "_dstBlendFactor": 4,
+    "_color": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_spriteFrame": {
+      "__uuid__": "1bafc867-0312-4edd-be13-9b62a9753f5c@f9941",
+      "__expectedType__": "cc.SpriteFrame"
+    },
+    "_type": 0,
+    "_fillType": 0,
+    "_sizeMode": 0,
+    "_fillCenter": {
+      "__type__": "cc.Vec2",
+      "x": 0,
+      "y": 0
+    },
+    "_fillStart": 0,
+    "_fillRange": 0,
+    "_isTrimmedMode": true,
+    "_useGrayscale": false,
+    "_atlas": null,
+    "_id": "CorgiGuide_RestingPaw_sprite"
+  },
+  {
+    "__type__": "cc.Button",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 269
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "clickEvents": [],
+    "_interactable": true,
+    "_transition": 3,
+    "_normalColor": {
+      "__type__": "cc.Color",
+      "r": 214,
+      "g": 214,
+      "b": 214,
+      "a": 255
+    },
+    "_hoverColor": {
+      "__type__": "cc.Color",
+      "r": 211,
+      "g": 211,
+      "b": 211,
+      "a": 255
+    },
+    "_pressedColor": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_disabledColor": {
+      "__type__": "cc.Color",
+      "r": 124,
+      "g": 124,
+      "b": 124,
+      "a": 255
+    },
+    "_normalSprite": null,
+    "_hoverSprite": null,
+    "_pressedSprite": null,
+    "_disabledSprite": null,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
+    "_target": {
+      "__id__": 269
+    },
+    "_id": "aefe5165-b81d-4afc-ba79-eb39631480ac"
+  },
+  {
+    "__type__": "cc.Button",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 288
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "clickEvents": [],
+    "_interactable": true,
+    "_transition": 3,
+    "_normalColor": {
+      "__type__": "cc.Color",
+      "r": 214,
+      "g": 214,
+      "b": 214,
+      "a": 255
+    },
+    "_hoverColor": {
+      "__type__": "cc.Color",
+      "r": 211,
+      "g": 211,
+      "b": 211,
+      "a": 255
+    },
+    "_pressedColor": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_disabledColor": {
+      "__type__": "cc.Color",
+      "r": 124,
+      "g": 124,
+      "b": 124,
+      "a": 255
+    },
+    "_normalSprite": null,
+    "_hoverSprite": null,
+    "_pressedSprite": null,
+    "_disabledSprite": null,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
+    "_target": {
+      "__id__": 288
+    },
+    "_id": "6527ae95-ca70-430e-a73b-ebfa638bc27a"
+  },
+  {
+    "__type__": "cc.Button",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 307
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "clickEvents": [],
+    "_interactable": true,
+    "_transition": 3,
+    "_normalColor": {
+      "__type__": "cc.Color",
+      "r": 214,
+      "g": 214,
+      "b": 214,
+      "a": 255
+    },
+    "_hoverColor": {
+      "__type__": "cc.Color",
+      "r": 211,
+      "g": 211,
+      "b": 211,
+      "a": 255
+    },
+    "_pressedColor": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_disabledColor": {
+      "__type__": "cc.Color",
+      "r": 124,
+      "g": 124,
+      "b": 124,
+      "a": 255
+    },
+    "_normalSprite": null,
+    "_hoverSprite": null,
+    "_pressedSprite": null,
+    "_disabledSprite": null,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
+    "_target": {
+      "__id__": 307
+    },
+    "_id": "331c518f-ea9a-43ce-9592-3edfa0394e3f"
   }
 ]

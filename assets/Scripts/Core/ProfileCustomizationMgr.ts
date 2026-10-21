@@ -6,9 +6,11 @@ import { profileAssetUrl } from './ProfileResourceService';
 import { STARTUP_LS_LEVEL } from './StartupLocalProgress';
 import { getBrowserLevelPreview } from './BrowserLevelPreview';
 import { isWorkbenchPreviewRequested } from './WorkbenchPreviewService';
-import { isMiniGameRuntime } from './MiniGamePlatform';
+import { isMiniGameRuntime, isDouyinMiniGameRuntime } from './MiniGamePlatform';
+import { LocalChapterRewards } from './LocalChapterRewards';
 import { eligibleChapterRewards, ChapterReward } from './ChapterRewardPolicy';
 import { PreviewRewardSave } from './PreviewRewardSave';
+import { isCreatorWeb } from './CreatorWeb';
 
 export type CustomizationState = {
     version: 1; revision: number; ownedAvatarIds: number[]; ownedFrameIds: number[];
@@ -39,6 +41,13 @@ export class ProfileCustomizationMgr {
         if (raw) { try { const saved = JSON.parse(raw); this.validate(saved); this.state = saved; this.useActiveEquipment(); } catch (e) { console.error('[Profile] invalid local customization', e); } }
     }
     private refreshPreviewAvatars(): void {
+        if (isCreatorWeb()) {
+            for (const row of PROFILE_ITEMS) {
+                const owned = row.kind === 'avatar' ? this.state.ownedAvatarIds : this.state.ownedFrameIds;
+                if (!owned.includes(row.id)) owned.push(row.id);
+            }
+            return;
+        }
         if (!getBrowserLevelPreview().active) return;
         for (const id of PreviewRewardSave.avatars()) if (!this.state.ownedAvatarIds.includes(id)) this.state.ownedAvatarIds.push(id);
         for (const id of PreviewRewardSave.frames()) if (!this.state.ownedFrameIds.includes(id)) this.state.ownedFrameIds.push(id);
@@ -85,6 +94,16 @@ export class ProfileCustomizationMgr {
     }
     refreshProgressUnlocks(): void {
         if (getBrowserLevelPreview().active || isWorkbenchPreviewRequested()) return;
+        if (isDouyinMiniGameRuntime()) {
+            let changed = false;
+            for (const row of LocalChapterRewards.receipts()) {
+                for (const [field, id] of [['ownedAvatarIds', row.avatarId], ['ownedFrameIds', row.frameId]] as const) {
+                    if (id && !this.state[field].includes(id)) { this.state[field].push(id); changed = true; }
+                }
+            }
+            if (changed) this.persist();
+            return;
+        }
         // In mini games, unlocks are granted by the server using saved progress and the packaged catalog.
         if (isMiniGameRuntime()) return;
         const cleared = this.getMainlineClearedCount(); let changed = false;
@@ -132,6 +151,7 @@ export class ProfileCustomizationMgr {
             sys.localStorage.removeItem(PENDING); sys.localStorage.removeItem(AD_PENDING); sys.localStorage.removeItem(SELECTION);
         }
         sys.localStorage.setItem(OWNER, result.ownerKey);
+        if (isDouyinMiniGameRuntime() && result.inventory) result.inventory = LocalChapterRewards.mergeCloud(runtime, result.inventory);
         this.applyCloud(result.customization);
         if (action === 'profileBuy' && result.inventory) runtime.applyPvpEconomySnapshot(result.inventory);
         return result;
@@ -145,6 +165,12 @@ export class ProfileCustomizationMgr {
     }
     async claimChapterRewards(runtime: any): Promise<{ granted: ChapterReward[]; claimed: string[] }> {
         if (getBrowserLevelPreview().active || isWorkbenchPreviewRequested()) throw Error('关卡预览不发放章节奖励');
+        if (isDouyinMiniGameRuntime()) {
+            const result = LocalChapterRewards.claim(runtime, this.getMainlineClearedCount());
+            this.refreshProgressUnlocks();
+            runtime.queueCloudGameStateSync();
+            return result;
+        }
         if (this.browserSimulation()) {
             const key = 'pdd.chapter.rewards.browser.v1';
             const saved = JSON.parse(sys.localStorage.getItem(key) || '{"claimed":[],"totals":null}');

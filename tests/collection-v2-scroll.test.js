@@ -39,6 +39,7 @@ class Label {}
 class Sprite {}
 class UITransform {}
 class Button { static EventType = { CLICK: 'click' }; }
+Button.Transition = { SCALE: 3 };
 class Node {
     constructor(record) {
         this.name = record._name; this.active = record._active; this.isValid = true; this.layer = record._layer;

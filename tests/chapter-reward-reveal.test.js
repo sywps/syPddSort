@@ -1,7 +1,7 @@
 const assert=require('assert'),fs=require('fs'),ts=require('typescript'),vm=require('vm');
 const source=fs.readFileSync('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts','utf8');
 const start=source.indexOf('        revealWinSettlementPanel('),end=source.indexOf('\n        },',start)+11;
-let renders=0;const context={renderChapterRewards(runtime){assert.equal(runtime.panelWin.active,true);assert.equal(runtime._settlementRevealState,'shown');renders++;},PerformanceMgr:{inst:{markUserActivity(){}}},AudioMgr:{inst:{play(){}}}};
+let renders=0;const context={AnalyticsMgr:{inst:{settlement:{shown(){}}}},ensureGameplayVoiceController:()=>({win(){}}),renderChapterRewards(runtime){assert.equal(runtime.panelWin.active,true);assert.equal(runtime._settlementRevealState,'shown');renders++;},PerformanceMgr:{inst:{markUserActivity(){}}},AudioMgr:{inst:{play(){}}}};
 vm.runInNewContext(ts.transpileModule('const methods = {'+source.slice(start,end)+'}; globalThis.methods=methods;',{compilerOptions:{target:ts.ScriptTarget.ES2020}}).outputText,context);
 const runtime={isValid:true,isGameEnd:true,_settlementRevealToken:1,_settlementRevealState:'waiting',panelWin:{isValid:true,active:false,setSiblingIndex(){}},ensureGameplayResultPanelsCreated:()=>true,updateWinRewardLabel(){},drawWinPatternPreview(){},failWinSettlementReveal(error){throw error;}};
 assert.equal(context.methods.revealWinSettlementPanel.call(runtime,4,1),true);assert.equal(renders,1);

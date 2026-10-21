@@ -1,5 +1,7 @@
 import { getBrowserLevelPreview } from '../BrowserLevelPreview';
 import { ProfileCustomizationMgr } from '../ProfileCustomizationMgr';
+import { LocalChapterRewards } from '../LocalChapterRewards';
+import { isDouyinMiniGameRuntime, isMiniGameRuntime } from '../MiniGamePlatform';
 import { ensureRuntimeAssetReleaseId } from '../RuntimeAssetRelease';
 import { getBoardBeanSize } from '../GameplayBoardVisualMetrics';
 import {
@@ -1552,7 +1554,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _loadLevelDataFromConfiguredSource(levelId: number, prefix: string, callback: (data: LevelData | null, source: string, err?: Error | null) => void, enteringGameplay: boolean = true) {
-            const eligible = enteringGameplay && levelId === 3 && prefix === 'level_' && !this._isThemeLevel
+            const eligible = !isMiniGameRuntime() && enteringGameplay && levelId === 3 && prefix === 'level_' && !this._isThemeLevel
                 && !this._currentExternalLevelFilePath && !this.isRankedPvpMode?.() && !this.isCoopMode?.()
                 && !isWorkbenchPreviewRequested();
             if (eligible) {
@@ -2785,7 +2787,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         saveLevelProgress(levelId: number) {
             if (getBrowserLevelPreview().active) {
-                getBrowserLevelPreview().setLevel(levelId);
+                getBrowserLevelPreview().completeLevel(levelId - 1);
                 return;
             }
             if (isWorkbenchPreviewRequested()) return;
@@ -2804,6 +2806,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         captureCloudGameState(): CloudGameState {
+            if (isDouyinMiniGameRuntime()) LocalChapterRewards.recover(this);
             const wechatGiftTotals = this.readWechatGiftTotals?.() || {};
             const backgroundSkinState = typeof this.captureBackgroundSkinCloudState === 'function'
                 ? this.captureBackgroundSkinCloudState()
@@ -2823,6 +2826,7 @@ export function installAssetBootstrapModule(target: any): void {
                 };
             return {
                 savedLevel: this.getSavedLevel(),
+                ...(isDouyinMiniGameRuntime() ? { chapterRewardProtocol: 1, chapterRewardReceipts: LocalChapterRewards.receipts() } : {}),
                 wechatGiftProtocol: 1,
                 wechatGiftTotals,
                 vigor: this.getVigor(),
@@ -2989,7 +2993,9 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         applyCloudUserState(restoreResult: CloudUserState): UserStateRestoreStatus {
-            const { profile, gameState } = restoreResult;
+            const { profile } = restoreResult;
+            const gameState = isDouyinMiniGameRuntime() && restoreResult.gameState
+                ? LocalChapterRewards.mergeCloud(this, restoreResult.gameState) : restoreResult.gameState;
             ProfileCustomizationMgr.inst.applyCloud(gameState?.customization);
             this.applyPvpEconomySnapshot?.(gameState);
             if (!profile && !gameState) {
@@ -3095,7 +3101,8 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         applyAuthoritativeCloudUserStateFromSave(state: CloudUserState | null): void {
-            const gameState = state?.gameState || null;
+            const gameState = isDouyinMiniGameRuntime() && state?.gameState
+                ? LocalChapterRewards.mergeCloud(this, state.gameState) : state?.gameState || null;
             this.applyWechatGiftState?.(gameState);
             ProfileCustomizationMgr.inst.applyCloud(gameState?.customization);
             if (gameState && typeof this.applyBeanSkinCloudState === 'function') {
@@ -3151,6 +3158,12 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         handleGameHideFlushUserState(): void {
+            const wait = this._weChatInteractionWait;
+            if (this._gameForeground !== false && wait && wait.generation === this._gameplayInitSeq) {
+                const now = Date.now();
+                wait.elapsed += Math.max(0, now - wait.lastAt);
+                wait.lastAt = now;
+            }
             this._gameForeground = false;
             this._pchConveyorGameplayController?.reportLevelThreeLeave?.('background');
             this._pchConveyorGameplayController?.resetCapacityAdGesture?.();
@@ -3163,7 +3176,13 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         handleGameShowLifecycle(): void {
+            const wait = this._weChatInteractionWait;
+            if (this._gameForeground === false && wait && wait.generation === this._gameplayInitSeq) {
+                // Timers and opening tweens may have been suspended for the entire absence.
+                wait.lastAt = Date.now();
+            }
             this._gameForeground = true;
+            this._restoreHomeChapter?.();
             // A save merges unseen server gifts with current local gameplay changes.
             if (this.queueCloudGameStateSync?.()) void UserStateSyncMgr.inst.flushPendingSave();
             this._pchConveyorGameplayController?.resumeAnalyticsMeasurement?.();

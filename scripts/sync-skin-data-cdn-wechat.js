@@ -9,27 +9,29 @@ const {
     configureWechatCdnEnvironment,
     extractRequiredWechatCdnSlot,
 } = require('./wechat-cdn-slot-config');
+const { configureDouyinCdnEnvironment, extractRequiredDouyinCdnSlot, assertDouyinCdnManifest } = require('./douyin-cdn-slot-config');
 
 const projectDir = path.resolve(__dirname, '..');
 const cdnPlatform = process.env.PDD_CDN_PLATFORM === 'douyin' ? 'douyin' : 'wechat';
 const syncCommand = parseSyncCommand(process.argv.slice(2), cdnPlatform);
 const dryRun = syncCommand.dryRun;
 const wechatCdnTarget = syncCommand.wechatCdnTarget;
+const douyinCdnTarget = syncCommand.douyinCdnTarget;
 const platformLabel = cdnPlatform === 'douyin' ? '抖音' : '微信';
-const platformRemoteDir = cdnPlatform === 'douyin' ? 'remote_douyin' : wechatCdnTarget.remoteDir;
+const platformRemoteDir = cdnPlatform === 'douyin' ? douyinCdnTarget.remoteDir : wechatCdnTarget.remoteDir;
 const skinDataDir = path.resolve(projectDir, process.env.PDD_SKIN_DATA_CDN_DIR || (cdnPlatform === 'douyin' ? 'build/skin-cdn-douyin' : 'build/skin-cdn'));
 const assetDir = path.join(skinDataDir, 'assets');
 const liveManifestPath = path.join(skinDataDir, 'skin_live.json');
 
 const cdnUrl = cdnPlatform === 'wechat'
     ? wechatCdnTarget.skinDataCdnUrl
-    : (process.env.PDD_SKIN_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/' + platformRemoteDir + '/skin/');
+    : douyinCdnTarget.skinDataCdnUrl;
 const ossutilBin = process.env.PDD_OSSUTIL_BIN || 'ossutil';
 const ossEndpoint = process.env.PDD_OSS_ENDPOINT || 'https://oss-cn-beijing.aliyuncs.com';
 const ossBucket = process.env.PDD_OSS_BUCKET || (cdnPlatform === 'wechat' ? 'game-pdd-v4' : 'game-pdd-v2');
 const ossPath = cdnPlatform === 'wechat'
     ? wechatCdnTarget.skinDataOssPath
-    : (process.env.PDD_SKIN_DATA_OSS_PATH || 'syGame/pdd_v2/' + platformRemoteDir + '/skin/');
+    : douyinCdnTarget.skinDataOssPath;
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -39,6 +41,7 @@ function fail(message) {
 function parseSyncCommand(args, platform) {
     let remainingArgs = args.slice();
     let wechatCdnTarget = null;
+    let douyinCdnTarget = null;
     if (platform === 'wechat') {
         try {
             const parsed = extractRequiredWechatCdnSlot(remainingArgs);
@@ -48,11 +51,18 @@ function parseSyncCommand(args, platform) {
             fail(error && error.message ? error.message : String(error));
         }
     }
+    if (platform === 'douyin') {
+        try {
+            const parsed = extractRequiredDouyinCdnSlot(remainingArgs);
+            douyinCdnTarget = configureDouyinCdnEnvironment(parsed.target, process.env);
+            remainingArgs = parsed.remainingArgs;
+        } catch (error) { fail(error.message); }
+    }
     const dryRunArgs = remainingArgs.filter((arg) => arg === '--dry-run');
     const unknownArgs = remainingArgs.filter((arg) => arg !== '--dry-run');
     if (unknownArgs.length > 0) fail('未知参数: ' + unknownArgs.join(' '));
     if (dryRunArgs.length > 1) fail('只能传入一次 --dry-run');
-    return { dryRun: dryRunArgs.length === 1, wechatCdnTarget };
+    return { dryRun: dryRunArgs.length === 1, wechatCdnTarget, douyinCdnTarget };
 }
 
 function runNode(script, args, label) {
@@ -145,6 +155,7 @@ function validateSkinDataPackage() {
     assertDir(assetDir, '皮肤资源 assets 目录');
     assertFile(liveManifestPath, 'skin_live.json');
     const manifest = readJson(liveManifestPath);
+    if (douyinCdnTarget) assertDouyinCdnManifest(manifest, douyinCdnTarget, 'skin_live.json');
     if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== 1) fail('skin_live.json schema 不正确');
     if (cdnPlatform === 'wechat' && manifest.cdnSlot !== wechatCdnTarget.slot) {
         fail('skin_live.json cdnSlot 不正确: ' + String(manifest.cdnSlot || '<missing>') + ' != ' + wechatCdnTarget.slot);
@@ -199,6 +210,7 @@ async function verifyRemoteLiveManifest(expectedServer, localManifest) {
     }
     const remoteUrl = expectedServer + 'skin_live.json?t=' + Date.now();
     const remoteManifest = await requestJson(remoteUrl);
+    if (douyinCdnTarget) assertDouyinCdnManifest(remoteManifest, douyinCdnTarget, '远端 skin_live.json');
     if (cdnPlatform === 'wechat' && remoteManifest.cdnSlot !== wechatCdnTarget.slot) {
         fail('远端 skin_live.json cdnSlot 异常: ' + String(remoteManifest.cdnSlot || '<missing>') + ' != ' + wechatCdnTarget.slot);
     }
@@ -235,6 +247,7 @@ function runOssutil(args, label) {
 console.log('=== 同步' + platformLabel + '皮肤数据 CDN ===');
 console.log('');
 if (wechatCdnTarget) console.log('CDN 槽位: ' + wechatCdnTarget.slot);
+if (douyinCdnTarget) console.log('CDN 槽位: ' + douyinCdnTarget.slot);
 
 assertSkinDataTarget(cdnUrl, ossPath);
 runNode('scripts/write-skin-data-cdn.js', [skinDataDir], '生成' + platformLabel + '皮肤 CDN 数据');

@@ -13,6 +13,7 @@ import {
 import { DOUYIN_PLATFORM_CONFIG } from './Douyin/DouyinPlatformConfig';
 import { WECHAT_PLATFORM_CONFIG } from './WeChat/WeChatPlatformConfig';
 import { getMiniGameBuildMode, getMiniGameBuildPlatform, getWeChatMiniGameRuntime } from '../Core/MiniGamePlatform';
+import { isCreatorWeb } from '../Core/CreatorWeb';
 const { ccclass } = _decorator;
 
 type RewardedAdMode = 'native' | 'mock-success' | 'mock-fail';
@@ -97,6 +98,7 @@ export class AdConfig extends Component {
     }
 
     public static getRewardedAdMode(): RewardedAdMode {
+        if (isCreatorWeb()) return 'mock-success';
         if (AdConfig.isLocalBrowserRuntime()) {
             return AdConfig.getRewardedAdMockOverride() || 'mock-success';
         }

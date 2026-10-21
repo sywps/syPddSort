@@ -40,6 +40,7 @@ function loadPlayerMetaStateInstaller() {
         exports: module.exports,
         require(id) {
             if (id === '../BrowserLevelPreview') return { getBrowserLevelPreview: () => ({ active: false }) };
+            if (id === '../CreatorWeb') return { isCreatorWeb: () => false };
             if (id === '../PreviewRewardSave') return { PreviewRewardSave: {} };
             if (id === '../UserStateSyncMgr') return { PVP_ECONOMY_REVISION_KEY: 'pdd.pvpEconomyRevision' };
             if (id === '../GameCtrlShared') {

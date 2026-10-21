@@ -81,10 +81,6 @@ class FeedbackPanelController {
                 this.close();
             };
             close.node.on(Button.EventType.CLICK, dismiss, this);
-            overlay.on(Node.EventType.TOUCH_END, (event: any) => {
-                if (event?.target && event.target !== overlay) return;
-                dismiss();
-            }, this);
             submit.node.on(Button.EventType.CLICK, async () => {
                 if (this.submitting) return;
                 if (submitted) {

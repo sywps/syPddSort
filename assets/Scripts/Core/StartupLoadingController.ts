@@ -1,5 +1,6 @@
 import { _decorator, BlockInputEvents, Button, Camera, Canvas, Color, Component, Director, director, Graphics, Label, Node, Sprite, UITransform, view, Widget } from 'cc';
 import { createSlicedLoadingProgressAdapter, type SlicedLoadingProgressAdapter } from './SlicedLoadingProgressAdapter';
+import { isMiniGameRuntime } from './MiniGamePlatform';
 
 const { ccclass } = _decorator;
 // Dedicated camera visibility keeps the persistent Canvas out of Game's UI camera.
@@ -20,6 +21,9 @@ export class StartupLoadingController extends Component {
     private track: Node | null = null;
     private restartAction: (() => void) | null = null;
     private stage = '';
+    private simulatedProgress = false;
+    private displayedPercent = 0;
+    private finishAction: (() => void) | null = null;
 
     initialize(): void {
         const canvas = this.node.getComponent(Canvas);
@@ -102,12 +106,14 @@ export class StartupLoadingController extends Component {
         this.node.active = true;
         this.completed.clear();
         this.completedPercent = 0;
+        this.simulatedProgress = isMiniGameRuntime();
         this.renderProgress(0);
         this.setStage(stage);
     }
 
     // Weighted startup work, not downloaded bytes. Aliases share one completion slot.
     noteMilestone(event: string): void {
+        if (this.simulatedProgress) return;
         if (this.failed || this.closing || !this.node.active) return;
         const tasks: Record<string, [string, number]> = {
             'scene-ready': ['scene', 20],
@@ -128,8 +134,27 @@ export class StartupLoadingController extends Component {
     }
 
     private renderProgress(percent: number): void {
+        this.displayedPercent = percent;
         this.progress.progress = percent / 100;
-        this.percentage.string = `${percent}%`;
+        this.percentage.string = `${Math.floor(percent)}%`;
+    }
+
+    update(dt: number): void {
+        if (!this.simulatedProgress || this.failed || !this.node.active) return;
+        // Display-only animation. Only the caller's readiness signal may complete loading.
+        const elapsed = Math.max(0, Math.min(dt, 0.1));
+        if (this.closing) {
+            if (!this.finishAction) return;
+            this.renderProgress(Math.min(100, this.displayedPercent + elapsed * 400));
+            if (this.displayedPercent >= 100) {
+                const onFinished = this.finishAction;
+                this.finishAction = null;
+                this.finishOnDraw(onFinished);
+            }
+            return;
+        }
+        this.renderProgress(Math.min(95, this.displayedPercent
+            + Math.max(0.5, (95 - this.displayedPercent) * 0.65) * elapsed));
     }
 
     setStage(stage: string): void {
@@ -168,8 +193,16 @@ export class StartupLoadingController extends Component {
         if (!this.node.active) { onFinished(); return; }
         this.clearSlowLoading();
         // The caller certifies all required work (including route-specific assets) is ready.
-        this.renderProgress(99);
         this.closing = true;
+        if (this.simulatedProgress) {
+            this.finishAction = onFinished;
+            return;
+        }
+        this.renderProgress(99);
+        this.finishOnDraw(onFinished);
+    }
+
+    private finishOnDraw(onFinished: () => void): void {
         this.afterDraw = () => {
             this.renderProgress(100);
             // Render the completed state once; no timer or minimum hold is added.
@@ -192,6 +225,7 @@ export class StartupLoadingController extends Component {
     private cancelFinish(): void {
         if (this.afterDraw) director.off(Director.EVENT_AFTER_DRAW, this.afterDraw, this);
         this.afterDraw = null;
+        this.finishAction = null;
         this.closing = false;
     }
 

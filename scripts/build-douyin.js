@@ -4,6 +4,16 @@ const fs = require('fs');
 const path = require('path');
 const buildCommon = require('./minigame-build-common.js');
 const platformConfig = require('./minigame-platform-config.js');
+const { configureDouyinCdnEnvironment, extractRequiredDouyinCdnSlot, assertDouyinCdnManifest, assertRuntimeDouyinCdnTarget } = require('./douyin-cdn-slot-config');
+
+let cdnCommand;
+try {
+    cdnCommand = extractRequiredDouyinCdnSlot(process.argv.slice(2));
+    configureDouyinCdnEnvironment(cdnCommand.target, process.env);
+} catch (error) {
+    buildCommon.fail(error.message);
+}
+const douyinCdnTarget = cdnCommand.target;
 
 const projectDir = path.resolve(__dirname, '..');
 const buildDir = path.join(projectDir, 'build', 'bytedance-mini-game');
@@ -11,9 +21,9 @@ const levelDataCdnDir = path.join(projectDir, 'build', 'level-data-cdn-douyin');
 const skinDataCdnDir = path.join(projectDir, 'build', 'skin-cdn-douyin');
 const buildConfigPath = path.join(projectDir, 'temp', 'douyin-build-config.json');
 const startSceneUrl = 'db://assets/Scenes/Boot.scene';
-const buildMode = buildCommon.parseBuildMode(process.argv.slice(2), 'node scripts/build-douyin.js <--release|--debug>');
+const buildMode = buildCommon.parseBuildMode(cdnCommand.remainingArgs, 'node scripts/build-douyin.js <--release|--debug> --cdn-slot=<A|B>');
 const douyinAppId = process.env.DOUYIN_APPID || platformConfig.douyin.appId;
-const douyinLevelDataCdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_douyin/levels/';
+const douyinLevelDataCdnUrl = douyinCdnTarget.levelDataCdnUrl;
 const mainPackageTargetKB = 4096;
 const startupDownloadTargetKB = 4096;
 const mainPackageLimitBytes = mainPackageTargetKB * 1024;
@@ -107,7 +117,11 @@ function ensureCocosOutputReady() {
 console.log('=== 抖音小游戏打包 ===');
 logInfo('Mode: ' + buildMode);
 logInfo('AppID: ' + douyinAppId);
+logInfo('CDN 槽位: ' + douyinCdnTarget.slot);
 logInfo('LevelData CDN: ' + douyinLevelDataCdnUrl);
+if (!String(process.env.PDD_DOUYIN_CLOUD_ENV || '').trim()) {
+    logInfo('抖音云尚未配置：此包用于基础联调，云存档、在线社交与统计尚未接通。');
+}
 buildCommon.guardCocosPreviewOrFail(projectDir);
 
 logStep('0. 清理旧产物...');
@@ -125,6 +139,8 @@ logInfo('关卡数据 CDN 产物已生成: ' + levelDataCdnDir);
 logStep('0.16 生成远程皮肤数据包...');
 runNode('scripts/write-skin-data-cdn.js', [skinDataCdnDir]);
 logInfo('皮肤数据 CDN 产物已生成: ' + skinDataCdnDir);
+assertDouyinCdnManifest(buildCommon.readJson(path.join(levelDataCdnDir, 'level_live.json')), douyinCdnTarget, 'level_live.json');
+assertDouyinCdnManifest(buildCommon.readJson(path.join(skinDataCdnDir, 'skin_live.json')), douyinCdnTarget, 'skin_live.json');
 
 logStep('0.2 准备 BootstrapBundle 首关快照...');
 runNode('scripts/prepare-bootstrap.js');
@@ -147,6 +163,7 @@ logStep('2. 运行抖音构建后处理...');
 runNode('scripts/postbuild-douyin.js', [buildDir]);
 
 const runtimeRoot = buildCommon.resolveRuntimeRoot(buildDir);
+assertRuntimeDouyinCdnTarget(fs.readFileSync(path.join(runtimeRoot, 'game.js'), 'utf8'), douyinCdnTarget);
 const gameJson = buildCommon.readJson(path.join(runtimeRoot, 'game.json'));
 const settings = buildCommon.readJson(buildCommon.findSettingsPath(runtimeRoot));
 const runtimeInfo = {
@@ -187,6 +204,6 @@ console.log('=== 抖音打包完成 ===');
 console.log('本地包：' + buildDir);
 console.log('关卡数据包：' + levelDataCdnDir);
 console.log('皮肤数据包：' + skinDataCdnDir);
-console.log('如需上传全部 CDN 数据，再执行：npm run sync:cdn:douyin');
-console.log('如需只上传关卡数据，再执行：npm run sync:cdn:douyin:level_data');
-console.log('如需只上传皮肤数据，再执行：npm run sync:cdn:douyin:skin_data');
+console.log('如需上传全部 CDN 数据，再执行：npm run sync:cdn:douyin -- --cdn-slot=' + douyinCdnTarget.slot);
+console.log('如需只上传关卡数据，再执行：npm run sync:cdn:douyin:level_data -- --cdn-slot=' + douyinCdnTarget.slot);
+console.log('如需只上传皮肤数据，再执行：npm run sync:cdn:douyin:skin_data -- --cdn-slot=' + douyinCdnTarget.slot);

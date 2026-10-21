@@ -21,7 +21,7 @@ function appendNdjson(filePath, data) {
 }
 
 function createRng(seed) {
-    let state = Math.floor(Number(seed) || 1) >>> 0;
+    let state = (Number.isFinite(Number(seed)) ? Math.floor(Number(seed)) : 1) >>> 0;
     return function rng() {
         state += 0x6D2B79F5;
         let t = state;
@@ -340,7 +340,7 @@ async function run(config) {
     const outDir = config.outDir;
     fs.mkdirSync(outDir, { recursive: true });
 
-    const rng = createRng(persona.seed || Date.now());
+    const rng = createRng(persona.seed ?? Date.now());
     const thresholds = {
         maxConsoleErrors: Number(persona.failureThresholds?.maxConsoleErrors ?? 0),
         maxPageErrors: Number(persona.failureThresholds?.maxPageErrors ?? 0),
@@ -472,10 +472,16 @@ async function main() {
     if (!configPath) throw new Error('Usage: node tools/ai-runner/browser-session.js <session-config.json>');
     const config = readJson(path.resolve(configPath));
     configForFailure = config;
-    await run(config);
+    if (config.scenario && config.scenario !== 'random') {
+        const summary = await require('./semantic-session').run(config);
+        if (summary.status !== 'passed') process.exitCode = 1;
+    }
+    else await run(config);
 }
 
-main().catch((err) => {
+module.exports = { createRng, requirePlaywright, analyzeScreenshot };
+
+if (require.main === module) main().catch((err) => {
     if (configForFailure && configForFailure.outDir) {
         fs.mkdirSync(configForFailure.outDir, { recursive: true });
         const summary = {

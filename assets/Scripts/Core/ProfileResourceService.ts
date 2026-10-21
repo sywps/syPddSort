@@ -3,6 +3,7 @@ import { profileItem, PROFILE_ITEMS, PROFILE_FRAME_GEOMETRY } from './ProfileCus
 import { ProfileArtItem, ProfileArtManifest, validateProfileArtManifest } from './ProfileArtManifest';
 import { normalizeCdnBaseUrl, requestCdnText, shouldUseLocalLevelDataMirror, readCdnStorageObject, writeCdnStorageObject } from './RemoteDataCdnClient';
 import { reportProfileFailure } from './ProfileDiagnostics';
+import { isCreatorWeb } from './CreatorWeb';
 
 type Geometry = { width: number; height: number; bounds: number[] };
 type ManifestState = { value?: ProfileArtManifest; pending?: Promise<ProfileArtManifest>; unavailableUntil: number };
@@ -25,14 +26,14 @@ export class ProfileResourceService {
     private static frameGeometry = new WeakMap<SpriteFrame, Geometry>();
     static descriptor(id: number): ProfileArtItem {
         const local = profileItem(id);
-        const manifest = !shouldUseLocalLevelDataMirror() && this.manifests.get(profileCdnBase())?.value;
+        const manifest = !isCreatorWeb() && !shouldUseLocalLevelDataMirror() && this.manifests.get(profileCdnBase())?.value;
         return (manifest && manifest.items.find(row => row.id === id)) || { ...local, ...(local.kind === 'frame' ? { bounds: PROFILE_FRAME_GEOMETRY[id].bounds } : {}) };
     }
     static geometry(frame: SpriteFrame, id: number): Geometry {
         return this.frameGeometry.get(frame) || PROFILE_FRAME_GEOMETRY[id] || PROFILE_FRAME_GEOMETRY[2001];
     }
     static async prepare(): Promise<void> {
-        if (!shouldUseLocalLevelDataMirror()) await this.ensureManifest(profileCdnBase());
+        if (!isCreatorWeb() && !shouldUseLocalLevelDataMirror()) await this.ensureManifest(profileCdnBase());
     }
     static openDataArt(): { baseUrl: string; manifest: ProfileArtManifest } | null {
         const baseUrl = profileCdnBase(), manifest = this.manifests.get(baseUrl)?.value;
@@ -40,7 +41,7 @@ export class ProfileResourceService {
     }
     static async load(id: number): Promise<SpriteFrame> {
         const local = profileItem(id);
-        if (shouldUseLocalLevelDataMirror()) return this.loadLocal(id);
+        if (isCreatorWeb() || shouldUseLocalLevelDataMirror()) return this.loadLocal(id);
         try {
             const base = profileCdnBase(), manifest = await this.ensureManifest(base);
             const item = manifest.items.find(row => row.id === id)!;

@@ -2,10 +2,13 @@ import { getBrowserLevelPreview } from './BrowserLevelPreview';
 import { _decorator, Game, game, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
 import { AnalyticsDelivery } from './AnalyticsDelivery';
+import { DouyinUploadDiagnostics } from './DouyinUploadDiagnostics';
 import { AnalyticsMeasurements } from './AnalyticsMeasurements';
+import { DouyinAnalyticsTransport, isDouyinAnalyticsPlatform, douyinAnalyticsAllowed, douyinAnalyticsConfig,
+    douyinEventAllowed, douyinPublicEvent, douyinProfileAdEvent, douyinAnalyticsPayload } from './DouyinAnalytics';
 import { SettlementAnalytics, type SettlementTarget } from './SettlementAnalytics';
 import { isOfficialAnalyticsRuntime, CSD_MEASUREMENT_VERSION } from './CsdAnalyticsPolicy';
-import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime, getMiniGameBuildPlatform } from './MiniGamePlatform';
+import { getWeChatMiniGameRuntime, getDouyinMiniGameRuntime, isWeChatMiniGameRuntime, isMiniGameRuntime, getMiniGameBuildPlatform } from './MiniGamePlatform';
 import { firstLevelExperiment } from './FirstLevelExperiment';
 import { beanSelectionExperiment } from './BeanSelectionExperiment';
 import { encouragementExperiment } from './EncouragementExperiment';
@@ -29,7 +32,7 @@ const MAX_RUNTIME_DIAGNOSTIC_MESSAGE_LENGTH = 240;
 
 export const PCH_GAMEPLAY_MODE = 'pch_conveyor' as const;
 export const PCH_GAMEPLAY_SCHEMA_VERSION = 1;
-export type GameplayEntryMode = '' | 'main' | 'theme' | 'external';
+export type GameplayEntryMode = '' | 'main' | 'theme' | 'external' | 'coop' | 'pvp';
 
 export type PchFailureReason = '' | 'timeout' | 'buffer_full';
 
@@ -166,6 +169,7 @@ export type UpdateUserProfileAssetsOptions = {
 };
 
 type LevelSessionState = {
+    douyinExcluded?: boolean;
     countdownConsumedSeconds: number;
     reviveCount: number;
     addedTimeSeconds: number;
@@ -239,7 +243,8 @@ function normalizeGameplayMode(value: unknown): string {
 }
 
 function normalizeGameplayEntryMode(value: unknown): GameplayEntryMode {
-    return value === 'main' || value === 'theme' || value === 'external' ? value : '';
+    return value === 'main' || value === 'theme' || value === 'external'
+        || (isDouyinAnalyticsPlatform() && (value === 'coop' || value === 'pvp')) ? value : '';
 }
 
 function normalizeGameplaySchemaVersion(value: unknown, gameplayMode: string): number {
@@ -278,6 +283,8 @@ function normalizeAnalyticsNumber(value: unknown, min: number, max: number, fall
 }
 
 function resolveClientBuildIdentity(): { id: string; source: string } {
+    const douyinConfig = isDouyinAnalyticsPlatform() ? douyinAnalyticsConfig() : null;
+    if (douyinConfig) return { id: douyinConfig.buildId, source: 'douyin_build_marker' };
     const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
     const injectedId = String(globalScope?.__PDD_CLIENT_BUILD_ID__ || '').trim();
     if (injectedId) {
@@ -370,14 +377,66 @@ export class AnalyticsMgr {
     private lastRuntimeCheckpoint = 'analytics_created';
     private lastRuntimeCheckpointAt = this.appLaunchTime;
     private delivery: AnalyticsDelivery;
+    private uploadDiagnostics?: DouyinUploadDiagnostics;
     private measurements: AnalyticsMeasurements;
     readonly settlement = new SettlementAnalytics(event => this.trackFunnelEvent(event), () => this.isCollectionEnabled());
     private launchReported = false;
+    private readonly douyinTransport = new DouyinAnalyticsTransport();
+    private douyinRecovered = false;
+    private douyinGameplayExcluded = false;
+    private douyinMultiplayerMode: 'coop' | 'pvp' | '' = '';
+
+    setGameplayTelemetryScope(mode: string): void {
+        this.douyinGameplayExcluded = isDouyinAnalyticsPlatform() && ['theme', 'external'].includes(mode);
+        this.douyinMultiplayerMode = isDouyinAnalyticsPlatform() && (mode === 'coop' || mode === 'pvp') ? mode : '';
+    }
+
+    /** Lobby/service observations have no played round; never borrow the last mainline round. */
+    trackMultiplayerLobby(mode: 'coop' | 'pvp', eventName: 'multiplayer_lobby_open' | 'multiplayer_service_result',
+        action = '', success = true, duration = 0): void {
+        if (!isDouyinAnalyticsPlatform() || !this.isCollectionEnabled()) return;
+        this.delivery.enqueue('addFunnelEvents', { eventName, sessionId: this.funnelSessionId, roundId: '',
+            gameplayEntryMode: mode, page: mode + '_lobby', levelId: 0, logicalLevelId: 0, physicalLevelId: 0,
+            source: 'multiplayer_service', success, duration: Math.max(0, duration),
+            errorCode: success ? '' : 'MULTIPLAYER_SERVICE_UNAVAILABLE',
+            extra: { action: normalizeAnalyticsText(action, 64) } }, this.openid);
+    }
+
+    /** Local terminal observation, not server-confirmed rank/reward or mainline pass. */
+    finishMultiplayerAnalytics(mode: 'coop' | 'pvp', terminalType: string, outcome: string): void {
+        const session = this.levelSession;
+        if (!isDouyinAnalyticsPlatform() || !this.isCollectionEnabled() || !session || session.finalized
+            || session.gameplayEntryMode !== mode) return;
+        this.flushMeasurementSummaries('level_end');
+        const queued = this.delivery.enqueue('addFunnelEvents', {
+            eventName: 'multiplayer_round_end', sessionId: session.sessionId, roundId: session.roundId,
+            gameplayEntryMode: mode, page: mode + '_result', levelId: session.levelId,
+            logicalLevelId: session.logicalLevelId, physicalLevelId: session.physicalLevelId,
+            success: true, source: 'local_terminal', duration: Math.max(0, Date.now() - session.startTime),
+            extra: { terminalType, outcome, resultSource: 'local_observation' },
+        }, this.openid);
+        if (queued) {
+            session.finalized = true;
+            try { sys.localStorage.setItem(this.analyticsStorageKey(LS_ACTIVE_ROUND), 'null'); }
+            catch (error) { console.error('[AnalyticsMgr] multiplayer checkpoint clear failed', error); }
+        }
+    }
     private failureSeq = 0;
     private failureId = '';
+    private resolveGameplayEntryMode(mode: unknown, roundId?: string): GameplayEntryMode {
+        const session = this.levelSession;
+        // Shared gameplay routes may still say theme/main. A captured older round must keep its own mode.
+        if (isDouyinAnalyticsPlatform() && session && !session.finalized && ['coop', 'pvp'].includes(session.gameplayEntryMode)
+            && (!roundId || roundId === session.roundId)) return session.gameplayEntryMode;
+        return normalizeGameplayEntryMode(mode);
+    }
     isCollectionEnabled(): boolean {
         return !isWorkbenchPreviewRequested() && !getBrowserLevelPreview().active
-            && isOfficialAnalyticsRuntime(getWeChatMiniGameRuntime());
+            && (isDouyinAnalyticsPlatform() ? douyinAnalyticsAllowed() : isOfficialAnalyticsRuntime(getWeChatMiniGameRuntime()));
+    }
+
+    private analyticsStorageKey(key: string): string {
+        return isDouyinAnalyticsPlatform() ? key + '.douyin_dev' : key;
     }
 
     beginSettlement(outcome: string, target: SettlementTarget | null, gameplayEntryMode?: string): string {
@@ -402,27 +461,40 @@ export class AnalyticsMgr {
             isWeChatMiniGameRuntime() || getMiniGameBuildPlatform() === 'wechat', getFirstLevelPreview() !== null);
         thirdLevelExperiment.initialize(sys.localStorage, isOfficialAnalyticsRuntime(getWeChatMiniGameRuntime()),
             getFirstLevelPreview() !== null ? (getThirdLevelPreview() || 'A') : getThirdLevelPreview());
-        this.openid = this.readCachedOpenid();
+        this.openid = isDouyinAnalyticsPlatform() ? '' : this.readCachedOpenid();
+        if (isDouyinAnalyticsPlatform() && douyinAnalyticsConfig()) {
+            this.uploadDiagnostics = new DouyinUploadDiagnostics(douyinAnalyticsConfig()!.buildId);
+            (globalThis as any).__PDD_DOUYIN_UPLOAD_DIAGNOSTICS__ = {
+                getSnapshot: () => ({ ...this.uploadDiagnostics!.getSnapshot(),
+                    uploadPaused: this.delivery.isPaused, pendingCount: this.delivery.size }),
+            };
+        }
         this.delivery = new AnalyticsDelivery(sys.localStorage,
             () => this.resolveDeliveryOwner(),
-            (name, data) => PlatformCloudMgr.inst.callFunction(name, data), () => this.isCollectionEnabled());
+            (name, data) => isDouyinAnalyticsPlatform() ? this.douyinTransport.call(name, data) : PlatformCloudMgr.inst.callFunction(name, data),
+            () => this.isCollectionEnabled(), isDouyinAnalyticsPlatform() ? {
+                key: 'pdd.analytics.delivery.douyin_dev.v1', environment: 'douyin_dev', strictOwner: true,
+                accept: douyinEventAllowed, prepare: douyinAnalyticsPayload,
+                diagnostics: this.uploadDiagnostics,
+            } : {});
         this.measurements = new AnalyticsMeasurements(sys.localStorage, event => {
             return this.delivery.enqueue('addFunnelEvents', { ...event, eventSeq: ++this.funnelEventSeq }, event.owner ?? this.openid);
-        }, () => this.isCollectionEnabled());
+        }, () => this.isCollectionEnabled(), this.analyticsStorageKey('pdd.analytics.measurements.release.v3'), isDouyinAnalyticsPlatform());
         this.measurements.flush('recovered');
         try {
-            const previous = this.isCollectionEnabled() ? JSON.parse(sys.localStorage.getItem(LS_ACTIVE_ROUND) || 'null') : null;
-            if (previous?.roundId) {
+            const previous = this.isCollectionEnabled() ? JSON.parse(sys.localStorage.getItem(this.analyticsStorageKey(LS_ACTIVE_ROUND)) || 'null') : null;
+            if (previous?.roundId && (!isDouyinAnalyticsPlatform() || previous.owner)) {
                 const queued = this.delivery.enqueue('addFunnelEvents', { ...previous,
                     eventName: 'level_unresolved_previous', success: false, timestamp: Date.now(),
                     extra: { previousEventAt: previous.timestamp, reason: 'restart_without_terminal',
                         previousState: previous.eventName } }, previous.owner || '');
-                if (queued) sys.localStorage.setItem(LS_ACTIVE_ROUND, 'null');
+                if (queued) sys.localStorage.setItem(this.analyticsStorageKey(LS_ACTIVE_ROUND), 'null');
             }
         } catch (error) { console.error('[AnalyticsMgr] round recovery failed', error); }
-        this.recoverPreviousRuntimeCheckpoint();
+        if (!isDouyinAnalyticsPlatform()) this.recoverPreviousRuntimeCheckpoint();
         this.markRuntimeCheckpoint('analytics_created', true, 'app', 0);
         this.bindRuntimeDiagnostics();
+        this.bindDouyinSidebarTelemetry();
         this.bindRewardedAdLoadTelemetry();
         this.bindLifecycle();
         this.trackFunnelEvent({ eventName: 'app_launch', page: 'app', source: 'analytics_created', success: true });
@@ -450,6 +522,7 @@ export class AnalyticsMgr {
 
     private thirdLevelPrepared: Promise<void> | null = null;
     async prepareThirdLevelExperiment(): Promise<void> {
+        if (isMiniGameRuntime()) return;
         thirdLevelExperiment.assertStorageReady();
         if (thirdLevelExperiment.decision?.status === 'test') return Promise.resolve();
         if (this.thirdLevelPrepared) return this.thirdLevelPrepared;
@@ -541,6 +614,17 @@ export class AnalyticsMgr {
 
     async ensureReady(): Promise<boolean> {
         if (isWorkbenchPreviewRequested() || getBrowserLevelPreview().active) return false;
+        if (isDouyinAnalyticsPlatform()) {
+            if (!this.isCollectionEnabled() || this.delivery.isPaused) return false;
+            // Recheck identity per flush: never reuse a WeChat or previous-account cached ID.
+            this.openid = await this.douyinTransport.identity();
+            if (!this.douyinRecovered) {
+                this.douyinRecovered = true;
+                this.recoverPreviousRuntimeCheckpoint();
+                this.markRuntimeCheckpoint('analytics_identity_ready', true, 'app', 0);
+            }
+            return true;
+        }
         if (this.readyPromise) {
             return this.readyPromise;
         }
@@ -623,6 +707,7 @@ export class AnalyticsMgr {
     }
 
     async wxReportData(opt: ReportDataOptions): Promise<CloudResult | { ok: false; skipped: true }> {
+        if (this.douyinGameplayExcluded && !douyinPublicEvent(opt)) return { ok: false, skipped: true };
         if (!this.isCollectionEnabled()) return { ok: false, skipped: true };
         const activeSession = this.levelSession && !this.levelSession.finalized ? this.levelSession : null;
         const session = activeSession ? {
@@ -667,8 +752,9 @@ export class AnalyticsMgr {
                 experimentBucket: normalizeAnalyticsText(opt.experimentBucket, 64) || abBucket,
                 smartHintShownCount: opt.smartHintShownCount ?? 0,
                 gameplayMode: normalizeGameplayMode(opt.gameplayMode ?? session?.gameplayMode ?? levelContext.gameplayMode),
-                gameplayEntryMode: normalizeGameplayEntryMode(
+                gameplayEntryMode: this.resolveGameplayEntryMode(
                     opt.gameplayEntryMode ?? session?.gameplayEntryMode ?? levelContext.gameplayEntryMode,
+                    opt.roundId,
                 ),
                 gameplaySchemaVersion: normalizeGameplaySchemaVersion(
                     opt.gameplaySchemaVersion ?? session?.gameplaySchemaVersion ?? levelContext.gameplaySchemaVersion,
@@ -694,6 +780,8 @@ export class AnalyticsMgr {
     }
 
     trackFunnelEvent(opt: FunnelEventOptions): void {
+        if (isDouyinAnalyticsPlatform() && douyinProfileAdEvent(opt) && !douyinEventAllowed('addFunnelEvents', opt)) return;
+        if (this.douyinGameplayExcluded && !douyinPublicEvent(opt)) return;
         if (!this.isCollectionEnabled()) return;
         const eventName = typeof opt.eventName === 'string' ? opt.eventName.trim() : '';
         if (!eventName) return;
@@ -707,7 +795,7 @@ export class AnalyticsMgr {
             this.firstLevelReadyTime = now;
         }
 
-        const appScoped = opt.page === 'app' || opt.page === 'game_circle';
+        const appScoped = opt.page === 'app' || opt.page === 'game_circle' || (isDouyinAnalyticsPlatform() && douyinPublicEvent(opt));
         const session = !appScoped && this.levelSession && !this.levelSession.finalized ? this.levelSession : null;
         const logicalLevelId = opt.logicalLevelId ?? session?.logicalLevelId ?? this.levelContext.logicalLevelId ?? opt.levelId ?? 0;
         const physicalLevelId = opt.physicalLevelId ?? session?.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0;
@@ -731,8 +819,10 @@ export class AnalyticsMgr {
             eventName,
             analyticsSchemaVersion: 2,
             csdVersion: CSD_MEASUREMENT_VERSION,
-            analyticsEnvironment: 'wechat_release',
-            gameplayEntryMode: opt.gameplayEntryMode ?? session?.gameplayEntryMode ?? this.levelContext.gameplayEntryMode ?? '',
+            analyticsEnvironment: isDouyinAnalyticsPlatform() ? 'douyin_dev' : 'wechat_release',
+            gameplayEntryMode: isDouyinAnalyticsPlatform()
+                ? this.resolveGameplayEntryMode(opt.gameplayEntryMode ?? session?.gameplayEntryMode ?? this.levelContext.gameplayEntryMode ?? '', opt.roundId)
+                : opt.gameplayEntryMode ?? session?.gameplayEntryMode ?? this.levelContext.gameplayEntryMode ?? '',
             levelId: opt.levelId ?? logicalLevelId ?? 0,
             page: opt.page || '',
             stepId: opt.stepId ?? '',
@@ -772,6 +862,11 @@ export class AnalyticsMgr {
             ...(gameplayMode ? { gameplayMode, gameplaySchemaVersion } : {}),
         };
 
+        if (isDouyinAnalyticsPlatform()) {
+            if (appScoped) { event.gameplayEntryMode = ''; event.roundId = ''; }
+            Object.assign(event, douyinAnalyticsPayload('addFunnelEvents', event));
+            if (!douyinEventAllowed('addFunnelEvents', event)) return;
+        }
         if (this.measurements.accept({ ...event, owner: this.openid })) this.delivery.enqueue('addFunnelEvents', event, this.openid);
         if (eventName === 'app_hide' || eventName === 'level_exit') this.flushFunnelEvents();
     }
@@ -807,8 +902,8 @@ export class AnalyticsMgr {
     private persistRound(eventName: string): void {
         if (!this.isCollectionEnabled()) return;
         const session = this.levelSession;
-        if (!session || session.finalized) return;
-        try { sys.localStorage.setItem(LS_ACTIVE_ROUND, JSON.stringify({ owner: this.openid,
+        if (!session || session.finalized || session.douyinExcluded) return;
+        try { sys.localStorage.setItem(this.analyticsStorageKey(LS_ACTIVE_ROUND), JSON.stringify({ owner: this.openid,
             eventName, sessionId: session.sessionId, roundId: session.roundId,
             levelId: session.levelId, logicalLevelId: session.logicalLevelId, physicalLevelId: session.physicalLevelId,
             gameplayEntryMode: session.gameplayEntryMode, clientBuildId: session.clientBuildId, timestamp: Date.now() })); }
@@ -819,9 +914,9 @@ export class AnalyticsMgr {
         const gameplayMode = context.gameplayMode === undefined
             ? this.levelContext.gameplayMode
             : normalizeGameplayMode(context.gameplayMode);
-        const gameplayEntryMode = context.gameplayEntryMode === undefined
+        const gameplayEntryMode = this.douyinMultiplayerMode || (context.gameplayEntryMode === undefined
             ? this.levelContext.gameplayEntryMode
-            : normalizeGameplayEntryMode(context.gameplayEntryMode);
+            : normalizeGameplayEntryMode(context.gameplayEntryMode));
         this.levelContext = {
             ...this.levelContext,
             ...context,
@@ -874,6 +969,7 @@ export class AnalyticsMgr {
         }
 
         this.levelSession = {
+            douyinExcluded: this.douyinGameplayExcluded,
             countdownConsumedSeconds: 0,
             reviveCount: 0,
             addedTimeSeconds: 0,
@@ -1131,7 +1227,23 @@ export class AnalyticsMgr {
         });
     }
 
-    trackShareClick(shareType: string, page: string, levelId?: number): void {
+    captureShareContext(page: string): Partial<ReportDataOptions> | null | undefined {
+        if (!isDouyinAnalyticsPlatform() || page !== 'win_bonus_reward') return undefined;
+        const context = this.settlement.captureWinContext();
+        if (this.douyinGameplayExcluded || context?.gameplayEntryMode !== 'main' || !context.roundId) {
+            console.warn('[AnalyticsMgr] win bonus share source round unavailable; telemetry skipped');
+            return null;
+        }
+        return { sessionId: this.funnelSessionId, roundId: context.roundId, levelId: context.levelId,
+            logicalLevelId: context.logicalLevelId, physicalLevelId: context.physicalLevelId,
+            gameplayEntryMode: context.gameplayEntryMode, gameplayMode: context.gameplayMode,
+            gameplaySchemaVersion: context.gameplaySchemaVersion, levelDataSource: context.levelDataSource,
+            clientBuildId: context.clientBuildId, failureId: '' };
+    }
+
+    trackShareClick(shareType: string, page: string, levelId?: number,
+        context: Partial<ReportDataOptions> | null | undefined = this.captureShareContext(page)): void {
+        if (context === null) return;
         if (page.includes('revive')) this.trackFunnelEvent({ eventName: 'revive_choice', page, levelId,
             success: true, extra: { method: 'share', failureId: this.failureId } });
         void this.wxReportData({
@@ -1140,16 +1252,20 @@ export class AnalyticsMgr {
             page,
             actionType: 2,
             shareType,
+            ...context,
         });
     }
 
-    trackShareSuccess(shareType: string, page: string, levelId?: number): void {
+    trackShareSuccess(shareType: string, page: string, levelId?: number,
+        context: Partial<ReportDataOptions> | null | undefined = this.captureShareContext(page)): void {
+        if (context === null) return;
         void this.wxReportData({
             eventName: 'share_success',
             levelId: levelId ?? this.levelSession?.levelId ?? 0,
             page,
             actionType: 3,
             shareType,
+            ...context,
         });
     }
 
@@ -1204,7 +1320,7 @@ export class AnalyticsMgr {
 
     private bindRuntimeDiagnostics(): void {
         if (this.runtimeDiagnosticsBound) return;
-        const api = getWeChatMiniGameRuntime();
+        const api = isDouyinAnalyticsPlatform() ? getDouyinMiniGameRuntime() : getWeChatMiniGameRuntime();
         if (!api) return;
         this.runtimeDiagnosticsBound = true;
         const bind = (name: string, listener: (payload: unknown) => void) => {
@@ -1226,6 +1342,23 @@ export class AnalyticsMgr {
         bind('onMemoryWarning', (payload) => {
             this.reportRuntimeDiagnostic('runtime_memory_warning', payload);
         });
+    }
+
+    private bindDouyinSidebarTelemetry(): void {
+        if (!isDouyinAnalyticsPlatform() || !this.isCollectionEnabled()) return;
+        const api = getDouyinMiniGameRuntime();
+        let reportedWhileVisible = false;
+        const observe = (options: any) => {
+            if (reportedWhileVisible || options?.launch_from !== 'homepage' || options?.location !== 'sidebar_card') return;
+            reportedWhileVisible = true;
+            this.trackFunnelEvent({ eventName: 'douyin_sidebar_return', page: 'douyin_sidebar', success: true,
+                source: 'platform_entry', extra: { launchFrom: 'homepage', location: 'sidebar_card' } });
+        };
+        try {
+            api?.onHide?.(() => { reportedWhileVisible = false; });
+            api?.onShow?.(observe);
+            observe(api?.getLaunchOptionsSync?.());
+        } catch (_) { console.error('[AnalyticsMgr] douyin sidebar entry telemetry unavailable'); }
     }
 
     private bindRewardedAdLoadTelemetry(): void {
@@ -1290,7 +1423,7 @@ export class AnalyticsMgr {
                 logicalLevelId: levelId,
                 physicalLevelId: activeSession?.physicalLevelId || 0,
                 gameplayEntryMode: activeSession?.gameplayEntryMode || '',
-                source: 'wechat_runtime',
+                source: isDouyinAnalyticsPlatform() ? 'douyin_runtime' : 'wechat_runtime',
                 success: false,
                 errorCode: errorCode || eventName,
                 errorMessage: message,
@@ -1320,7 +1453,7 @@ export class AnalyticsMgr {
         try {
             this.trackFunnelEvent({
                 eventName: 'previous_session_unclean_exit',
-                page: previous.page || 'app',
+                page: isDouyinAnalyticsPlatform() ? 'app' : previous.page || 'app',
                 levelId: previous.levelId,
                 source: 'runtime_checkpoint',
                 success: false,
@@ -1330,6 +1463,7 @@ export class AnalyticsMgr {
                     checkpoint: previous.checkpoint,
                     checkpointAgeMs: ageMs,
                     previousClientBuildId: previous.clientBuildId,
+                    previousPage: previous.page,
                 },
             });
         } catch (error) {
@@ -1343,6 +1477,7 @@ export class AnalyticsMgr {
         page?: string,
         levelId?: number,
     ): void {
+        if (isDouyinAnalyticsPlatform() && (!this.openid || !this.douyinRecovered)) return;
         const now = Date.now();
         const normalizedCheckpoint = String(checkpoint || 'unknown').trim().slice(0, 80) || 'unknown';
         if (!this.isCollectionEnabled()) return;
@@ -1364,7 +1499,7 @@ export class AnalyticsMgr {
             clientBuildId: clientBuild.id,
         };
         try {
-            sys.localStorage.setItem(LS_RUNTIME_CHECKPOINT, JSON.stringify(state));
+            sys.localStorage.setItem(this.analyticsStorageKey(LS_RUNTIME_CHECKPOINT), JSON.stringify({ ...state, owner: this.openid }));
         } catch (_) {
             // Runtime reporting must not change game behavior when storage is unavailable.
         }
@@ -1372,9 +1507,10 @@ export class AnalyticsMgr {
 
     private readRuntimeCheckpoint(): RuntimeCheckpointState | null {
         try {
-            const raw = sys.localStorage.getItem(LS_RUNTIME_CHECKPOINT);
+            const raw = sys.localStorage.getItem(this.analyticsStorageKey(LS_RUNTIME_CHECKPOINT));
             if (!raw) return null;
             const value = JSON.parse(raw);
+            if (isDouyinAnalyticsPlatform() && (!this.openid || value?.owner !== this.openid)) return null;
             const timestamp = Math.floor(Number(value?.timestamp) || 0);
             const sessionId = String(value?.sessionId || '').trim().slice(0, 96);
             const checkpoint = String(value?.checkpoint || '').trim().slice(0, 80);
@@ -1414,6 +1550,7 @@ export class AnalyticsMgr {
 
         session.finalized = true;
         if (!this.isCollectionEnabled()) { this.levelSession = null; return; }
+        if (isDouyinAnalyticsPlatform() && (session.douyinExcluded || !['main', 'coop', 'pvp'].includes(session.gameplayEntryMode))) { this.levelSession = null; return; }
         try {
             this.flushMeasurementSummaries('level_end');
             const queued = this.delivery.enqueue('saveLevelRecord', {
@@ -1455,7 +1592,7 @@ export class AnalyticsMgr {
                 ddaReason: session.ddaReason,
             }, this.openid);
             if (!queued) { session.finalized = false; return; }
-            sys.localStorage.setItem(LS_ACTIVE_ROUND, 'null');
+            sys.localStorage.setItem(this.analyticsStorageKey(LS_ACTIVE_ROUND), 'null');
         } catch (error) {
             console.warn('[AnalyticsMgr] saveLevelRecord failed:', error);
         } finally {
@@ -1466,6 +1603,8 @@ export class AnalyticsMgr {
     }
 
     private handleHide(): void {
+        this.uploadDiagnostics?.setState('background');
+        if (isDouyinAnalyticsPlatform()) this.delivery.setPaused(true);
         if (this.exitReported) {
             return;
         }
@@ -1497,6 +1636,8 @@ export class AnalyticsMgr {
     }
 
     private handleShow(): void {
+        this.uploadDiagnostics?.setState('foreground');
+        if (isDouyinAnalyticsPlatform()) this.delivery.setPaused(false);
         if (!this.exitReported) {
             return;
         }
@@ -1546,7 +1687,7 @@ export class AnalyticsMgr {
 
     private readCachedOpenid(): string {
         try {
-            return sys.localStorage.getItem(LS_ANALYTICS_OPENID) || '';
+            return sys.localStorage.getItem(this.analyticsStorageKey(LS_ANALYTICS_OPENID)) || '';
         } catch (_) {
             return '';
         }
@@ -1554,7 +1695,7 @@ export class AnalyticsMgr {
 
     private cacheOpenid(openid: string): void {
         try {
-            sys.localStorage.setItem(LS_ANALYTICS_OPENID, openid);
+            sys.localStorage.setItem(this.analyticsStorageKey(LS_ANALYTICS_OPENID), openid);
         } catch (_) {
             // ignore storage failures
         }

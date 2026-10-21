@@ -194,7 +194,10 @@ export function installThemePanelFlowModule(target: any): void {
 
             if (unlocked) {
                 // 打开图案详情
-                if (!card.getComponent(Button)) card.addComponent(Button);
+                if (!card.getComponent(Button)) {
+                    const button = card.addComponent(Button);
+                    button.transition = Button.Transition.SCALE; button.zoomScale = 0.95; button.duration = 0.08;
+                }
                 card.targetOff(this);
                 card.on(Button.EventType.CLICK, (e: EventTouch) => {
                     e.propagationStopped = true;
@@ -208,6 +211,8 @@ export function installThemePanelFlowModule(target: any): void {
             } else {
                 card.targetOff(this);
             }
+            const cardButton = card.getComponent(Button);
+            if (cardButton) cardButton.interactable = unlocked;
 
             return { card, previewX, previewY, previewW, previewH };
         },

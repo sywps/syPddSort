@@ -1100,20 +1100,20 @@ export function installGuideLeaderboardModule(target: any): void {
             this.resetLeaderboardListState?.(listNode);
         
             const profile = UserMgr.inst.getProfile();
-            void LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
-            void this.getWeChatFriendAvatarEntries();
+            const selfEntry = await this.buildFriendSelfEntry(profile);
+            if (!box.isValid || !selfBox.isValid || !isCurrentRequest()) return;
+            this.renderLeaderboardSelfEntry(selfBox, selfEntry);
         
             if (this.getWeChatOpenDataContext()) {
                 if (!isCurrentRequest()) return;
                 this.showOpenDataCanvas(box, listNode);
             } else {
+                await LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
+                if (!box.isValid || !isCurrentRequest()) return;
                 await this.showFriendRankList(box, listNode, requestToken);
                 if (!box.isValid || !isCurrentRequest()) return;
             }
         
-            const selfEntry = await this.buildFriendSelfEntry(profile);
-            if (!box.isValid || !selfBox.isValid || !isCurrentRequest()) return;
-            this.renderLeaderboardSelfEntry(selfBox, selfEntry);
         },
     });
 }

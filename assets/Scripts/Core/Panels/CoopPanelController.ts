@@ -1,5 +1,6 @@
 import { BlockInputEvents, Button, Color, Graphics, Label, Layers, Mask, Node, ScrollView, UITransform, view } from 'cc';
 import { AppRoot } from '../AppRoot';
+import { AudioMgr } from '../AudioMgr';
 import { CoopServiceMgr } from '../CoopServiceMgr';
 import { COOP_ROUTE_REASON, coopRegionGrid, type CoopLevelData, type CoopLevelEntry, type CoopPost, type CoopRun } from '../CoopModeConfig';
 import { renderPixelPosterPreview, releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
@@ -19,7 +20,9 @@ export function coopButton(parent: Node, text: string, x: number, y: number, act
     const node = coopNode(parent, text, x, y, width, 60); const graphics = node.addComponent(Graphics);
     graphics.fillColor = new Color(purple); graphics.roundRect(-width / 2, -30, width, 60, 18); graphics.fill();
     coopText(node, text, 0, 0, 23, width - 18).color = Color.WHITE;
-    node.addComponent(Button); node.on(Button.EventType.CLICK, action); return node;
+    const button = node.addComponent(Button);
+    button.transition = Button.Transition.SCALE; button.zoomScale = 0.95; button.duration = 0.08;
+    node.on(Button.EventType.CLICK, action); return node;
 }
 
 export class CoopPanelController {
@@ -28,6 +31,7 @@ export class CoopPanelController {
     private body: Node | null = null;
     private revision = 0;
     private busy = false;
+    private activeTab: 'mine' | 'square' | 'collection' | null = null;
     constructor(private readonly runtime: any) {}
 
     getStartupInteractionState(): 'inactive' | 'loading' | 'ready' {
@@ -43,26 +47,28 @@ export class CoopPanelController {
         this.root = root; root.addComponent(BlockInputEvents);
         const bg = root.addComponent(Graphics); const visible = view.getVisibleSize();
         bg.fillColor = new Color(pale); bg.rect(-Math.max(720, visible.width) / 2, -Math.max(1280, visible.height) / 2, Math.max(720, visible.width), Math.max(1280, visible.height)); bg.fill();
-        coopText(root, '合作拼图', 0, 553, 40);
+        coopText(root, '合作拼图', 0, 553, 48).isBold = true;
         const mgr = CoopServiceMgr.inst;
         if (mgr.isLocalSimulation()) {
             coopButton(root, `本地玩家 ${mgr.localPlayer} · 切换`, -165, 501, () => {
                 if (this.busy) return;
+                AudioMgr.inst.play('button');
                 try { mgr.switchLocalPlayer(); this.open(); }
                 catch (error) { console.error('[coop] action failed', error); if (this.status) this.status.string = '暂时无法完成，请稍后再试'; }
             }, 310);
             coopButton(root, '打开模拟邀请', 165, 501, () => {
                 if (this.busy) return;
+                AudioMgr.inst.play('button');
                 const id = mgr.localInvitation();
                 if (id) void this.detail(id);
                 else if (this.status) this.status.string = '先完成半图并点击分享，再切换玩家打开邀请';
             }, 300);
         } else coopText(root, '各拼一部分，一起完成整张图', 0, 501, 23);
-        coopButton(root, '返回', -268, 554, () => { if (!this.busy) this.close(); }, 130);
-        coopButton(root, '参与记录', 258, 554, () => { if (!this.busy) void this.history(); }, 150);
+        coopButton(root, '返回', -268, 554, () => { if (!this.busy) { AudioMgr.inst.play('button'); this.close(); } }, 130);
+        coopButton(root, '参与记录', 258, 554, () => { if (!this.busy) { AudioMgr.inst.play('button'); void this.history(); } }, 150);
         for (const [i, item] of (['mine', 'square'] as const).entries()) {
             coopButton(root, ['我的合作', '合作广场'][i], (i - 0.5) * 330, 431, () => {
-                if (!this.busy) void this.navigate(item);
+                if (!this.busy && this.activeTab !== item) { AudioMgr.inst.play('button'); void this.navigate(item); }
             }, 310);
         }
         this.body = coopNode(root, 'Content', 0, 0, 680, 740);
@@ -77,16 +83,17 @@ export class CoopPanelController {
     }
 
     private reset(): number {
+        this.activeTab = null;
         this.revision++;
         if (this.body) { releasePixelPosterPreviewTree(this.body); for (const child of this.body.children.slice()) { child.removeFromParent(); child.destroy(); } }
         return this.revision;
     }
 
-    private async perform(work: () => Promise<void>): Promise<void> {
+    private async perform(work: () => Promise<void>, successMessage = '', pendingMessage = '正在加载…', failureMessage = '暂时无法加载，请稍后再试'): Promise<void> {
         if (this.busy || !this.root?.isValid) return;
-        this.busy = true; if (this.status) this.status.string = '正在加载…';
-        try { await work(); if (this.status?.isValid) this.status.string = ''; }
-        catch (error) { console.error('[coop] load failed', error); if (this.status?.isValid) this.status.string = '暂时无法加载，请稍后再试'; }
+        this.busy = true; if (this.status) this.status.string = pendingMessage;
+        try { await work(); if (this.status?.isValid) this.status.string = successMessage; }
+        catch (error) { this.activeTab = null; console.error('[coop] load failed', error); if (this.status?.isValid) this.status.string = failureMessage; }
         finally { this.busy = false; }
     }
 
@@ -159,6 +166,7 @@ export class CoopPanelController {
     private async navigate(tab: 'mine' | 'square' | 'collection'): Promise<void> {
         await this.perform(async () => {
             const rev = this.reset(); const mgr = CoopServiceMgr.inst;
+            this.activeTab = tab;
             const catalog = await mgr.catalog(this.runtime);
             if (rev !== this.revision) return;
             if (tab === 'square') {
@@ -168,7 +176,7 @@ export class CoopPanelController {
                 }, async (row, post) => {
                     await this.picture(row, post.levelId, -225, 0, 135, 125, false, true);
                     coopText(row, `${post.creatorName} 已完成自己的部分`, 75, 26, 23, 420);
-                    coopButton(row, '帮他完成', 80, -34, () => void this.detail(post.id), 260);
+                    coopButton(row, '帮他完成', 80, -34, () => { if (this.busy) return; AudioMgr.inst.play('button'); void this.detail(post.id); }, 260);
                 }, '还没有半成品，先发起一张吧');
                 return;
             }
@@ -176,8 +184,8 @@ export class CoopPanelController {
             if (rev !== this.revision) return;
             if (tab === 'mine') {
                 coopText(this.body!, '自己最多发起 1 张，同时协助 1 张', 0, 350, 21);
-                if (overview.activeCreated) coopButton(this.body!, '继续我的合作', -165, 295, () => void this.detail(overview.activeCreated!), 300);
-                if (overview.activeJoined) coopButton(this.body!, '继续帮忙拼图', 165, 295, () => void this.detail(overview.activeJoined!), 300);
+                if (overview.activeCreated) coopButton(this.body!, '继续我的合作', -165, 295, () => { if (this.busy) return; AudioMgr.inst.play('button'); void this.detail(overview.activeCreated!); }, 300);
+                if (overview.activeJoined) coopButton(this.body!, '继续帮忙拼图', 165, 295, () => { if (this.busy) return; AudioMgr.inst.play('button'); void this.detail(overview.activeJoined!); }, 300);
             } else coopText(this.body!, `已收藏 ${catalog.filter(e => overview.unlocked[e.collectionId]).length} / ${catalog.length}`, 0, 350, 25);
             await this.scrollList<CoopLevelEntry>(250, 740, 2, 280, async cursor => {
                 const offset = Number(cursor) || 0, end = offset + 6;
@@ -188,6 +196,8 @@ export class CoopPanelController {
                 await this.picture(card, entry.levelId, 0, 25, 260, 175, !unlocked);
                 coopText(card, `${entry.name} · ${entry.beanCount}颗`, 0, -75, 19, 310);
                 coopButton(card, tab === 'collection' ? (unlocked ? '查看图案' : '合作后解锁') : '发起合作', 0, -121, () => {
+                    if (this.busy || (tab === 'collection' && !unlocked)) return;
+                    AudioMgr.inst.play('button');
                     if (tab === 'collection') { if (unlocked) void this.showPattern(entry); }
                     else void this.create(entry);
                 }, 230);
@@ -205,6 +215,8 @@ export class CoopPanelController {
             coopText(this.body!, `${post.creatorName} 的合作图案`, 0, -45, 28);
             coopText(this.body!, run?.status === 'complete' ? (isCreator && !post.completedCount ? '你的部分已完成，等待伙伴解锁图鉴' : '已完成') : '各拼一部分，完成后获得完整图鉴', 0, -101, 22);
             if (!run || run.status === 'playing') coopButton(this.body!, run ? '开始拼图' : '开始帮忙', 0, -177, () => {
+                if (this.busy) return;
+                AudioMgr.inst.play('button');
                 void this.perform(async () => {
                     const joined = run ? { post, run } : await mgr.call<{ post: CoopPost; run: CoopRun }>('join', { postId });
                     await this.start(joined.post, joined.run);
@@ -212,17 +224,29 @@ export class CoopPanelController {
             }, 360);
             if (isCreator && post.creatorDone) {
                 coopButton(this.body!, '邀请好友来拼', -165, -177, () => { try {
+                    if (this.busy) return;
+                    AudioMgr.inst.play('button');
                     mgr.share(post);
                     if (mgr.isLocalSimulation()) this.status!.string = '模拟邀请已生成，切换玩家后打开邀请';
                 } catch (e) { console.error('[coop] action failed', e); this.status!.string = '暂时无法完成，请稍后再试'; } }, 300);
                 const publishButton = coopButton(this.body!, post.published ? '从广场撤下' : '发布到广场', 165, -177, () => {
+                    if (this.busy) return;
+                    AudioMgr.inst.play('button');
+                    const publishing = !post.published;
+                    const button = publishButton.getComponent(Button)!;
+                    const text = publishButton.getChildByName('Text')?.getComponent(Label);
+                    button.interactable = false;
+                    if (text) text.string = publishing ? '发布中…' : '撤下中…';
                     void this.perform(async () => {
-                        await mgr.call('publish', { postId, published: !post.published }); post.published = !post.published;
-                        const text = publishButton.getChildByName('Text')?.getComponent(Label);
-                        if (text) text.string = post.published ? '从广场撤下' : '发布到广场';
+                        await mgr.call('publish', { postId, published: publishing }); post.published = publishing;
+                        this.runtime.showToast?.(publishing ? '发布成功，等待伙伴来拼' : '已从合作广场撤下', 3);
+                    }, publishing ? '发布成功！已进入合作广场，等待伙伴来拼' : '已从合作广场撤下',
+                    publishing ? '正在发布到合作广场…' : '正在从合作广场撤下…', '操作失败，请点击重试').finally(() => {
+                        if (text?.isValid) text.string = post.published ? '从广场撤下' : '发布到广场';
+                        if (button.isValid) button.interactable = true;
                     });
                 }, 300);
-                coopButton(this.body!, '查看完成 / 未完成人员', 0, -255, () => void this.participants(postId), 450);
+                coopButton(this.body!, '查看完成 / 未完成人员', 0, -255, () => { if (this.busy) return; AudioMgr.inst.play('button'); void this.participants(postId); }, 450);
             }
             if (run?.status === 'complete') coopText(this.body!, `完成用时 ${Math.floor(run.elapsedMs / 1000)} 秒\n完成于 ${new Date(run.completedAt!).toLocaleString()}`, 0, -345, 20);
             else coopText(this.body!, '中途退出后需重新开始自己的部分', 0, -345, 20);
@@ -261,7 +285,7 @@ export class CoopPanelController {
                 return { items: result.runs, next: result.next };
             }, async (row, run) => {
                 coopButton(row, `${run.role === 'creator' ? '我发起' : '我参与'} · ${run.status === 'complete' ? '已完成' : '未完成'}`,
-                    0, 0, () => void this.detail(run.postId), 310);
+                    0, 0, () => { if (this.busy) return; AudioMgr.inst.play('button'); void this.detail(run.postId); }, 310);
             }, '还没有参与记录');
         });
     }

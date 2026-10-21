@@ -43,8 +43,8 @@ const controller = read('assets/Scripts/Core/GameplayResultPanelController.ts');
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 
 assert.ok(controller.includes("const REVIVE_HOLD_TO_PEEK_HINT_NAME = 'HoldToPeekHint';"));
-assert.ok(controller.includes('const REVIVE_HOLD_TO_PEEK_DURATION_SECONDS = 0.18;'));
-assert.ok(controller.includes('const REVIVE_HOLD_TO_PEEK_DELAY_SECONDS = 0.5;'));
+assert.ok(controller.includes('const REVIVE_HOLD_TO_PEEK_DURATION_SECONDS = 0.08;'));
+assert.ok(controller.includes('const REVIVE_HOLD_TO_PEEK_DELAY_SECONDS = 0.25;'));
 assert.ok(
     controller.includes("new Set(['ContinueBtn', 'ShareBtn', 'CloseBtn', 'GiveUpBtn'])"),
     'all revive CTA roots must be excluded from the peek gesture',
@@ -119,7 +119,7 @@ const Harness = new Function('Tween', 'tween', 'Node', 'Label', 'UIOpacity',
     'REVIVE_HOLD_TO_PEEK_DELAY_SECONDS', 'REVIVE_HOLD_TO_PEEK_INTERACTIVE_NODE_NAMES',
     compiledPeek + '; return PeekHarness;')(
     TweenMock, tweenMock, { EventType: { TOUCH_START: 'start', TOUCH_END: 'end', TOUCH_CANCEL: 'cancel' } },
-    class Label {}, class UIOpacity {}, 'HoldToPeekHint', .18, .5,
+    class Label {}, class UIOpacity {}, 'HoldToPeekHint', .08, .25,
     new Set(['ContinueBtn', 'ShareBtn', 'CloseBtn', 'GiveUpBtn']),
 );
 const boxOpacity = { opacity: 255, isValid: true };
@@ -132,19 +132,19 @@ const overlay = { isValid: true, activeInHierarchy: true,
 new Harness().bindReviveHoldToPeek(overlay, box);
 const touch = target => ({ target, propagationStopped: false });
 handlers.start(touch(box));
-advance(.49);
+advance(.24);
 assert.equal(boxOpacity.opacity, 255, 'short touch must not hide the panel');
 handlers.end(touch(box));
 advance(1);
 assert.equal(boxOpacity.opacity, 255, 'release must cancel delayed peek');
 handlers.start(touch(box));
-advance(.5);
-assert.ok(jobs.some(job => !job.cancelled && job.target === boxOpacity), 'fade must begin after 0.5 seconds');
-advance(.19);
+advance(.25);
+assert.ok(jobs.some(job => !job.cancelled && job.target === boxOpacity), 'fade must begin after 0.25 seconds');
+advance(.08);
 assert.equal(boxOpacity.opacity, 0);
 assert.equal(shadeOpacity.opacity, 0);
 handlers.end(touch(box));
-advance(.19);
+advance(.08);
 assert.equal(boxOpacity.opacity, 255);
 for (const name of ['ContinueBtn', 'ShareBtn', 'CloseBtn']) {
     handlers.start(touch({ name, parent: box }));

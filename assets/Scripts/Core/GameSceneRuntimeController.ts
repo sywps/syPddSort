@@ -24,49 +24,41 @@ import { runtimeWarn } from './RuntimeLog';
 import { markStartupTrace, recordStartupDiagnostic, reportWeChatStartupPlayable } from './StartupTrace';
 import { resolveStartupRouteDecision } from './StartupRouteService';
 import type { PendingGameplayRequest } from './AppSession';
-import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
+import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime, isMiniGameRuntime } from './MiniGamePlatform';
 
 let weChatUpdateManagerBound = false;
 
 function bindWeChatUpdateManagerOnce(): void {
     if (weChatUpdateManagerBound || !isWeChatMiniGameRuntime()) return;
-    const wxRuntime = getWeChatMiniGameRuntime();
-    const updateManager = typeof wxRuntime?.getUpdateManager === 'function'
-        ? wxRuntime.getUpdateManager()
-        : null;
-    if (!updateManager) return;
-    weChatUpdateManagerBound = true;
+    const report = (eventName: string, success: boolean, error?: unknown) => {
+        try {
+            AnalyticsMgr.inst.trackFunnelEvent({ eventName, source: 'wechat_update', success,
+                errorCode: success ? '' : eventName, errorMessage: error ? String(error) : '' });
+        } catch (reportError) { console.warn('[MiniGameUpdate] telemetry failed:', reportError); }
+    };
     try {
+        const wxRuntime = getWeChatMiniGameRuntime();
+        const updateManager = typeof wxRuntime?.getUpdateManager === 'function'
+            ? wxRuntime.getUpdateManager()
+            : null;
+        if (!updateManager) return;
+        weChatUpdateManagerBound = true;
         if (typeof updateManager.onUpdateReady === 'function') {
             updateManager.onUpdateReady(() => {
-                const applyUpdate = () => {
-                    try {
-                        updateManager.applyUpdate();
-                    } catch (error) {
-                        console.error('[MiniGameUpdate] applyUpdate failed:', error);
-                    }
-                };
-                if (typeof wxRuntime.showModal === 'function') {
-                    wxRuntime.showModal({
-                        title: '请重启小游戏',
-                        content: '资源更新中',
-                        showCancel: false,
-                        confirmText: '立即重启',
-                        success: applyUpdate,
-                        fail: applyUpdate,
-                    });
-                } else {
-                    applyUpdate();
-                }
+                // WeChat applies the downloaded package on the next cold launch.
+                // Never restart an active game just because an update is ready.
+                report('wechat_update_deferred', true);
             });
         }
         if (typeof updateManager.onUpdateFailed === 'function') {
             updateManager.onUpdateFailed(() => {
                 console.error('[MiniGameUpdate] update package failed');
+                report('wechat_update_failed', false);
             });
         }
     } catch (error) {
         console.error('[MiniGameUpdate] bind failed:', error);
+        report('wechat_update_bind_failed', false, error);
     }
 }
 
@@ -125,6 +117,7 @@ export class GameSceneRuntimeController {
         void this.startGameSceneRuntime().catch((error) => {
             console.error('[StartupLoading] game startup failed:', error);
             if (!this.runtime.node?.isValid) return;
+            if (this.runtime.recoverWeChatFailedEntry?.('startup_failed', String(error))) return;
             const loading = AppRoot.tryGet()?.startupLoading;
             try {
                 if (loading?.node.active) loading.fail('游戏初始化失败');
@@ -193,29 +186,32 @@ export class GameSceneRuntimeController {
     }
 
     private async finishHomePresentation(appRoot: AppRoot): Promise<void> {
-        // A cloud restore can replace the chapter while its first batch is loading.
+        if (!this.runtime.node?.isValid) return;
+        // Recheck after drawing too: restoration can replace a batch in this gap.
         let batch: Promise<Error | null>;
         let error: Error | null;
         do {
             batch = this.runtime._homeChapterReady;
             error = batch ? await batch : new Error('首页图案加载任务缺失');
             if (!this.runtime.node?.isValid) return;
+            await new Promise<void>(resolve => director.once(Director.EVENT_AFTER_DRAW, resolve));
+            if (!this.runtime.node?.isValid) return;
         } while (batch !== this.runtime._homeChapterReady);
         if (error) {
             console.error('[home-chapter] Home preparation failed', error);
             this.runtime.showRemoteLoadFatalError('home', 'home_artwork_load_failed', error.message);
         }
-        // Both the startup cover and the route transition wait for an actual draw.
-        director.once(Director.EVENT_AFTER_DRAW, () => {
-            if (!this.runtime.node?.isValid) return;
-            appRoot.homePresentationReady = !error;
+        appRoot.homePresentationReady = !error;
+        if (!error && isMiniGameRuntime()) {
+            appRoot.startupLoading?.finishAfterDraw(() => {});
+        } else {
             appRoot.startupLoading?.hide();
-            this.runtime.scheduleOnce(reveal, 0);
-        });
+        }
         appRoot.completeAppTransitionAfterDraw('Home', error);
         const reveal = () => {
             if (!this.runtime.node?.isValid) return;
-            if (appRoot.isAppTransitionTargeting('Home')) {
+            if (appRoot.isAppTransitionTargeting('Home')
+                || (isMiniGameRuntime() && appRoot.startupLoading?.node.active)) {
                 this.runtime.scheduleOnce(reveal, 0);
                 return;
             }
@@ -224,6 +220,7 @@ export class GameSceneRuntimeController {
             if (!error) ensureGameplayVoiceController(this.runtime).homeShown();
             this.observeStartupPlayable('Home');
         };
+        this.runtime.scheduleOnce(reveal, 0);
     }
 
     startBootSceneRuntime(): void {
@@ -466,6 +463,10 @@ export class GameSceneRuntimeController {
         this.runtime.disposeProfilePanel?.();
         this.runtime._rewardedAdStateUnsubscribe?.();
         this.runtime._rewardedAdStateUnsubscribe = null;
+        this.runtime._douyinSidebarUnsubscribe?.();
+        this.runtime._douyinSidebarUnsubscribe = null;
+        this.runtime._douyinSidebarGuideTouchCleanup?.();
+        this.runtime._douyinSidebarGuideTouchCleanup = null;
         debugPerfSnapshot('runtime.destroy.before', this.runtime, {
             sceneName,
         });

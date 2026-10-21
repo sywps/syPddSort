@@ -3,11 +3,13 @@
 const fs = require('fs');
 const path = require('path');
 const ts = require('typescript');
-const { BoardModel } = require('../cloudfunctions/pvpService/bot-runtime/BoardModel');
-const { PchConveyorRules } = require('../cloudfunctions/pvpService/bot-runtime/PchConveyorRules');
-const geometry = require('../cloudfunctions/pvpService/bot-runtime/PchConveyorGeometry');
-const { pixelLevelHash } = require('../cloudfunctions/pvpService/bot-runtime/PvpBotReplay');
-const { HUMAN_REPLAY_PROTOCOL } = require('../cloudfunctions/pvpService/bot-runtime/PvpHumanReplay');
+const runtimeRoot = path.join(__dirname, process.env.PDD_REPLAY_TEST_PLATFORM === 'douyin'
+  ? '../cloudfunctions-douyin/multiplayer/pvp/bot-runtime' : '../cloudfunctions/pvpService/bot-runtime');
+const { BoardModel } = require(path.join(runtimeRoot, 'BoardModel'));
+const { PchConveyorRules } = require(path.join(runtimeRoot, 'PchConveyorRules'));
+const geometry = require(path.join(runtimeRoot, 'PchConveyorGeometry'));
+const { pixelLevelHash } = require(path.join(runtimeRoot, 'PvpBotReplay'));
+const { HUMAN_REPLAY_PROTOCOL } = require(path.join(runtimeRoot, 'PvpHumanReplay'));
 class Vector { constructor(x = 0, y = 0, z = 0) { Object.assign(this, { x, y, z }); } clone() { return new Vector(this.x, this.y, this.z); } }
 const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/PchConveyorGameplayController.ts'), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
@@ -30,10 +32,14 @@ new Function('module', 'exports', 'require', code)(loaded, loaded.exports, id =>
   if (id.endsWith('PchConveyorGeometry')) return geometry;
   if (id.endsWith('PchConveyorRules')) return { PchConveyorRules };
   if (id.endsWith('AppRoot')) return { AppRoot: { tryGet: () => null } };
-  if (id.endsWith('AnalyticsMgr')) return { AnalyticsMgr: { inst: {} } };
-  if (id.endsWith('GameCtrlShared')) return new Proxy({ Vec2: Vector, Vec3: Vector,
+  if (id.endsWith('AnalyticsMgr')) return { AnalyticsMgr: { inst: { getCurrentRoundId: () => '', isCollectionEnabled: () => false } } };
+  if (id.endsWith('GameCtrlShared')) return new Proxy({ Vec2: Vector, Vec3: Vector, Color: Vector,
     AudioMgr: { inst: { play() {}, vibratePlace() {} } } }, { get: (target, key) => target[key] || class {} });
   if (id.endsWith('OpeningPatternTransition')) return {};
+  if (id === './FirstLevelContent') return { getFirstLevelContent: () => 'A' };
+  if (id === './DebugPerfTrace') return { collectActiveBlockInputEvents: () => [] };
+  if (id === './CsdInteractionMonitor') return { CsdInteractionMonitor: class {} };
+  if (id === './GuideCorgiBubble') return { createGuideCorgiBubble() { throw Error('PVP fixture must not render tutorial'); } };
   throw new Error(`unmocked fixture dependency ${id}`);
 });
 function controllerReplay(level, { timeout = false, frameMs = 50, speedUpAtMs = 1000 } = {}) {

@@ -1,6 +1,7 @@
 import {
     AudioMgr,
     BlockInputEvents,
+    Button,
     Bundle,
     COLLECTION_TEXTURE_NAMES,
     Color,
@@ -13,6 +14,7 @@ import {
     instantiate,
 } from '../GameCtrlShared';
 import { CoopServiceMgr } from '../CoopServiceMgr';
+import { isCreatorWeb } from '../CreatorWeb';
 
 type CollectionTab = 'main' | 'theme' | 'coop';
 
@@ -56,13 +58,13 @@ function createCollectionTabs(box: Node, runtime: any): void {
             statusLabel.string = '正在读取合作图鉴…';
             try {
                 const [catalog, result] = await Promise.all([
-                    CoopServiceMgr.inst.catalog(runtime), CoopServiceMgr.inst.overview(),
+                    CoopServiceMgr.inst.catalog(runtime), isCreatorWeb() ? null : CoopServiceMgr.inst.overview(),
                 ]);
                 const levels = await Promise.all(catalog.map(entry => CoopServiceMgr.inst.fullLevel(runtime, entry.levelId)));
                 if (!root.isValid || request !== requestId) return;
                 runtime._collectionCoopEntries = catalog.map((entry, index) => ({
                     ...entry, prefix: 'coop_level_', unlockLevel: 0,
-                    unlocked: !!result.overview.unlocked[entry.collectionId],
+                    unlocked: !!result?.overview.unlocked[entry.collectionId],
                     grid: levels[index].correctColorArr,
                 }));
             } catch (error) {
@@ -87,7 +89,7 @@ function createCollectionTabs(box: Node, runtime: any): void {
     };
     tabs.forEach((tab) => {
         const node = runtime.requirePanelChild(root, `CollectionTab_${tab.key}`);
-        node.on(Node.EventType.TOUCH_END, () => {
+        node.on(Button.EventType.CLICK, () => {
             AudioMgr.inst.play('button');
             void selectTab(tab.key);
         }, runtime);

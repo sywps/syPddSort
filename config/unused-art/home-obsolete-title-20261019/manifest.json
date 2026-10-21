@@ -1,0 +1,159 @@
+{
+  "status": "moved_and_verified",
+  "backup": "config/unused-art/home-obsolete-title-20261019",
+  "title": {
+    "path": "assets/HomeAssetsBundle/GameUI/主页标题.png",
+    "uuid": "f7446f73-3160-35a9-ff10-9a1c6940e181",
+    "compact": "f7RG9zMWA1qf8QmhxpQOGB",
+    "bytes": 41081,
+    "sha256": "0a19dd5f9de7ee923ce3ab1b84b0c9a7dd3fd41efee438bcb48e5cd40609aed2",
+    "meta_sha256": "e70e3b52806477eee5cc0d4486dbbfc155bcc6e36eadd45b8359bea7e183c4e8",
+    "references": [
+      {
+        "path": "assets/HomeAssetsBundle/Scenes/Home.scene",
+        "matches": [
+          "f7446f73-3160-35a9-ff10-9a1c6940e181"
+        ]
+      }
+    ],
+    "builds": [
+      {
+        "path": "build/wechatgame/minigame/subpackages/homeAssets/config.6a6ed.json",
+        "config_reference": true
+      },
+      {
+        "path": "build/wechatgame/minigame/subpackages/homeAssets/config.json",
+        "config_reference": true
+      },
+      {
+        "path": "build/wechatgame/minigame/subpackages/homeAssets/import/04/04a2fe046.d55bf.json",
+        "config_reference": true
+      },
+      {
+        "path": "build/wechatgame/minigame/subpackages/homeAssets/import/05/0518846da.10f2f.json",
+        "config_reference": true
+      },
+      {
+        "path": "build/wechatgame/minigame/subpackages/homeAssets/import/d6/d6c69f93-4a5b-4f03-9c1f-aa42a1b0d8ec.json",
+        "config_reference": true
+      },
+      {
+        "path": "build/wechatgame/minigame/subpackages/homeAssets/import/f7/f7446f73-3160-35a9-ff10-9a1c6940e181.a2533.json",
+        "bytes": 72,
+        "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+      },
+      {
+        "path": "build/wechatgame/minigame/subpackages/homeAssets/import/f7/f7446f73-3160-35a9-ff10-9a1c6940e181.json",
+        "bytes": 230,
+        "sha256": "f65fa1e596af4e273382901ce2b1fa670c05d9497b058dc760a1905d6a42cf58"
+      },
+      {
+        "path": "build/wechatgame/minigame/subpackages/homeAssets/import/f7/f7446f73-3160-35a9-ff10-9a1c6940e181@6c48a.json",
+        "bytes": 384,
+        "sha256": "846f2f427fdebeb4dc676c915026bc5f68ec9320682ad04f3aff2d0a2b8a454e"
+      },
+      {
+        "path": "build/wechatgame/minigame/subpackages/homeAssets/import/f7/f7446f73-3160-35a9-ff10-9a1c6940e181@f9941.json",
+        "bytes": 2432,
+        "sha256": "97c5eb12bb2ef2a0cc4169a15d036cb5ecd8b78b58fd1dd6b74abb45f568582b"
+      },
+      {
+        "path": "build/wechatgame/minigame/subpackages/homeAssets/native/f7/f7446f73-3160-35a9-ff10-9a1c6940e181.33ed7.png",
+        "bytes": 41081,
+        "sha256": "0a19dd5f9de7ee923ce3ab1b84b0c9a7dd3fd41efee438bcb48e5cd40609aed2"
+      },
+      {
+        "path": "build/wechatgame-staging/minigame/subpackages/homeAssets/config.6a6ed.json",
+        "config_reference": true
+      },
+      {
+        "path": "build/wechatgame-staging/minigame/subpackages/homeAssets/config.json",
+        "config_reference": true
+      },
+      {
+        "path": "build/wechatgame-staging/minigame/subpackages/homeAssets/import/04/04a2fe046.d55bf.json",
+        "config_reference": true
+      },
+      {
+        "path": "build/wechatgame-staging/minigame/subpackages/homeAssets/import/05/0518846da.10f2f.json",
+        "config_reference": true
+      },
+      {
+        "path": "build/wechatgame-staging/minigame/subpackages/homeAssets/import/d6/d6c69f93-4a5b-4f03-9c1f-aa42a1b0d8ec.json",
+        "config_reference": true
+      },
+      {
+        "path": "build/wechatgame-staging/minigame/subpackages/homeAssets/import/f7/f7446f73-3160-35a9-ff10-9a1c6940e181.a2533.json",
+        "bytes": 72,
+        "sha256": "60928632edcd22b5694a8c22de01de0d2cbb6f374103242a99a4394cc767f44d"
+      },
+      {
+        "path": "build/wechatgame-staging/minigame/subpackages/homeAssets/import/f7/f7446f73-3160-35a9-ff10-9a1c6940e181.json",
+        "bytes": 230,
+        "sha256": "f65fa1e596af4e273382901ce2b1fa670c05d9497b058dc760a1905d6a42cf58"
+      },
+      {
+        "path": "build/wechatgame-staging/minigame/subpackages/homeAssets/import/f7/f7446f73-3160-35a9-ff10-9a1c6940e181@6c48a.json",
+        "bytes": 384,
+        "sha256": "846f2f427fdebeb4dc676c915026bc5f68ec9320682ad04f3aff2d0a2b8a454e"
+      },
+      {
+        "path": "build/wechatgame-staging/minigame/subpackages/homeAssets/import/f7/f7446f73-3160-35a9-ff10-9a1c6940e181@f9941.json",
+        "bytes": 2432,
+        "sha256": "97c5eb12bb2ef2a0cc4169a15d036cb5ecd8b78b58fd1dd6b74abb45f568582b"
+      },
+      {
+        "path": "build/wechatgame-staging/minigame/subpackages/homeAssets/native/f7/f7446f73-3160-35a9-ff10-9a1c6940e181.33ed7.png",
+        "bytes": 41081,
+        "sha256": "0a19dd5f9de7ee923ce3ab1b84b0c9a7dd3fd41efee438bcb48e5cd40609aed2"
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "assets/HomeAssetsBundle/GameUI/主页标题.png",
+      "backup": "config/unused-art/home-obsolete-title-20261019/original-active/assets/HomeAssetsBundle/GameUI/主页标题.png",
+      "sha256": "0a19dd5f9de7ee923ce3ab1b84b0c9a7dd3fd41efee438bcb48e5cd40609aed2",
+      "bytes": 41081
+    },
+    {
+      "path": "assets/HomeAssetsBundle/GameUI/主页标题.png.meta",
+      "backup": "config/unused-art/home-obsolete-title-20261019/original-active/assets/HomeAssetsBundle/GameUI/主页标题.png.meta",
+      "sha256": "e70e3b52806477eee5cc0d4486dbbfc155bcc6e36eadd45b8359bea7e183c4e8",
+      "bytes": 3121
+    },
+    {
+      "path": "assets/HomeAssetsBundle/Scenes/Home.scene",
+      "backup": "config/unused-art/home-obsolete-title-20261019/original-active/assets/HomeAssetsBundle/Scenes/Home.scene",
+      "sha256": "368c5ec9a9a289d9951310eafcae6e463a1153405b89f8c320e49feef4abef65",
+      "bytes": 390838
+    }
+  ],
+  "kept": [
+    {
+      "path": "assets/HomeAssetsBundle/GameUI/爱心框.png",
+      "uuid": "8885ec69-f7f4-bb71-8fd7-e110a5061a63",
+      "sha256": "90b9a82a4e71bf25fd8a6523f9a4469ee9cc7247a493cc2af849fc14a2c656b2",
+      "meta_sha256": "7fe8d4925f332181d9411bdbb2b2da42e9a78138586bed444f4cca8402167c4f",
+      "reason": "Runtime-loaded TopHud.prefab dependency"
+    },
+    {
+      "path": "assets/HomeAssetsBundle/GameUI/金币框 (2).png",
+      "uuid": "47b2f68a-ec42-b2e7-59e3-7ceba831b196",
+      "sha256": "c431493e2c661631d272dc38948b850ad2cf480d8e9a9a077f5aad88e8f6dcf1",
+      "meta_sha256": "bf61dffcca57dbf56a19fd414675f08736032bcff120ad7305a1f20e41183a28",
+      "reason": "Runtime-loaded TopHud.prefab dependency"
+    }
+  ],
+  "scene_after_sha256": "3ffd816c3ae1bfff50ec47958e05ac944b67ab6fb82a3c694726ccab2427e543",
+  "source_collector_excludes_title": true,
+  "build_verified": {
+    "platform": "wechat",
+    "slot": "A",
+    "exit_code": 0,
+    "ended": "2026-10-19T07:25:51.332Z",
+    "title_excluded": true,
+    "used_hud_retained": true,
+    "final_artifact": "build/wechatgame"
+  }
+}

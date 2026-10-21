@@ -10,6 +10,7 @@ class UITransform {
 }
 class Sprite { static SizeMode = { CUSTOM: 0 }; }
 class Mask {}
+class Widget { static AlignMode = { ALWAYS: 2 }; updateAlignment() {} }
 class Color {}
 class Graphics {
     clear() {} rect() {} fill() {} moveTo() {} lineTo() {} close() {}
@@ -20,12 +21,13 @@ class Node {
     constructor(name) { this.name = name; this.children = []; this.components = []; this.isValid = true; this.active = true; }
     getChildByName(name) { return this.children.find(child => child.name === name); }
     getChildByPath(path) { return path.split('/').reduce((node, name) => node?.getChildByName(name), this); }
-    addChild(child) { this.children.push(child); }
+    addChild(child) { if (child.parent) child.parent.children = child.parent.children.filter(n => n !== child); child.parent = this; this.children.push(child); }
     getComponent(type) { return this.components.find(c => c instanceof type); }
     addComponent(type) { const c = new type(); c.node = this; this.components.push(c); return c; }
     setPosition(...p) { this.position = p; }
     setScale(...s) { this.scale = s; }
     once(event, fn) { this.onDestroy = fn; }
+    on() {}
     destroy() { this.isValid = false; this.children.forEach(c => c.destroy()); this.onDestroy?.(); }
 }
 const records = JSON.parse(fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/UI/Prefabs/Panels/LeaderboardPanel.prefab')));
@@ -47,7 +49,7 @@ const prefab = { data: deserialize(records[0].data.__id__), addRef() { refs++; }
 const pending = new Map();
 const cache = new Map();
 const warnings = [];
-const shared = { Node, UITransform, Sprite, Mask, Color, Graphics, Label, BlockInputEvents: class {},
+const shared = { Node, UITransform, Sprite, Mask, Color, Graphics, Label, Widget, BlockInputEvents: class {},
     Layers: { Enum: { UI_2D: 1 } }, Prefab: class {}, instantiate: node => deserialize(node.recordIndex),
     leaderboardAvatarPendingLoads: pending, leaderboardAvatarFrameCache: cache };
 function load(file, imports) {
@@ -63,6 +65,8 @@ load('GameCtrlModules/CollectionAvatarModule.ts', { '../GameCtrlShared': shared 
 let scheduled;
 let routed = false;
 load('GameCtrlModules/PvpModeModule.ts', {
+    cc: { view: { getVisibleSize: () => ({ width: 720, height: 1280 }) },
+        sys: { getSafeAreaRect: () => ({ x: 0, y: 0, width: 720, height: 1280 }) } },
     '../GameCtrlShared': shared,
     '../PvpModeConfig': { isPixelPvpMatch: () => true },
     '../AppRoot': { AppRoot: { tryGet: () => ({ markGameRequested() {}, router: { toGame() { routed = true; return Promise.resolve(); } } }) } },
@@ -72,10 +76,10 @@ const parent = new Node('Overlay');
 pending.set('slow', []);
 runtime.showPvpOpponentReveal(parent, { self: { displayName: 'Self', avatarUrl: '' }, opponent: { displayName: 'Opponent', avatarUrl: 'slow' } });
 const reveal = parent.getChildByName('PvpOpponentReveal');
-assert.ok(reveal.getChildByName('Ready'), 'reveal must finish constructing with a pending portrait');
+assert.ok(reveal.getChildByPath('ResponsiveContent/Ready'), 'reveal must finish constructing with a pending portrait');
 assert.strictEqual(refs, 2);
-const portrait = reveal.getChildByPath('OpponentAvatar/LeaderboardAvatar');
-assert.strictEqual(portrait.scale[0], 58 / 56);
+const portrait = reveal.getChildByPath('ResponsiveContent/OpponentAvatar/LeaderboardAvatar');
+assert.strictEqual(portrait.scale[0], 58 / portrait.getComponent(UITransform).contentSize.width);
 assert.ok(portrait.getChildByPath('AvatarMask/AvatarDefault').getComponent(Sprite).spriteFrame);
 pending.get('slow')[0](null);
 assert.strictEqual(portrait.getChildByPath('AvatarMask/AvatarDefault').active, true);
@@ -89,7 +93,7 @@ assert.strictEqual(portrait.getChildByPath('AvatarMask/AvatarSpriteNode').active
 const host = new Node('HudAvatar');
 cache.set('wide', { rect: { width: 200, height: 100 } });
 runtime.mountLeaderboardAvatar('wide', host, 86);
-assert.strictEqual(host.children[0].scale[0], 86 / 56);
+assert.strictEqual(host.children[0].scale[0], 86 / host.children[0].getComponent(UITransform).contentSize.width);
 assert.strictEqual(host.getChildByPath('LeaderboardAvatar/AvatarMask/AvatarDefault').active, false);
 host.destroy();
 let finish;

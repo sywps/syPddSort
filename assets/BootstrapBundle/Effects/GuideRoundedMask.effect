@@ -18,6 +18,7 @@ CCEffect %{
       properties:
         holeRect: { value: [0, 0, 100, 30] }
         holeStyle: { value: [16, 1.5, 0, 0] }
+        badgeRect: { value: [0, 0, 0, 0] }
 }%
 
 CCProgram guide-vs %{
@@ -42,12 +43,19 @@ CCProgram guide-fs %{
   uniform GuideMask {
     vec4 holeRect;
     vec4 holeStyle;
+    vec4 badgeRect;
   };
   vec4 frag () {
     float radius = min(holeStyle.x, min(holeRect.z, holeRect.w));
     vec2 q = abs(v_position - holeRect.xy) - holeRect.zw + radius;
     float distanceToHole = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
     float coverage = smoothstep(0.0, max(holeStyle.y, 0.001), distanceToHole);
+    if (badgeRect.z > 0.0 && badgeRect.w > 0.0) {
+      float badgeRadius = min(4.0, min(badgeRect.z, badgeRect.w));
+      vec2 badgeQ = abs(v_position - badgeRect.xy) - badgeRect.zw + badgeRadius;
+      float badgeDistance = length(max(badgeQ, vec2(0.0))) + min(max(badgeQ.x, badgeQ.y), 0.0) - badgeRadius;
+      coverage = min(coverage, smoothstep(0.0, max(holeStyle.y, 0.001), badgeDistance));
+    }
     vec4 color = v_color;
     color.rgb *= color.a;
     return color * coverage;

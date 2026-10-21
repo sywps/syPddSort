@@ -18,12 +18,15 @@ import { LevelDataCdnService } from './LevelDataCdnService';
 import { GAMEPLAY_JUDGMENT_PRELOAD_SFX_NAMES } from './GameCtrlModules/GameplayJudgmentFeedbackModule';
 import { flushStartupTrace, markStartupTrace } from './StartupTrace';
 import { isWorkbenchPreviewRequested, WorkbenchPreviewService } from './WorkbenchPreviewService';
+import { isMiniGameRuntime } from './MiniGamePlatform';
 
 export class GameplaySessionController {
     constructor(private readonly runtime: any) {}
 
     initGame(data: LevelData, activeLevelId?: number) {
         const runtime = this.runtime;
+        AnalyticsMgr.inst.setGameplayTelemetryScope(runtime.isCoopMode?.() ? 'coop' : runtime.isRankedPvpMode?.() ? 'pvp'
+            : runtime._isThemeLevel ? 'theme' : runtime._currentExternalLevelFilePath ? 'external' : 'main');
         let initStage = 'runtime_reset';
         let resolvedLevelId = Math.max(1, Math.floor(Number(activeLevelId || data?.levelId) || 1));
         let activeLogicalLevelId = resolvedLevelId;
@@ -31,7 +34,7 @@ export class GameplaySessionController {
         let gameplayEntryMode: 'main' | 'theme' | 'external' = 'main';
         let tutorialMode: TutorialMode = 'none';
         try {
-            AudioMgr.inst.stopVoice();
+            this.runOptionalAudio('voice_stop', () => AudioMgr.inst.stopVoice());
             runtime.disposeSettingsPanel?.();
             ensureHardLevelIntroController(runtime).stop();
             ensurePchConveyorGameplayController(runtime).stop();
@@ -46,14 +49,16 @@ export class GameplaySessionController {
             runtime._gameplayResultPanelPrefabLoadSeq = (Number(runtime._gameplayResultPanelPrefabLoadSeq) || 0) + 1;
             this.clearTutorialRuntimeState(runtime);
             initStage = 'audio_init';
-            AudioMgr.inst.init(runtime.node);
-            AudioMgr.inst.preload('button');
-            AudioMgr.inst.preload('settle');
-            AudioMgr.inst.preload('conveyorEnter');
-            AudioMgr.inst.preload('conveyorReturn');
-            for (const name of GAMEPLAY_JUDGMENT_PRELOAD_SFX_NAMES) {
-                AudioMgr.inst.preload(name);
-            }
+            this.runOptionalAudio('audio_init', () => {
+                AudioMgr.inst.init(runtime.node);
+                AudioMgr.inst.preload('button');
+                AudioMgr.inst.preload('settle');
+                AudioMgr.inst.preload('conveyorEnter');
+                AudioMgr.inst.preload('conveyorReturn');
+                for (const name of GAMEPLAY_JUDGMENT_PRELOAD_SFX_NAMES) {
+                    AudioMgr.inst.preload(name);
+                }
+            });
             runtime.levelData = data;
             initStage = 'route_context';
             resolvedLevelId = runtime._isThemeLevel
@@ -69,7 +74,7 @@ export class GameplaySessionController {
             runtime._activePhysicalLevelId = resolvedLevelId;
             runtime._activeLogicalLevelId = resolvedLevelId;
             runtime._activeGameplayEntryMode = gameplayEntryMode;
-            ensureGameplayVoiceController(runtime).beginLevel();
+            this.runOptionalAudio('voice_begin', () => ensureGameplayVoiceController(runtime).beginLevel());
             activeLogicalLevelId = gameplayEntryMode === 'main'
                 ? runtime.getActiveLogicalLevelId()
                 : resolvedLevelId;
@@ -194,7 +199,9 @@ export class GameplaySessionController {
                 ddaFactor: Number(runtime._dynamicCountdownFactor) || 1,
                 ddaReason: String(runtime._dynamicCountdownReason || ''),
             }, null);
+            initStage = 'pch_core_gameplay';
             pchController.start();
+            initStage = 'level_analytics';
             AnalyticsMgr.inst.setLevelContext({
                 logicalLevelId: activeLogicalLevelId,
                 physicalLevelId: resolvedLevelId,
@@ -219,7 +226,7 @@ export class GameplaySessionController {
                     initStage = 'opening_pattern_transition';
                     pchController.playOpeningPatternShuffle();
                     runtime.reportFirstLevelReleaseState?.('after_loading_hide');
-                    AudioMgr.inst.playGameBgm();
+                    this.runOptionalAudio('bgm_play', () => AudioMgr.inst.playGameBgm());
                     const urlLevel = typeof runtime.getUrlLevel === 'function' ? runtime.getUrlLevel() : 0;
                     if (gameplayEntryMode === 'main' && urlLevel <= 0 && typeof runtime.recordMainlineLevelEntry === 'function') {
                         runtime.recordMainlineLevelEntry(activeLogicalLevelId);
@@ -275,6 +282,7 @@ export class GameplaySessionController {
                         });
                         this.reportLevelInteractionReady(runtime, analyticsLevelId, analyticsPhysicalLevelId,
                             gameplayEntryMode, tutorialMode);
+                        runtime.reportWeChatRecoveryPlayable?.();
                         runtime.reportFirstLevelReleaseState?.('interaction_ready_emitted');
                         runtime.scheduleFirstLevelReleaseDiagnostics?.();
                     };
@@ -326,6 +334,19 @@ export class GameplaySessionController {
                 tutorialMode,
             });
             throw error;
+        }
+    }
+
+    private runOptionalAudio(stage: string, action: () => void): void {
+        try { action(); }
+        catch (error) {
+            if (!isMiniGameRuntime()) throw error;
+            console.error('[GameplaySession] optional audio failed:', stage, error);
+            try {
+                AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'gameplay_audio_failed', success: false,
+                    source: 'gameplay_init', levelId: this.runtime.getActiveLogicalLevelId?.() || 0,
+                    errorCode: stage, errorMessage: String(error) });
+            } catch (reportError) { console.warn('[GameplaySession] audio telemetry failed:', reportError); }
         }
     }
 

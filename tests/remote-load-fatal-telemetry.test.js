@@ -32,6 +32,7 @@ function harness({ version = 'release', platform = 'ios', pending = { levelId: 2
         return result;
     }
     const analytics = {
+        settlement: { failTransition() {} },
         isCollectionEnabled: () => !preview && isOfficialAnalyticsRuntime({
             getAccountInfoSync: () => ({ miniProgram: { envVersion: version } }), getDeviceInfo: () => ({ platform }),
         }),
@@ -41,6 +42,7 @@ function harness({ version = 'release', platform = 'ios', pending = { levelId: 2
     const app = { session: { pendingGameplayRequest: pending, activeGameplayContext: active },
         clearRouteCover() {}, completeAppTransitionAfterDraw() {} };
     const requires = id => {
+        if (id === '../MiniGamePlatform') return { isWeChatMiniGameRuntime: () => false };
         if (id === '../GameCtrlShared') return { UITransform, Label, BlockInputEvents, Button, AnalyticsMgr: { inst: analytics } };
         if (id === '../AppRoot') return { AppRoot: { tryGet: () => app } };
         if (id === '../BrowserLevelPreview') return { getBrowserLevelPreview: () => ({ active: preview, currentLevel: 23 }) };
@@ -61,6 +63,14 @@ function harness({ version = 'release', platform = 'ios', pending = { levelId: 2
         reportLevelDataLoadDiagnostic() {}, setGameplayStartupRootVisible() {}, hideLoadingOverlay() {},
     });
     return { runtime, events, logs, nodes, Label, Button, flushes: () => flushes };
+}
+
+{
+    const h = harness();
+    h.runtime.stopLevelDataLoadWithFatalError(21, 'level_21', 'gameplay_init_failed',
+        'gameplay_init_level_analytics_failed', '[board-fit] HUD covers the initial board center');
+    assert.equal(h.nodes.get('RemoteLoadFatalErrorTitle').getComponent(h.Label).string, '游戏加载失败，请重启重试');
+    assert.equal(h.events[0].errorMessage, '[board-fit] HUD covers the initial board center');
 }
 
 // Exercise each real entry path, including faults beyond the old first-two-level gate.

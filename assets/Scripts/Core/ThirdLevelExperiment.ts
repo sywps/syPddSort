@@ -1,5 +1,5 @@
 import { PREVIEW } from 'cc/env';
-import { isMiniGameRuntime } from './MiniGamePlatform';
+import { isMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 
 export const THIRD_LEVEL_EXPERIMENT_ID = 'third_level_abc_v1';
 const STORAGE_KEY = 'pdd.third_level_abc_v1.decision';
@@ -24,6 +24,12 @@ export class ThirdLevelExperimentState {
     private storageError: Error | null = null;
     initialize(storage: Storage, official: boolean, preview: ThirdLevelBucket | null): void {
         this.storage = storage;
+        // Retire the WeChat experiment without overwriting historical assignments.
+        if (isWeChatMiniGameRuntime()) {
+            this.decision = { id: THIRD_LEVEL_EXPERIMENT_ID, status: 'excluded', content: 'A',
+                enrolledAt: 0, reason: 'experiment_retired' };
+            return;
+        }
         if (!official || preview !== null) {
             this.decision = { id: THIRD_LEVEL_EXPERIMENT_ID, status: 'test', content: preview || 'A', enrolledAt: 0, reason: 'preview' };
             return;
@@ -47,6 +53,7 @@ export class ThirdLevelExperimentState {
             || (d.status === 'enrolled' && !(d.enrolledAt > 0))) throw new Error('第三关实验分组无效');
     }
     accept(openid: string, receipt: any): void {
+        if (isWeChatMiniGameRuntime()) return;
         this.assertStorageReady();
         this.validate(receipt);
         if (!openid) throw new Error('第三关实验缺少账号标识');
@@ -65,7 +72,7 @@ export class ThirdLevelExperimentState {
     fields(): Record<string, string | number> {
         const d = this.decision;
         return d ? { thirdLevelExperimentId: d.id, thirdLevelExperimentStatus: d.status,
-            thirdLevelExperimentBucket: d.content, thirdLevelEnrolledAt: d.enrolledAt,
+            thirdLevelExperimentBucket: d.reason === 'experiment_retired' ? '' : d.content, thirdLevelEnrolledAt: d.enrolledAt,
             thirdLevelExperimentReason: d.reason } : {};
     }
 }

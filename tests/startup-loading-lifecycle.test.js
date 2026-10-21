@@ -1,3 +1,4 @@
+const recoveryPlatform = require('./helpers/recovery-platform');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -25,8 +26,10 @@ function load(file, imports) {
     }, console });
     return module.exports;
 }
+let isWeChat = false;
 const { StartupLoadingController } = load('assets/Scripts/Core/StartupLoadingController.ts', {
     cc, './SlicedLoadingProgressAdapter': {},
+    './MiniGamePlatform': { isMiniGameRuntime: () => isWeChat && recoveryPlatform.isMiniGameRuntime() },
 });
 function makeLoading() {
     const loading = new StartupLoadingController();
@@ -47,7 +50,8 @@ loading.noteMilestone('critical-ui-ready');
 assert.equal(loading.progress.progress, 0.35, 'parallel completions add once');
 loading.setStage('存档');
 assert.equal(loading.percentage.string, '35%', 'stage text cannot simulate progress');
-assert.equal(loading.update, undefined, 'elapsed time alone must not advance progress');
+loading.update(1);
+assert.equal(loading.percentage.string, '35%', 'non-WeChat progress still follows actual milestones');
 for (const milestone of ['route-ready', 'first_level_json_loaded', 'local-level-json-loaded',
     'external-level-json-loaded', 'bean-atlas-not-required', 'bean-atlas-ready', 'board-effects-ready', 'unrelated']) {
     loading.noteMilestone(milestone);
@@ -108,6 +112,49 @@ events.emit('draw');
 loading.onDestroy();
 assert.equal(events.listenerCount('draw'), 0, 'destroy must remove draw listeners');
 
+isWeChat = true;
+const simulated = makeLoading();
+simulated.show('资源');
+simulated.noteMilestone('scene-ready');
+assert.equal(simulated.percentage.string, '0%', 'WeChat milestones do not drive display progress');
+let last = 0;
+for (let frame = 0; frame < 3600; frame++) {
+    simulated.update(1 / 60);
+    assert(simulated.progress.progress >= last, 'display never moves backwards');
+    assert(simulated.progress.progress <= 0.95, 'time alone never completes loading');
+    last = simulated.progress.progress;
+    if (frame === 60) assert(last > 0.4, 'progress moves without any resource completion');
+}
+let simulatedReleases = 0;
+assert.equal(simulated.node.active, true, 'long load remains covered');
+simulated.finishAfterDraw(() => simulatedReleases++);
+simulated.finishAfterDraw(() => simulatedReleases++);
+simulated.update(0.1);
+events.emit('draw');
+assert.equal(simulated.percentage.string, '100%');
+assert.equal(simulatedReleases, 0, '100 percent gets a draw before closing');
+events.emit('draw');
+assert.equal(simulatedReleases, 1);
+simulated.show('快速缓存');
+simulated.finishAfterDraw(() => simulatedReleases++);
+for (let frame = 0; frame < 16; frame++) simulated.update(1 / 60);
+events.emit('draw'); events.emit('draw');
+assert.equal(simulatedReleases, 2, 'fast loading finishes without a long minimum wait');
+for (const cancel of ['hide', 'fail', 'onDestroy']) {
+    simulated.show('取消');
+    simulated.finishAfterDraw(() => simulatedReleases++);
+    simulated[cancel]('失败');
+    for (let frame = 0; frame < 60; frame++) simulated.update(1 / 60);
+    events.emit('draw'); events.emit('draw');
+    assert.equal(simulatedReleases, 2, cancel + ' cancels animated completion');
+}
+simulated.show('重试');
+assert.equal(simulated.percentage.string, '0%');
+simulated.update(1 / 60);
+assert(simulated.progress.progress > 0, 'new loading can resume after failure');
+simulated.hide();
+isWeChat = false;
+
 let callback;
 let bundleLoads = 0;
 let sceneLoads = 0;
@@ -128,10 +175,12 @@ const appCc = {
 };
 const { AppRoot } = load('assets/Scripts/Core/AppRoot.ts', {
     cc: appCc,
+    './MiniGamePlatform': { isMiniGameRuntime: () => isWeChat && recoveryPlatform.isMiniGameRuntime() },
     './AppTransitionController': { AppTransitionController: class {} },
     './StartupLoadingController': { StartupLoadingController },
     './AppSession': { AppSession: class {} },
     './SceneRouter': { SceneRouter: class {} },
+    './AnalyticsMgr': {},
 });
 (async () => {
     const root = new AppRoot();
@@ -166,6 +215,8 @@ const { AppRoot } = load('assets/Scripts/Core/AppRoot.ts', {
     const { GameSceneRuntimeController } = load('assets/Scripts/Core/GameSceneRuntimeController.ts', {
         cc,
         './BrowserLevelPreview': { getBrowserLevelPreview: () => ({ active: false }) },
+        './GameplayVoiceController': {},
+        './Panels/GameplayHelpAnimation': {},
         './Panels/FeedbackPanelController': { disposeFeedbackPanel() {} },
         './GameCtrlShared': {},
         './AppRoot': { AppRoot: { inst: runtimeRoot } },

@@ -18,9 +18,11 @@ import {
     AUDIO_SFX_VOLUME,
     AUDIO_SFX_VOLUME_VARIANCE,
     type SfxName,
+    type GuideVoiceName,
 } from './AudioManifest';
 import { GAME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BUNDLE_NAME } from './PackageNames';
 import { runtimeLog } from './RuntimeLog';
+import { getDouyinMiniGameRuntime } from './MiniGamePlatform';
 const { ccclass } = _decorator;
 declare const wx: any;
 
@@ -31,6 +33,9 @@ export type VoiceKind = 'judgment' | 'hint' | 'warning' | 'guide' | 'result';
 const VOICE_PRIORITY: Record<VoiceKind, number> = { judgment: 0, hint: 1, warning: 2, guide: 3, result: 4 };
 export type VoicePlaybackOptions = {
     isCurrent?: () => boolean;
+    /** After STARTED, allow the sentence to finish while its scene/session remains valid. */
+    finishSentence?: boolean;
+    canContinue?: () => boolean;
     onStarted?: () => void;
     onCompleted?: () => void;
     maxDelayMs?: number;
@@ -74,6 +79,7 @@ export class AudioMgr {
     }
 
     private sfxClips: Map<SfxName, AudioClip> = new Map();
+    private retainedSfxClips = new Set<AudioClip>();
     private bgmClip: AudioClip | null = null;
     private host: Node | null = null;
     private audioRoot: Node | null = null;
@@ -86,6 +92,9 @@ export class AudioMgr {
     private guideVoiceGeneration = 0;
     // One narrator channel, shared by guides, judgments and gameplay voices.
     private activeVoiceKind: VoiceKind | null = null;
+    private activeVoiceStarted = false;
+    private activeVoiceOptions: VoicePlaybackOptions | null = null;
+    private queuedResultVoice: { name: SfxName; options: VoicePlaybackOptions } | null = null;
     private voiceCancellationVersion = 0;
     private voiceLoadTimer: ReturnType<typeof setTimeout> | null = null;
     private preparedGuideVoices = new Map<SfxName, AudioSource>();
@@ -407,11 +416,45 @@ export class AudioMgr {
         });
     }
 
+    private _cacheSfxClip(name: SfxName, clip: AudioClip): void {
+        // The manager outlives scenes; a JS Map alone does not own a Cocos asset.
+        if (!this.retainedSfxClips.has(clip)) {
+            clip.addRef();
+            this.retainedSfxClips.add(clip);
+        }
+        const previous = this.sfxClips.get(name);
+        this.sfxClips.set(name, clip);
+        if (previous && previous !== clip && !Array.from(this.sfxClips.values()).includes(previous)) {
+            if (this.retainedSfxClips.delete(previous) && isValid(previous, true)) previous.decRef();
+        }
+    }
+
+    private _getCachedSfxClip(name: SfxName): AudioClip | null {
+        const clip = this.sfxClips.get(name);
+        if (!clip) return null;
+        if (isValid(clip, true)) return clip;
+        console.error('[Audio] Cached SFX was released; reloading:', name);
+        for (const [alias, value] of this.sfxClips) if (value === clip) this.sfxClips.delete(alias);
+        this.retainedSfxClips.delete(clip);
+        return null;
+    }
+
+    private _getCachedBgmClip(): AudioClip | null {
+        if (this.bgmClip && !isValid(this.bgmClip, true)) {
+            console.error('[Audio] Cached BGM was released; reloading:', this.bgmResourcePath);
+            this.bgmSrc?.stop();
+            if (this.bgmSrc) this.bgmSrc.clip = null;
+            this.bgmClip = null;
+            this.bgmLoadState = 'idle';
+        }
+        return this.bgmClip;
+    }
+
     private _loadSingleSfxFromBundle(bundle: Bundle, name: SfxName, onDone: (clip: AudioClip | null) => void, logMissing: boolean = true) {
         const resourcePath = AUDIO_SFX_RESOURCE_PATH[name];
         bundle.load(resourcePath, AudioClip, (err, clip) => {
-            if (!err && clip) {
-                this.sfxClips.set(name, clip);
+            if (!err && clip && isValid(clip, true)) {
+                this._cacheSfxClip(name, clip);
                 onDone(clip);
                 return;
             }
@@ -459,7 +502,7 @@ export class AudioMgr {
 
     private _ensureSfxLoaded(name: SfxName) {
         name = AUDIO_BOOTSTRAP_SFX_NAMES.find((alias) => AUDIO_SFX_RESOURCE_PATH[alias] === AUDIO_SFX_RESOURCE_PATH[name]) || name;
-        if (this.sfxClips.has(name) || this.pendingSfxLoads.has(name)) {
+        if (this._getCachedSfxClip(name) || this.pendingSfxLoads.has(name)) {
             return;
         }
         this.pendingSfxLoads.add(name);
@@ -488,7 +531,7 @@ export class AudioMgr {
         const resourcePath = AUDIO_SFX_RESOURCE_PATH[name];
         for (const alias of AUDIO_BOOTSTRAP_SFX_NAMES) {
             if (AUDIO_SFX_RESOURCE_PATH[alias] !== resourcePath) continue;
-            if (clip) this.sfxClips.set(alias, clip);
+            if (clip) this._cacheSfxClip(alias, clip);
             this._flushPendingAutoplay(alias, clip);
         }
         const callbacks = this.sfxLoadCallbacks.get(resourcePath) || [];
@@ -561,6 +604,7 @@ export class AudioMgr {
         this._clearBgmWarmupTimer();
         this.pendingBgmRestartAfterExternalInterruption = false;
         this.bgmResourcePath = nextPath;
+        const previousClip = this.bgmClip;
         this.bgmClip = null;
         this.bgmLoadState = 'idle';
         this.bgmClipFailures = 0;
@@ -572,13 +616,14 @@ export class AudioMgr {
                 this.bgmSrc.clip = null;
             } catch (_) { /* ignore */ }
         }
+        if (previousClip && isValid(previousClip, true)) previousClip.decRef();
     }
 
     private _retryRequestedBgmPlayback() {
         if (!this.bgmAutoplayRequested || !this.bgmEnabled || this.suspended || this.externalInterruptionRefs > 0 || !this.bgmSrc) {
             return;
         }
-        if (this.bgmClip) {
+        if (this._getCachedBgmClip()) {
             this._playBgmClip();
             return;
         }
@@ -592,7 +637,7 @@ export class AudioMgr {
             return;
         }
         if (autoPlay) this.bgmAutoplayRequested = true;
-        if (this.bgmClip) {
+        if (this._getCachedBgmClip()) {
             if (autoPlay) this._playBgmClip();
             return;
         }
@@ -646,7 +691,8 @@ export class AudioMgr {
             if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath || this.bgmClip) {
                 return;
             }
-            if (!err && clip) {
+            if (!err && clip && isValid(clip, true)) {
+                clip.addRef();
                 this.bgmClip = clip;
                 this.bgmLoadState = 'ready';
                 this.bgmClipFailures = 0;
@@ -660,11 +706,11 @@ export class AudioMgr {
     }
 
     isSfxReady(name: SfxName): boolean {
-        return this.sfxClips.has(name);
+        return !!this._getCachedSfxClip(name);
     }
 
     warmupBgmAfterInteraction(delayMs: number = 0) {
-        if (!this.bgmEnabled || !this.bgmSrc || this.bgmClip || this.bgmWarmupTimer || this.bgmLoadState === 'loading') {
+        if (!this.bgmEnabled || !this.bgmSrc || this._getCachedBgmClip() || this.bgmWarmupTimer || this.bgmLoadState === 'loading') {
             return;
         }
         this.bgmWarmupTimer = setTimeout(() => {
@@ -700,7 +746,7 @@ export class AudioMgr {
             return;
         }
         this.logAudioLifecycle('ensure-bgm', reason);
-        if (this.bgmClip) {
+        if (this._getCachedBgmClip()) {
             this._playBgmClip();
             return;
         }
@@ -762,7 +808,7 @@ export class AudioMgr {
         }
         this.pendingBgmRestartAfterExternalInterruption = false;
         this.logAudioLifecycle('restart-bgm', reason);
-        if (this.bgmClip) {
+        if (this._getCachedBgmClip()) {
             this._restartBgmClip();
             return;
         }
@@ -770,7 +816,7 @@ export class AudioMgr {
     }
 
     preload(name: SfxName, onDone?: (error?: Error) => void) {
-        if (this.sfxClips.has(name)) {
+        if (this._getCachedSfxClip(name)) {
             onDone?.();
             return;
         }
@@ -800,7 +846,7 @@ export class AudioMgr {
         this._retryRequestedBgmPlayback();
         if (this.suspended || !this.sfxEnabled || !this.audioRoot?.isValid || !this._isSfxAllowedInCurrentScene(name)) return;
         if (this.busySfxSources.size + this._pendingSfxCount() >= this._sfxChannelLimit()) return;
-        const clip = this.sfxClips.get(name);
+        const clip = this._getCachedSfxClip(name);
         if (clip) {
             this._playLoadedClip(name, clip);
             return;
@@ -809,22 +855,22 @@ export class AudioMgr {
         this._ensureSfxLoaded(name);
     }
 
-    playGuideVoice(name: 'guideA1' | 'guideA2'): void {
-        this.playVoice(name, 'guide', { maxDelayMs: 5000 });
+    playGuideVoice(name: GuideVoiceName, isCurrent?: () => boolean): void {
+        this.playVoice(name, 'guide', { maxDelayMs: 5000, isCurrent });
     }
 
-    /** Prepare the two tutorial players without playing or waiting for them. */
-    prepareGuideVoices(): void {
+    /** Prepare only this level's guide players, without playing or waiting for them. */
+    prepareGuideVoices(names: readonly GuideVoiceName[] = ['guideA1', 'guideA2']): void {
         this.releasePreparedGuideVoices();
         if (!this.canPlayVoice() || !this.audioRoot?.isValid) return;
         const generation = this.guideVoicePreparationGeneration;
-        for (const name of ['guideA1', 'guideA2'] as const) {
+        for (const name of names) {
             this.pendingGuideVoicePreparations.add(name);
             this.preload(name, (error) => {
                 if (generation !== this.guideVoicePreparationGeneration
                     || !this.pendingGuideVoicePreparations.delete(name)) return;
                 if (!this.canPlayVoice()) return;
-                const clip = this.sfxClips.get(name);
+                const clip = this._getCachedSfxClip(name);
                 if (error || !clip || !this.audioRoot?.isValid) {
                     console.error('[Audio] Guide voice preparation failed:', name, error);
                     return;
@@ -868,12 +914,37 @@ export class AudioMgr {
         return this.voiceEnabled && !this.suspended && this.externalInterruptionRefs === 0;
     }
 
+    private isVoiceContextCurrent(): boolean {
+        const options = this.activeVoiceOptions;
+        const guard = this.activeVoiceStarted && options?.finishSentence
+            ? options.canContinue : options?.isCurrent;
+        return !guard || guard();
+    }
+
+    updateVoicePlayback(): void {
+        if (this.queuedResultVoice?.options.isCurrent && !this.queuedResultVoice.options.isCurrent()) {
+            this.queuedResultVoice = null;
+        }
+        if (this.activeVoiceKind && (!this.canPlayVoice() || !this.isVoiceContextCurrent())) this.stopVoice();
+    }
+
+    cancelPendingResultVoice(): void {
+        this.queuedResultVoice = null;
+        if (this.activeVoiceKind === 'result' && !this.activeVoiceStarted) this.stopVoice('result');
+    }
+
     playVoice(name: SfxName, kind: VoiceKind, options: VoicePlaybackOptions = {}): boolean {
         if (!this.canPlayVoice() || (options.isCurrent && !options.isCurrent())) return false;
+        if (this.activeVoiceStarted && this.activeVoiceOptions?.finishSentence) {
+            if (kind !== 'result') return false;
+            this.queuedResultVoice = { name, options };
+            return true;
+        }
         if (this.activeVoiceKind && VOICE_PRIORITY[this.activeVoiceKind] > VOICE_PRIORITY[kind]) return false;
         this.clearVoiceSource();
         this.pendingGuideVoicePreparations.delete(name);
         this.activeVoiceKind = kind;
+        this.activeVoiceOptions = options;
         const generation = this.guideVoiceGeneration;
         const expiresAt = Date.now() + (options.maxDelayMs ?? 1200);
         const expire = () => {
@@ -894,7 +965,7 @@ export class AudioMgr {
                 this.clearVoiceSource();
                 return;
             }
-            const clip = this.sfxClips.get(name);
+            const clip = this._getCachedSfxClip(name);
             if (!clip || !this.audioRoot?.isValid) {
                 this.clearVoiceSource();
                 console.error('[Audio] Voice is not ready:', name);
@@ -920,15 +991,21 @@ export class AudioMgr {
                     return;
                 }
                 started = true;
+                this.activeVoiceStarted = true;
                 if (this.voiceLoadTimer !== null) clearTimeout(this.voiceLoadTimer);
                 this.voiceLoadTimer = null;
                 options.onStarted?.();
             });
             node.on(AudioSource.EventType.ENDED, () => {
                 if (generation !== this.guideVoiceGeneration || this.guideVoiceSource !== source) return;
-                const completed = started && this.canPlayVoice() && (!options.isCurrent || options.isCurrent());
+                const completed = started && this.canPlayVoice() && this.isVoiceContextCurrent();
+                const queued = completed ? this.queuedResultVoice : null;
+                const cancellationVersion = this.voiceCancellationVersion;
                 this.clearVoiceSource();
                 if (completed) options.onCompleted?.();
+                if (queued && cancellationVersion === this.voiceCancellationVersion && !this.activeVoiceKind) {
+                    this.playVoice(queued.name, 'result', queued.options);
+                }
             });
             try {
                 source.play();
@@ -946,6 +1023,7 @@ export class AudioMgr {
     }
 
     stopVoice(kind?: VoiceKind): void {
+        if (!kind || kind === 'result') this.queuedResultVoice = null;
         if (!kind || kind === 'guide') this.releasePreparedGuideVoices();
         if (kind && this.activeVoiceKind !== kind) return;
         this.voiceCancellationVersion += 1;
@@ -957,6 +1035,9 @@ export class AudioMgr {
         this.voiceLoadTimer = null;
         this.guideVoiceGeneration += 1;
         this.activeVoiceKind = null;
+        this.activeVoiceStarted = false;
+        this.activeVoiceOptions = null;
+        this.queuedResultVoice = null;
         const source = this.guideVoiceSource;
         this.guideVoiceSource = null;
         this.destroyVoiceSource(source);
@@ -974,7 +1055,7 @@ export class AudioMgr {
         this.stopEffectSources();
     }
 
-    private stopEffectSources(): void {
+    stopEffectSources(): void {
         this.pendingAutoplaySfx.clear();
         for (const source of this.sfxStartTimers.keys()) this._discardSfxSource(source);
         for (const source of this.sfxSources) {
@@ -997,9 +1078,9 @@ export class AudioMgr {
                 return;
             }
             // 抖音小游戏
-            const w: any = typeof window !== 'undefined' ? window : null;
-            if (w && w.tt && typeof w.tt.vibrateShort === 'function') {
-                w.tt.vibrateShort({});
+            const tt = getDouyinMiniGameRuntime();
+            if (tt && typeof tt.vibrateShort === 'function') {
+                tt.vibrateShort({});
                 return;
             }
             // Web
@@ -1016,9 +1097,9 @@ export class AudioMgr {
                 wx.vibrateShort({ type: 'light' });
                 return;
             }
-            const w: any = typeof window !== 'undefined' ? window : null;
-            if (w && w.tt && typeof w.tt.vibrateShort === 'function') {
-                w.tt.vibrateShort({});
+            const tt = getDouyinMiniGameRuntime();
+            if (tt && typeof tt.vibrateShort === 'function') {
+                tt.vibrateShort({});
                 return;
             }
             if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {

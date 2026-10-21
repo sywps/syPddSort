@@ -79,7 +79,8 @@ function loadHomeAdInstaller() {
                     },
                     AudioMgr: { inst: { beginExternalInterruption() {}, endExternalInterruptionWithBgmRestart() {} } },
                     PerformanceMgr: { inst: { markUserActivity() {} } },
-                    SySDKMgr: { inst: { reportAdClick() {}, reportAdShow() {}, reportAdFinish() {} } },
+                    SySDKMgr: { inst: { reportAdClick() {}, reportAdShow() {}, reportAdFinish() {},
+                        createRewardTransactionId: id => id, reportRewardGranted() {} } },
                 };
             }
             if (id === '../AppRoot') return { AppRoot: {} };
@@ -91,6 +92,8 @@ function loadHomeAdInstaller() {
             if (id === '../../Platform/WeChatShareReturnService') {
                 return { weChatShareReturnService: { start: () => ({ started: false, reason: 'unavailable' }) } };
             }
+            if (id === '../../Platform/Douyin/DouyinShareService') return {};
+            if (id === '../MiniGamePlatform') return { isDouyinMiniGameRuntime: () => false };
             throw new Error(`unexpected HomeAdFlowModule require: ${id}`);
         },
         console,
@@ -144,7 +147,7 @@ function loadResultPanelController(pchController) {
                 };
             }
             if (id === './AppRoot') return { AppRoot: {} };
-            if (id === './MiniGamePlatform') return { isMiniGameRuntime: () => false };
+            if (id === './MiniGamePlatform') return { isMiniGameRuntime: () => false, isDouyinMiniGameRuntime: () => false };
             if (id === './PchConveyorGameplayController') {
                 return { ensurePchConveyorGameplayController: () => pchController };
             }

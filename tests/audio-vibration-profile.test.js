@@ -25,7 +25,7 @@ assert.ok(
     'shared Web vibration must use the light 12ms duration',
 );
 assert.strictEqual(
-    (audioMgr.match(/w\.tt\.vibrateShort\(\{\}\);/g) || []).length,
+    (audioMgr.match(/tt\.vibrateShort\(\{\}\);/g) || []).length,
     2,
     'ByteDance must retain its supported short-vibration call shape',
 );

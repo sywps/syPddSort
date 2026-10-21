@@ -85,7 +85,7 @@ function build(name, nickname) {
     for (const type of types || t._components.map(r => source[r.__id__].__type__)) {
       const c = clone(component(t, type)); c.node = { __id__: idx }; c.__prefab = null; c._id = '';
       if (type === 'cc.UITransform') c._contentSize = { __type__: 'cc.Size', width, height };
-      if (type === 'cc.Button') { c._target = { __id__: idx }; c.clickEvents = []; }
+      if (type === 'cc.Button') { c._target = { __id__: idx }; c.clickEvents = []; c._transition = 3; c._zoomScale = 0.95; c._duration = 0.08; }
       if (type === 'cc.Label') { c._string = name; c._fontSize = 24; c._lineHeight = 30; c._horizontalAlign = 1; c._verticalAlign = 1; c._color={__type__:'cc.Color',r:77,g:58,b:75,a:255}; }
       a[idx]._components.push({ __id__: a.length }); a.push(c);
     }

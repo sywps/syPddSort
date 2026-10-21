@@ -29,7 +29,7 @@ import {
     sys,
     tween,
 } from './GameCtrlShared';
-import { isMiniGameRuntime } from './MiniGamePlatform';
+import { isMiniGameRuntime, isDouyinMiniGameRuntime, getDouyinMiniGameRuntime } from './MiniGamePlatform';
 import { ensurePchConveyorGameplayController } from './PchConveyorGameplayController';
 import { WinShareBadgeSway } from './WinShareBadgeSway';
 
@@ -73,12 +73,12 @@ const WIN_CONFETTI_SHAPES = [
 const REVIVE_SHARE_STATE_KEY = 'pdd.revive.shareState.v1';
 const REVIVE_SHARE_DAILY_LIMIT = 3;
 const REVIVE_SHARE_PROBABILITY = 0.3;
-const EARLY_PROGRESS_REVIVE_SHARE_PROBABILITY = 0.9;
+const EARLY_PROGRESS_REVIVE_SHARE_PROBABILITY = 0.6;
 const REVIVE_SHARE_LEVEL_INTERVAL = 3;
 const REVIVE_SHARE_MIN_LOGICAL_LEVEL = 7;
 const REVIVE_HOLD_TO_PEEK_HINT_NAME = 'HoldToPeekHint';
-const REVIVE_HOLD_TO_PEEK_DURATION_SECONDS = 0.18;
-const REVIVE_HOLD_TO_PEEK_DELAY_SECONDS = 0.5;
+const REVIVE_HOLD_TO_PEEK_DURATION_SECONDS = 0.08;
+const REVIVE_HOLD_TO_PEEK_DELAY_SECONDS = 0.25;
 const REVIVE_HOLD_TO_PEEK_INTERACTIVE_NODE_NAMES = new Set(['ContinueBtn', 'ShareBtn', 'CloseBtn', 'GiveUpBtn']);
 
 type ReviveShareState = {
@@ -705,7 +705,10 @@ export class GameplayResultPanelController {
             graphics.roundRect(-215, -35, 430, 70, 18);
             graphics.fill();
             label(node, labelName, text, 0);
-            node.addComponent(Button);
+            const pressButton = node.addComponent(Button);
+            pressButton.transition = Button.Transition.SCALE;
+            pressButton.zoomScale = 0.95;
+            pressButton.duration = 0.08;
             this.bindPanelButton(node, () => {
                 if (!overlay.isValid || !overlay.activeInHierarchy || !runtime.isGameEnd || initSeq !== runtime._gameplayInitSeq) return;
                 handler();
@@ -717,7 +720,7 @@ export class GameplayResultPanelController {
             button('PrimaryBtn', '继续', 20, () => runtime.handleWinSettlementPrimaryAction());
             button('ShareBonusBtn', '分享一下', -80, () => runtime.claimWinAdBonusReward(), 'AdBonusBtnLbl');
             label(box.getChildByName('ShareBonusBtn')!, 'AdBonusClaimedLbl', '已领取', 0).active = false;
-            button('CollectionBtn', '收藏', -180, () => runtime.openCollection());
+            button('CollectionBtn', '收藏', -180, () => runtime.openCollection()).active = false;
         } else {
             const reviveKind = kind === 'lose' ? this.resolveFinalFailureReviveKind() : kind;
             button('ContinueBtn', '看广告复活', 60, () => reviveKind === 'buffer-full'
@@ -958,7 +961,14 @@ export class GameplayResultPanelController {
         });
     }
 
-    private playWinConfettiFx(panel: Node): void {
+    playPvpWinSettlementFx(panel: Node, content: Node): void {
+        const rewardArea = content.getChildByName('ReturnLobby')?.getComponent(UITransform);
+        const artwork = content.getChildByName('SelfResultPlate')?.getComponent(UITransform);
+        if (!rewardArea || !artwork) throw new Error('[pvp-result] missing victory effect layout bounds');
+        this.playWinConfettiFx(panel, rewardArea, artwork);
+    }
+
+    private playWinConfettiFx(panel: Node, rewardBounds?: UITransform, artworkBounds?: UITransform): void {
         const playSeq = (this.winConfettiPlaySeq += 1);
         this.clearWinConfettiFx(panel);
         this.loadWinConfettiFrames((frames) => {
@@ -966,8 +976,8 @@ export class GameplayResultPanelController {
             const panelTransform = panel.getComponent(UITransform);
             if (!panelTransform || panelTransform.width <= 0 || panelTransform.height <= 0) return;
             const box = panel.getChildByName('Box');
-            const rewardArea = box?.getChildByName('BottomGroup')?.getComponent(UITransform);
-            const artwork = box?.getChildByName('MiddleGroup')?.getChildByName('PreviewFrame')?.getComponent(UITransform);
+            const rewardArea = rewardBounds ?? box?.getChildByName('BottomGroup')?.getComponent(UITransform);
+            const artwork = artworkBounds ?? box?.getChildByName('MiddleGroup')?.getChildByName('PreviewFrame')?.getComponent(UITransform);
             if (!rewardArea || !artwork) {
                 console.error('[WinConfettiFx] missing reward/artwork layout bounds');
                 return;
@@ -1136,8 +1146,11 @@ export class GameplayResultPanelController {
         return Math.max(0, Math.floor(Number(levelId) || 0));
     }
 
-    private hasWeChatShareReturnApi(): boolean {
+    private hasRewardShareApi(): boolean {
         try {
+            if (isDouyinMiniGameRuntime()) {
+                return typeof getDouyinMiniGameRuntime()?.shareAppMessage === 'function';
+            }
             const wx: any = typeof this.runtime.getWeChatRuntime === 'function'
                 ? this.runtime.getWeChatRuntime()
                 : null;
@@ -1146,7 +1159,7 @@ export class GameplayResultPanelController {
                 && typeof wx.onShow === 'function'
                 && typeof wx.offShow === 'function';
         } catch (error) {
-            console.warn('[revive-share] WeChat runtime check failed:', error);
+            console.warn('[revive-share] runtime check failed:', error);
             return false;
         }
     }
@@ -1161,7 +1174,7 @@ export class GameplayResultPanelController {
         const entryMode = typeof runtime.getActiveGameplayEntryMode === 'function'
             ? runtime.getActiveGameplayEntryMode()
             : (runtime._activeGameplayEntryMode || 'main');
-        if (entryMode !== 'main' || !this.hasWeChatShareReturnApi()) return false;
+        if (entryMode !== 'main' || !this.hasRewardShareApi()) return false;
         if (this.isEarlyProgressRevive()) {
             if (this.reviveFailureShareSelected === null) {
                 this.reviveFailureShareSelected = Math.random() < EARLY_PROGRESS_REVIVE_SHARE_PROBABILITY;
@@ -1172,7 +1185,7 @@ export class GameplayResultPanelController {
             return false;
         }
         const state = this.readReviveShareState();
-        if (!state || state.count >= REVIVE_SHARE_DAILY_LIMIT || !this.hasWeChatShareReturnApi()) return false;
+        if (!state || state.count >= REVIVE_SHARE_DAILY_LIMIT || !this.hasRewardShareApi()) return false;
         if (state.lastShareLevel > 0 && this.getReviveShareLogicalLevelId() < state.lastShareLevel + REVIVE_SHARE_LEVEL_INTERVAL) return false;
         if (this.reviveFailureShareSelected === null) {
             this.reviveFailureShareSelected = Math.random() < REVIVE_SHARE_PROBABILITY;
@@ -1254,8 +1267,9 @@ export class GameplayResultPanelController {
                 shadeOpacity.opacity = opacity;
                 return;
             }
-            tween(boxOpacity).to(REVIVE_HOLD_TO_PEEK_DURATION_SECONDS, { opacity }).start();
-            tween(shadeOpacity).to(REVIVE_HOLD_TO_PEEK_DURATION_SECONDS, { opacity }).start();
+            const duration = REVIVE_HOLD_TO_PEEK_DURATION_SECONDS;
+            tween(boxOpacity).to(duration, { opacity }).start();
+            tween(shadeOpacity).to(duration, { opacity }).start();
         };
         const restore = (immediate: boolean = false): void => {
             Tween.stopAllByTarget(holdDelayTarget);

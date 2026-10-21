@@ -1201,7 +1201,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -1234,8 +1234,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 45
     },
@@ -1403,7 +1403,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -1436,8 +1436,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 53
     },

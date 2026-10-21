@@ -25,7 +25,6 @@ const commerceController = read('assets/Scripts/Core/Panels/CommercePanelControl
 const settingsPanel = read('assets/Scripts/Core/Panels/SettingsPanelController.ts');
 const skin = read('assets/Scripts/Core/GameCtrlModules/SkinBackgroundModule.ts');
 const skinCdn = read('assets/Scripts/Core/SkinResourceCdnService.ts');
-const topHud = read('assets/Scripts/Core/GameCtrlModules/TopHudModule.ts');
 const adRewardHint = read('assets/Scripts/Core/GameCtrlModules/GameplayAdRewardHintModule.ts');
 const gameScene = read('assets/BootstrapBundle/Scenes/Game.scene');
 const extractBootstrap = read('scripts/extract-bootstrap-bundle.js');
@@ -271,19 +270,17 @@ assert.ok(skin.includes("runtimeLog('[background-skin]', phase, payload)"), 'suc
 assert.ok(!skin.includes("console.error('[background-skin] asset error'"), 'optional skin asset failures must not be emitted as console.error');
 assert.ok(!skin.includes('this._backgroundSkinFrameCache.set'), 'background skin frame cache must not bypass retain helper');
 assert.ok(!skin.includes('this._backgroundSkinIconCache.set'), 'background skin icon cache must not bypass retain helper');
-const syncTopHudIndex = topHud.indexOf('syncTopHud(parent: Node, mode: TopHudMode)');
-const ensureTopHudRootIndex = topHud.indexOf('ensureTopHudRoot(parent: Node)');
-const preloadTopHudIndex = topHud.indexOf('preloadTopHudPrefab(): void');
-assert.ok(syncTopHudIndex >= 0, 'TopHud module must expose syncTopHud');
-assert.ok(ensureTopHudRootIndex >= 0, 'TopHud module must expose ensureTopHudRoot');
-assert.ok(preloadTopHudIndex >= 0, 'TopHud module must expose explicit preloadTopHudPrefab');
-assert.ok(
-    syncTopHudIndex > preloadTopHudIndex && !topHud.slice(syncTopHudIndex).includes('this.preloadTopHudPrefab?.();'),
-    'syncTopHud must not trigger gameAssets TopHud prefab loading on the first UI sync path',
-);
-assert.ok(
-    ensureTopHudRootIndex > preloadTopHudIndex && !topHud.slice(ensureTopHudRootIndex, syncTopHudIndex).includes('this.preloadTopHudPrefab?.();'),
-    'ensureTopHudRoot must not trigger gameAssets TopHud prefab loading before post-playable warmup',
-);
+assert.ok(!installModules.includes('installTopHudModule'), 'the retired shared HUD loader must not be installed');
+assert.ok(!warmup.includes('preloadTopHudPrefab'), 'warmup must not load the retired shared HUD prefab');
+for (const retired of [
+    'assets/Scripts/Core/GameCtrlModules/TopHudModule.ts',
+    'assets/GameAssetsBundle/UI/Prefabs/Panels/TopHud.prefab',
+    'assets/HomeAssetsBundle/GameUI/爱心框.png',
+    'assets/HomeAssetsBundle/GameUI/金币框 (2).png',
+]) {
+    assert.ok(!fs.existsSync(path.join(root, retired)), `${retired} must remain outside runtime assets`);
+    assert.ok(!fs.existsSync(path.join(root, retired + '.meta')), `${retired} Meta must remain outside runtime assets`);
+}
+assert.ok(homeAdFlow.includes('this.drawGoldBanner(goldGroup);') && homeAdFlow.includes('this.drawLivesBanner(vigorGroup);'), 'Home must keep using its own scene-authored HUD');
 
 console.log('post-playable-warmup.test.js passed');

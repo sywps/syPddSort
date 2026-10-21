@@ -2,6 +2,63 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const ts = require('typescript');
+
+test('profile shade closes through the normal cleanup and panel content blocks click-through', async () => {
+  class Node {
+    constructor(name) { this.name=name; this.children=[]; this.components=new Map(); this.events={}; this.isValid=true; this.active=true; this.position={}; }
+    getChildByName(name) { return this.children.find(n=>n.name===name); }
+    getComponent(type) { return this.components.get(type); }
+    addComponent(type) { const c=new type(); c.node=this; this.components.set(type,c); return c; }
+    addChild(node) { this.children.push(node); }
+    on(event,fn) { this.events[event]=fn; }
+  }
+  Node.EventType={TOUCH_END:'touch-end'};
+  class Button {} Button.EventType={CLICK:'click'};
+  class BlockInputEvents {} class ProfilePanelView {} class Mask {} class ScrollView {}
+  class Vec3 { set() {} }
+  const prefab=JSON.parse(fs.readFileSync('assets/GameAssetsBundle/UI/Prefabs/Panels/ProfilePanel.prefab'));
+  const read=id=>{ const raw=prefab[id],node=new Node(raw._name); node.children=raw._children.map(r=>read(r.__id__)); return node; };
+  const overlay=read(prefab[0].data.__id__),box=overlay.getChildByName('Box'),shade=overlay.getChildByName('Shade');
+  box.addComponent(ProfilePanelView);
+  box.getChildByName('Viewport').addComponent(Mask); box.getChildByName('Viewport').addComponent(ScrollView);
+  let releases=0,unsubscribes=0,focusEnds=0;
+  const sounds=[];
+  const runtime={node:{isValid:true},_retainPanelTextureOwner(){},requireCanvasUiRoot:()=>new Node('PopupRoot'),beginModalFocus:()=> 'profile',
+    endModalFocus(){focusEnds++;},_closePanelWithTextureOwner(){releases++;},showToast(message){throw Error(message);} };
+  const source=fs.readFileSync('assets/Scripts/Core/Panels/ProfilePanelController.ts','utf8')+'\nexport { ProfilePanelController };';
+  const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
+  const module={exports:{}};
+  new Function('require','module','exports',code)(name=>{
+    if(name==='../AudioMgr')return {AudioMgr:{inst:{play:name=>sounds.push(name)}}};
+    if(name==='cc')return {Node,Button,BlockInputEvents,Mask,ScrollView,Vec3,instantiate:()=>overlay};
+    if(name==='./ProfilePanelView')return {ProfilePanelView};
+    if(name==='../ProfileCustomizationMgr')return {ProfileCustomizationMgr:{inst:{subscribe:()=>()=>unsubscribes++,refreshProgressUnlocks(){}}}};
+    if(name==='../MiniGamePlatform')return {isMiniGameRuntime:()=>false};
+    return {};
+  },module,module.exports);
+  const controller=new module.exports.ProfilePanelController(runtime);
+  controller.prefab=async()=>({}); controller.status=()=>{}; controller.tab=()=>{};
+  await controller.open();
+  await controller.open();
+  assert.deepEqual(sounds,['button'], 'opening an already open panel stays silent');
+  box.getChildByName('AvatarTab').events.click();
+  assert.equal(sounds.length,1, 'selected tab stays silent');
+  controller.busy=true;
+  box.getChildByName('FrameTab').events.click();
+  box.getChildByName('Action').events.click();
+  assert.equal(sounds.length,1, 'busy interactions stay silent');
+  controller.busy=false;
+  box.getChildByName('FrameTab').events.click();
+  assert.equal(sounds.length,2, 'accepted tab switch sounds once');
+  assert(box.getComponent(BlockInputEvents), 'blank panel areas must intercept touches before the shade');
+  assert(shade.getComponent(BlockInputEvents), 'shade must not pass the closing tap into the home screen');
+  assert.equal(box.events['touch-end'],undefined, 'content does not bind a dismiss handler');
+  shade.events['touch-end']();
+  shade.events['touch-end']();
+  assert.deepEqual(sounds,['button','button','button'], 'dismiss sounds only once');
+  assert.equal(overlay.active,false); assert.equal(controller.overlay,null);
+  assert.equal(releases,1); assert.equal(focusEnds,1); assert.equal(unsubscribes,1);
+});
 test('prefab grid settings drive editor and runtime layout without modifying player data', () => {
   class UITransform {}
   const property = (...args) => args.length > 1 ? undefined : () => {};

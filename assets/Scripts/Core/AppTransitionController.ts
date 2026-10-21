@@ -150,6 +150,26 @@ export class AppTransitionController extends Component {
         return true;
     }
 
+    redirectAfterFailure(sceneName: AppSceneName, error: unknown): boolean {
+        const active = this.transaction;
+        if (!active) return false;
+        this.cancelAfterDraw();
+        active.targetScene = sceneName;
+        active.error = error;
+        active.ready = false;
+        active.taskFinished = true;
+        this.state = 'covered';
+        this.progress = 1;
+        this.render();
+        return true;
+    }
+
+    resetReadiness(sceneName: AppSceneName): void {
+        if (this.transaction?.targetScene !== sceneName || this.state !== 'covered') return;
+        this.cancelAfterDraw();
+        this.transaction.ready = false;
+    }
+
     update(dt: number): void {
         if (!this.transaction) return;
         this.patternOffset = (this.patternOffset + Math.max(0, dt) * PATTERN_SPEED) % PATTERN_TILE_SIZE;
@@ -177,6 +197,7 @@ export class AppTransitionController extends Component {
     private startTask(): void {
         const active = this.transaction;
         if (!active || active.taskStarted) return;
+        const originalTarget = active.targetScene;
         Promise.resolve().then(() => {
             if (this.transaction?.token !== active.token) return;
             active.taskStarted = true;
@@ -188,6 +209,7 @@ export class AppTransitionController extends Component {
         }, (error) => {
             if (this.transaction?.token !== active.token) return;
             active.taskFinished = true;
+            if (active.targetScene !== originalTarget) return;
             active.ready = true;
             active.error = error;
             this.tryBeginReveal();

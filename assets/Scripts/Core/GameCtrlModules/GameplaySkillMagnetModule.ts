@@ -667,7 +667,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     this.unschedule(callback);
                 }
                 queuedFeedbackCallbacks.clear();
-                AudioMgr.inst.stopSfx();
+                AudioMgr.inst.stopEffectSources();
             };
             const playFeedbackSoundNow = (sfx: SfxName) => {
                 if (!forcedSkillFeedbackAudioOpen) return;

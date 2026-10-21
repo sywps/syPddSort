@@ -1,3 +1,4 @@
+const recoveryPlatform = require('./helpers/recovery-platform');
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -6,7 +7,12 @@ const ts = require('typescript');
 
 const root = path.resolve(__dirname, '..');
 
-function loadControllerHarness(activeBlockers = []) {
+function loadControllerHarness(activeBlockers = [], audioFailure = '', wechat = false) {
+    const audioAction = stage => { if (audioFailure === stage) throw Error(`injected ${stage}`); };
+    const levelConfig = {};
+    new Function('exports', ts.transpileModule(fs.readFileSync(path.join(root, 'assets/Scripts/Core/LevelConfig.ts'), 'utf8'), {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+    }).outputText)(levelConfig);
     const source = fs.readFileSync(
         path.join(root, 'assets/Scripts/Core/GameplaySessionController.ts'),
         'utf8',
@@ -21,18 +27,22 @@ function loadControllerHarness(activeBlockers = []) {
     const analyticsEvents = [];
     const routeCoverClears = [];
     const appRoot = {
+        completeAppTransitionAfterDraw() {},
         markGameActive() {},
         clearRouteCover(source) {
             routeCoverClears.push(source);
         },
     };
     const analytics = {
+        settlement: { failTransition() {} },
+        setGameplayTelemetryScope() {},
         trackFunnelEvent(event) {
             analyticsEvents.push(event);
         },
         flushFunnelEvents() {},
         markFirstLevelReady() {},
         beginLevel() {},
+        setLevelContext() {},
     };
     class BoardModel {
         constructor(data) {
@@ -50,9 +60,10 @@ function loadControllerHarness(activeBlockers = []) {
         AnalyticsMgr: { inst: analytics },
         AudioMgr: {
             inst: {
-                init() {},
-                preload() {},
-                playGameBgm() {},
+                init() { audioAction('audio_init'); },
+                preload() { audioAction('audio_preload'); },
+                playGameBgm() { audioAction('bgm_play'); },
+                stopVoice() { audioAction('voice_stop'); },
             },
         },
         BoardModel,
@@ -69,13 +80,19 @@ function loadControllerHarness(activeBlockers = []) {
         exports: {},
         module: { exports: {} },
         require(request) {
+            if (request === './MiniGamePlatform') return { isMiniGameRuntime: () => wechat && recoveryPlatform.isMiniGameRuntime() };
+            if (request === './GameplayVoiceController') return { ensureGameplayVoiceController: () => ({ stopVoice() {}, beginLevel() { audioAction('voice_begin'); } }) };
+            if (request === './BrowserLevelPreview') return { getBrowserLevelPreview: () => ({ active: false }) };
+            if (request === './LevelDataCdnService') return { LevelDataCdnService: { inst: { getLevelAnalyticsMetadata: () => null } } };
+            if (request === './GameCtrlModules/GameplayJudgmentFeedbackModule') return { GAMEPLAY_JUDGMENT_PRELOAD_SFX_NAMES: [] };
+            if (request === './LevelConfig') return levelConfig;
             if (request === './WorkbenchPreviewService') return { isWorkbenchPreviewRequested: () => false };
             if (request === './GameCtrlShared') return shared;
             if (request === './AppRoot') {
                 return { AppRoot: { tryGet: () => appRoot } };
             }
             if (request === './DebugPerfTrace') {
-                return { collectActiveBlockInputEvents: () => activeBlockers };
+                return { collectActiveBlockInputEvents: () => activeBlockers, debugPerfSnapshot() {} };
             }
             if (request === './HardLevelIntroController') {
                 return {
@@ -89,20 +106,6 @@ function loadControllerHarness(activeBlockers = []) {
             }
             if (request === './LevelExperimentService') {
                 return { getFrontLevelExperimentAnalyticsContext: () => null };
-            }
-            if (request === './LevelConfig') {
-                return {
-                    validateConveyorCapacity(value) {
-                        if (!Number.isInteger(value) || value <= 0 || value % 3 !== 0) {
-                            throw new Error('invalid conveyor capacity');
-                        }
-                        return value;
-                    },
-                    validateHard(value) {
-                        if (value !== 0 && value !== 1) throw new Error('invalid Hard flag');
-                        return value;
-                    },
-                };
             }
             if (request === './PchConveyorGameplayController') {
                 return {
@@ -306,6 +309,25 @@ function runFailureCase(levelId, failAt, expectedStage, expectedMessage) {
 runFailureCase(1, 'model', 'model_build', 'board model construction failed');
 const pchFailure = runFailureCase(2, 'pch', 'pch_core_gameplay', 'PCH conveyor start failed');
 assert.ok(pchFailure.calls.pchStops >= 2, 'PCH cleanup must run before initialization and after a start failure');
+
+for (const stage of ['voice_stop', 'audio_init', 'audio_preload', 'voice_begin', 'bgm_play']) {
+    const harness = loadControllerHarness([], stage, true);
+    const { runtime, calls } = createRuntime(2, '');
+    const controller = new harness.GameplaySessionController(runtime);
+    const data = { levelId: 2, Hard: 0, boardWidth: 2, boardHeight: 2, timeLimit: 60, conveyorCapacity: 60 };
+    controller.initGame(data, 2);
+    assert.strictEqual(runtime.levelData, data, 'audio recovery must initialize the original data');
+    assert.strictEqual(runtime.isGameEnd, false);
+    assert.strictEqual(calls.fatal.length, 0);
+    assert.strictEqual(typeof runtime._csdOnInteractionReady, 'function', 'audio failure must reach original interaction readiness');
+    assert.ok(harness.analyticsEvents.some(event => event.eventName === 'gameplay_audio_failed' && event.success === false));
+}
+{
+    const harness = loadControllerHarness([], 'audio_init', false);
+    const { runtime, calls } = createRuntime(2, '');
+    assert.throws(() => new harness.GameplaySessionController(runtime).initGame({ levelId: 2 }, 2), /injected audio_init/);
+    assert.strictEqual(calls.fatal[0].extra.initStage, 'audio_init', 'other platforms retain original audio failure behavior');
+}
 
 {
     const harness = loadControllerHarness([

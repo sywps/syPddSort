@@ -1,6 +1,7 @@
 import { _decorator, sys } from 'cc';
 import { getCachedWeChatDeviceInfo } from './WeChatDeviceInfo';
-import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
+import { getWeChatMiniGameRuntime, isDouyinMiniGameRuntime } from './MiniGamePlatform';
+import { DouyinLeaderboardService } from '../Platform/Douyin/DouyinLeaderboardService';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
 import { runtimeLog, runtimeWarn } from './RuntimeLog';
 import type { UserProfile } from './UserMgr';
@@ -64,7 +65,7 @@ export class LeaderboardMgr {
         if (this.cloudInitDeferred) return false;
         if (this.cloudInitPromise) return this.cloudInitPromise;
 
-        this.cloudInitPromise = PlatformCloudMgr.inst.init().then((ready) => {
+        const attempt = Promise.resolve().then(() => PlatformCloudMgr.inst.init()).then((ready) => {
             this.cloudReady = ready;
             return ready;
         }).catch((error) => {
@@ -73,10 +74,23 @@ export class LeaderboardMgr {
             return false;
         });
 
-        return this.cloudInitPromise;
+        this.cloudInitPromise = attempt;
+        try {
+            return await attempt;
+        } finally {
+            if (!this.cloudReady && this.cloudInitPromise === attempt) this.cloudInitPromise = null;
+        }
     }
 
     async submitProgress(progressLevel: number, profile: UserProfile): Promise<void> {
+        if (isDouyinMiniGameRuntime()) {
+            try {
+                await DouyinLeaderboardService.inst.submitProgress(progressLevel);
+            } catch (error) {
+                console.error('[DouyinRank] progress upload failed:', error);
+            }
+            return;
+        }
         profile = ProfileCustomizationMgr.inst.display(profile);
         const normalized = this.normalizeProgress(progressLevel);
         if (normalized <= 1) return;

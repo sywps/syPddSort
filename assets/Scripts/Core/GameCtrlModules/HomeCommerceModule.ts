@@ -31,6 +31,10 @@ import type {
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { ensureHomeStartButtonFx } from '../HomeStartButtonFx';
+import { drawCreatorLevelJump } from '../CreatorLevelJump';
+import { getBrowserLevelPreview } from '../BrowserLevelPreview';
+import { isCreatorWeb } from '../CreatorWeb';
+import { isMiniGameRuntime } from '../MiniGamePlatform';
 import { ensureCommercePanelController } from '../Panels/CommercePanelController';
 
 export function installHomeCommerceModule(target: any): void {
@@ -50,6 +54,9 @@ export function installHomeCommerceModule(target: any): void {
             let button = node.getComponent(Button);
             if (!button) {
                 button = node.addComponent(Button);
+                button.transition = Button.Transition.SCALE;
+                button.zoomScale = 0.95;
+                button.duration = 0.08;
             }
             node.targetOff(this);
             node.on(Button.EventType.CLICK, handler, this);
@@ -113,27 +120,85 @@ export function installHomeCommerceModule(target: any): void {
             return ensureCommercePanelController(this).preloadAcquireResourcePanel();
         },
 
+        async startWeChatHomeLevel(level: number): Promise<void> {
+            const appRoot = AppRoot.tryGet();
+            if (!appRoot || this._weChatHomeEntryPending || appRoot.router.isTransitioning
+                || appRoot.isAppTransitionTargeting('Game') || appRoot.session.pendingGameplayRequest
+                || this._gameplayTransitionPromise || (Number(this._suppressHomeStartUntil) || 0) > Date.now()) return;
+            this._weChatHomeEntryPending = true;
+            let charged = false;
+            let refunded = 0;
+            try {
+                AudioMgr.inst.play('button');
+                if (!this.costVigorForLevel(level, 'main')) {
+                    this.showNoLivesAdModal({ source: 'home_start', onResult: (result: any) => {
+                        if (result?.status === 'granted' && this.isValid && this.getRuntimeSceneName('Game') === 'Home') {
+                            // The modal can invoke its callback synchronously; release this
+                            // attempt before starting a separately guarded entry.
+                            Promise.resolve().then(() => this.startWeChatHomeLevel(level));
+                        }
+                    } });
+                    return;
+                }
+                charged = !this.isTutorialVigorFreeLevel(level, 'main');
+                appRoot.session.weChatEntryVigorCharged = charged;
+                await this.requestGameplayRoute(level, 'level_', false, 'auto');
+            } catch (error) {
+                // Only compensate a failed entry while the original Home is still
+                // active. A successfully entered game must never receive a refund.
+                const stillHome = this.isValid && appRoot.session.currentSceneName === 'Home'
+                    && this.getRuntimeSceneName('Game') === 'Home' && !appRoot.session.activeGameplayContext;
+                let refundError = '';
+                if (stillHome) {
+                    const pending = appRoot.session.pendingGameplayRequest;
+                    if (pending?.levelId === level && pending.prefix === 'level_') {
+                        appRoot.session.clearPendingGameplayRequest();
+                        appRoot.router.requestHomeScene();
+                    }
+                    if (charged && appRoot.session.weChatEntryVigorCharged) {
+                        appRoot.session.weChatEntryVigorCharged = false;
+                        try { refunded = this.grantVigorByAmount(1); }
+                        catch (failure) { refundError = String(failure); console.error('[HomeEntry] vigor refund failed:', failure); }
+                    }
+                }
+                console.error('[HomeEntry] game entry failed:', error);
+                try {
+                    AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'home_game_entry_failed', success: false,
+                        source: 'home_start', levelId: level, errorCode: 'game_entry_failed', errorMessage: String(error),
+                        extra: { charged, refunded, refundError, stillHome } });
+                } catch (failure) { console.warn('[HomeEntry] telemetry failed:', failure); }
+                if (stillHome) this.showToast('暂时未能进入关卡，请再试一次');
+            } finally {
+                this._weChatHomeEntryPending = false;
+            }
+        },
+
         drawStartButton(parent: Node, level: number) {
             const btn = this.requireUiChild(parent, 'StartBtn', 'PrimaryActionLayer/StartBtn');
             btn.active = true;
-            this.requireSceneSpriteFrame(btn, 'PrimaryActionLayer/StartBtn');
-            const btnSubNode = this.requireUiChild(btn, 'BtnSub', 'StartBtn/BtnSub');
+            const visual = this.requireUiChild(btn, 'PressVisual', 'StartBtn/PressVisual');
+            this.requireSceneSpriteFrame(visual, 'StartBtn/PressVisual');
+            const btnSubNode = this.requireUiChild(visual, 'BtnSub', 'StartBtn/PressVisual/BtnSub');
             const btnSubLabel = btnSubNode.getComponent(Label);
             if (!btnSubLabel) throw new Error('[HomeScene] Home.scene is missing Label component on StartBtn/BtnSub');
             btnSubLabel.string = `第${level}关`;
-            this.requireUiChild(btn, 'VigorCostBadge', 'StartBtn/VigorCostBadge').active
+            this.requireUiChild(visual, 'VigorCostBadge', 'StartBtn/PressVisual/VigorCostBadge').active
                 = !this.isTutorialVigorFreeLevel(level, 'main');
 
             btn.targetOff(this);
-            btn.getComponent(Button) || btn.addComponent(Button);
-            const enterSelectedLevel = () => {
+            if (!btn.getComponent(Button)) throw new Error('[HomeScene] StartBtn requires an authored Button');
+            const enterSelectedLevel = (level: number) => {
                 if (this.getRuntimeSceneName('Game') === 'Home') {
                     void this.requestGameplayRoute(level, 'level_', false, 'auto');
                     return;
                 }
                 void this.requestLevelTransition(level);
             };
-            btn.on(Button.EventType.CLICK, () => {
+            const startLevel = (level: number) => {
+                if (isMiniGameRuntime() && this.getRuntimeSceneName('Game') === 'Home') {
+                    void this.startWeChatHomeLevel(level);
+                    return;
+                }
                 if (this._gameplayTransitionPromise) return;
                 if ((Number(this._suppressHomeStartUntil) || 0) > Date.now()) return;
                 AudioMgr.inst.play('button');
@@ -146,36 +211,49 @@ export function installHomeCommerceModule(target: any): void {
                             const appRoot = AppRoot.tryGet();
                             if (!appRoot || appRoot.router.isTransitioning || appRoot.session.pendingGameplayRequest) return;
                             if (!this.costVigorForLevel(level, 'main')) return;
-                            enterSelectedLevel();
+                            enterSelectedLevel(level);
                         },
                     });
                     return;
                 }
-                enterSelectedLevel();
+                enterSelectedLevel(level);
+            };
+            const readCreatorSelection = drawCreatorLevelJump(parent, btn, level, selected => {
+                getBrowserLevelPreview().setLevel(selected);
+                btnSubLabel.string = `第${selected}关`;
+                this.requireUiChild(visual, 'VigorCostBadge', 'StartBtn/PressVisual/VigorCostBadge').active
+                    = !this.isTutorialVigorFreeLevel(selected, 'main');
+            });
+            btn.on(Button.EventType.CLICK, () => {
+                const selected = readCreatorSelection ? readCreatorSelection() : level;
+                if (selected === null) return;
+                startLevel(selected);
             }, this);
         
             // 结算横幅风格动效
             ensureHomeStartButtonFx(btn);
         },
 
-        /** 像素拼图按钮（黄色胶囊，开始游戏按钮下方） */
+        /** PK 对战入口（开始游戏按钮下方） */
         drawThemeChallengeButton(parent: Node) {
             const btn = this.requireUiChild(parent, 'ThemeBtn', 'PrimaryActionLayer/ThemeBtn');
-            btn.active = true;
-            this.requireSceneSpriteFrame(btn, 'PrimaryActionLayer/ThemeBtn');
-            const titleNode = this.requireUiChild(btn, 'ThemeTitle', 'ThemeBtn/ThemeTitle');
+            btn.active = !isCreatorWeb();
+            if (!btn.active) return;
+            const visual = this.requireUiChild(btn, 'PressVisual', 'ThemeBtn/PressVisual');
+            this.requireSceneSpriteFrame(visual, 'ThemeBtn/PressVisual');
+            const titleNode = this.requireUiChild(visual, 'ThemeTitle', 'ThemeBtn/PressVisual/ThemeTitle');
             const titleLabel = titleNode.getComponent(Label);
             if (!titleLabel) throw new Error('[HomeScene] Home.scene is missing Label component on ThemeBtn/ThemeTitle');
-            titleLabel.string = '像素拼图';
-            const subText = '闯关模式 · 排位对战';
-            const subNode = this.requireUiChild(btn, 'ThemeSub', 'ThemeBtn/ThemeSub');
+            titleLabel.string = 'PK对战';
+            const subText = '排位对战 · 双人合作';
+            const subNode = this.requireUiChild(visual, 'ThemeSub', 'ThemeBtn/PressVisual/ThemeSub');
             const subLabel = subNode.getComponent(Label);
             if (!subLabel) throw new Error('[HomeScene] Home.scene is missing Label component on ThemeBtn/ThemeSub');
             subLabel.string = subText;
             subLabel.color = new Color('#EAF7E6');
 
             btn.targetOff(this);
-            btn.getComponent(Button) || btn.addComponent(Button);
+            if (!btn.getComponent(Button)) throw new Error('[HomeScene] ThemeBtn requires an authored Button');
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
                 this.openPvpLobby();

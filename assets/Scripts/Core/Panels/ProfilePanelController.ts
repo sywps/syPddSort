@@ -8,6 +8,7 @@ import { SETTINGS_PANEL_TEXTURE_NAMES } from '../GameCtrlShared';
 import { isMiniGameRuntime } from '../MiniGamePlatform';
 import { reportProfileFailure } from '../ProfileDiagnostics';
 import { ProfilePanelView } from './ProfilePanelView';
+import { AudioMgr } from '../AudioMgr';
 
 const controllers = new WeakMap<object, ProfilePanelController>();
 export function openProfilePanel(runtime: any): void {
@@ -94,6 +95,7 @@ class ProfilePanelController {
     }
     async open(): Promise<void> {
         if (this.disposed || this.opening || this.overlay?.isValid) return;
+        AudioMgr.inst.play('button');
         this.opening = true;
         try {
             this.runtime._retainPanelTextureOwner('profile', SETTINGS_PANEL_TEXTURE_NAMES); this.retained = true;
@@ -103,14 +105,26 @@ class ProfilePanelController {
             this.runtime.requireCanvasUiRoot('PopupRoot').addChild(overlay); overlay.addComponent(BlockInputEvents);
             this.focus = this.runtime.beginModalFocus('profile');
             const box = this.child(overlay, 'Box');
+            if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
+            const shade = this.child(overlay, 'Shade');
+            if (!shade.getComponent(BlockInputEvents)) shade.addComponent(BlockInputEvents);
+            const dismiss = () => { if (!this.overlay?.isValid) return; AudioMgr.inst.play('button'); this.close(); };
+            shade.on(Node.EventType.TOUCH_END, dismiss, this);
             this.view = box.getComponent(ProfilePanelView)!;
             if (!this.view) throw Error('Profile prefab missing ProfilePanelView');
             this.floatingStart.set(this.child(box, 'FloatingStatus').position);
             this.status('');
-            this.button(box, 'XBtn', () => this.close());
-            this.button(box, 'AvatarTab', () => this.tab('avatar'));
-            this.button(box, 'FrameTab', () => this.tab('frame'));
-            this.button(box, 'Action', () => { void this.perform(() => this.action()); });
+            this.button(box, 'XBtn', dismiss);
+            const selectTab = (kind: 'avatar' | 'frame') => {
+                if (this.kind === kind || this.busy) return;
+                AudioMgr.inst.play('button'); this.tab(kind);
+            };
+            this.button(box, 'AvatarTab', () => selectTab('avatar'));
+            this.button(box, 'FrameTab', () => selectTab('frame'));
+            this.button(box, 'Action', () => {
+                if (this.busy) return;
+                AudioMgr.inst.play('button'); void this.perform(() => this.action());
+            });
             const viewport = this.child(box, 'Viewport'), content = this.child(viewport, 'Content');
             if (!viewport.getComponent(Mask)) throw Error('Profile prefab missing scroll mask');
             const scroll = viewport.getComponent(ScrollView)!;
@@ -155,7 +169,13 @@ class ProfilePanelController {
             this.child(cell, 'Icon').getComponent(Sprite)!.spriteFrame = null;
             this.child(cell, 'Placeholder').active = true;
             this.cells.push({ node: cell, row });
-            cell.on(Button.EventType.CLICK, () => { if (!this.busy) this.status(''); this.selected = row.id; this.mgr.markViewed(row.id); if (this.failedImages.has(cell)) this.loadImage(cell,row); this.refresh(); }, this);
+            cell.on(Button.EventType.CLICK, () => {
+                if (this.busy) return;
+                if (this.selected !== row.id || this.failedImages.has(cell)) AudioMgr.inst.play('button');
+                this.status(''); this.selected = row.id; this.mgr.markViewed(row.id);
+                if (this.failedImages.has(cell)) this.loadImage(cell,row);
+                this.refresh();
+            }, this);
             this.loadImage(cell,row);
         });
         this.view.layout(this.cells.map(x => x.node));

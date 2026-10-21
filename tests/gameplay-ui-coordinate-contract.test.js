@@ -9,7 +9,6 @@ const boardInput = read('assets/Scripts/Core/GameCtrlModules/BoardInputViewportM
 const gameplayView = read('assets/Scripts/Core/GameplayViewController.ts');
 const shared = read('assets/Scripts/Core/GameCtrlShared.ts');
 const pch = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
-const topHud = read('assets/Scripts/Core/GameCtrlModules/TopHudModule.ts');
 const resultPanel = read('assets/Scripts/Core/GameplayResultPanelController.ts');
 const commercePanel = read('assets/Scripts/Core/Panels/CommercePanelController.ts');
 const homeAdFlow = read('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts');
@@ -70,7 +69,9 @@ assert.ok(openingGuideTap.includes('bounds.contains(rawPos)'));
 assert.ok(levelOneGuideTap.includes('bounds.contains(rawPos)'));
 assert.ok(!openingGuideTap.includes('hitPositions') && !levelOneGuideTap.includes('hitPositions'));
 
-assert.ok(topHud.includes('settingsButton.node.on(Button.EventType.CLICK, openSettings, this);'));
+const homeSettings = extractMethod(homeAdFlow, 'drawTopRightBtns(parent: Node)');
+assert.ok(homeSettings.includes('gear.on(Button.EventType.CLICK, () => {'));
+assert.ok(homeSettings.includes('this.openSettingsPanel();'));
 assert.ok(pch.includes('speedButton.on(Node.EventType.TOUCH_END, this.onSpeedButtonTap, this);'));
 assert.ok(resultPanel.includes('this.runtime.bindPanelButton(triggerNode, handler);'));
 assert.ok(commercePanel.includes('this.runtime.bindPanelButton(triggerNode, handler);'));

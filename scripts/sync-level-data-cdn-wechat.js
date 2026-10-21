@@ -14,6 +14,7 @@ const {
     configureWechatCdnEnvironment,
     resolveWechatCdnSlot,
 } = require('./wechat-cdn-slot-config');
+const { configureDouyinCdnEnvironment, extractRequiredDouyinCdnSlot, assertDouyinCdnManifest } = require('./douyin-cdn-slot-config');
 
 const projectDir = path.resolve(__dirname, '..');
 const LY_0224_EXPERIMENT_ID = 'ly_0224';
@@ -30,12 +31,13 @@ const cdnPlatform = process.env.PDD_CDN_PLATFORM === 'douyin' ? 'douyin' : 'wech
 const syncCommand = parseSyncCommand(process.argv.slice(2), cdnPlatform);
 const dryRun = syncCommand.dryRun;
 const wechatCdnTarget = syncCommand.wechatCdnTarget;
+const douyinCdnTarget = syncCommand.douyinCdnTarget;
 const levelExperimentTarget = syncCommand.levelExperimentTarget;
 const platformLabel = levelExperimentTarget
     ? '微信 ' + levelExperimentTarget.experimentId + ' 实验桶'
     : (cdnPlatform === 'douyin' ? '抖音' : '微信');
 const platformRemoteDir = cdnPlatform === 'douyin'
-    ? 'remote_douyin'
+    ? douyinCdnTarget.remoteDir
     : (levelExperimentTarget ? 'remote_wechat_b' : wechatCdnTarget.remoteDir);
 const levelDataSourceDir = levelExperimentTarget
     ? levelExperimentTarget.stableSourceDir
@@ -55,7 +57,7 @@ const cdnUrl = levelExperimentTarget
     ? levelExperimentTarget.cdnBaseUrl
     : (cdnPlatform === 'wechat'
     ? wechatCdnTarget.levelDataCdnUrl
-    : (process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/' + platformRemoteDir + '/levels/'));
+    : douyinCdnTarget.levelDataCdnUrl);
 const ossutilBin = process.env.PDD_OSSUTIL_BIN || 'ossutil';
 const ossEndpoint = process.env.PDD_OSS_ENDPOINT || 'https://oss-cn-beijing.aliyuncs.com';
 const ossBucket = process.env.PDD_OSS_BUCKET || (cdnPlatform === 'wechat' ? 'game-pdd-v4' : 'game-pdd-v2');
@@ -63,7 +65,7 @@ const ossPath = levelExperimentTarget
     ? levelExperimentTarget.ossPath
     : (cdnPlatform === 'wechat'
     ? wechatCdnTarget.levelDataOssPath
-    : (process.env.PDD_LEVEL_DATA_OSS_PATH || 'syGame/pdd_v2/' + platformRemoteDir + '/levels/'));
+    : douyinCdnTarget.levelDataOssPath);
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -73,6 +75,7 @@ function fail(message) {
 function parseSyncCommand(args, platform) {
     let remainingArgs = args.slice();
     let wechatCdnTarget = null;
+    let douyinCdnTarget = null;
     let levelExperimentTarget = null;
     if (platform === 'wechat') {
         try {
@@ -87,6 +90,13 @@ function parseSyncCommand(args, platform) {
             fail(error && error.message ? error.message : String(error));
         }
     }
+    if (platform === 'douyin') {
+        try {
+            const parsed = extractRequiredDouyinCdnSlot(remainingArgs);
+            douyinCdnTarget = configureDouyinCdnEnvironment(parsed.target, process.env);
+            remainingArgs = parsed.remainingArgs;
+        } catch (error) { fail(error.message); }
+    }
     const dryRunArgs = remainingArgs.filter((arg) => arg === '--dry-run');
     const unknownArgs = remainingArgs.filter((arg) => arg !== '--dry-run');
     if (unknownArgs.length > 0) fail('未知参数: ' + unknownArgs.join(' '));
@@ -95,6 +105,7 @@ function parseSyncCommand(args, platform) {
         dryRun: dryRunArgs.length === 1,
         levelExperimentTarget,
         wechatCdnTarget,
+        douyinCdnTarget,
     };
 }
 
@@ -360,6 +371,7 @@ function validateLevelDataPackage() {
     assertDir(packDir, '关卡数据 pack 目录');
     assertFile(liveManifestPath, 'level_live.json');
     const manifest = readJson(liveManifestPath);
+    if (douyinCdnTarget) assertDouyinCdnManifest(manifest, douyinCdnTarget, 'level_live.json');
     if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION) fail('level_live.json schema 不正确');
     if (levelExperimentTarget && manifest.cdnSlot != null) {
         fail('实验关卡 level_live.json 不能绑定稳定 A/B 槽位');
@@ -515,6 +527,7 @@ async function verifyRemoteLiveManifest(expectedServer, localManifest, localLeve
     }
     const remoteUrl = expectedServer + 'level_live.json?t=' + Date.now();
     const remoteManifest = await requestJson(remoteUrl);
+    if (douyinCdnTarget) assertDouyinCdnManifest(remoteManifest, douyinCdnTarget, '远端 level_live.json');
     if (levelExperimentTarget && remoteManifest.cdnSlot != null) {
         fail('远端实验 level_live.json 不能绑定稳定 A/B 槽位');
     }
@@ -569,6 +582,7 @@ function runOssutil(args, label) {
 console.log('=== 同步' + platformLabel + '关卡数据 CDN ===');
 console.log('');
 if (wechatCdnTarget) console.log('CDN 槽位: ' + wechatCdnTarget.slot);
+if (douyinCdnTarget) console.log('CDN 槽位: ' + douyinCdnTarget.slot);
 if (levelExperimentTarget) {
     console.log('实验: ' + levelExperimentTarget.experimentId);
     console.log('实验桶: ' + levelExperimentTarget.bucket);

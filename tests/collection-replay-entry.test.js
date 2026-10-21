@@ -14,7 +14,7 @@ function read(relativePath) {
     return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
-function loadCollectionGuideModule(appRootRef) {
+function loadCollectionGuideModule(appRootRef, creator = false) {
     const source = read('assets/Scripts/Core/GameCtrlModules/CollectionGuideModule.ts');
     const output = ts.transpileModule(source, {
         compilerOptions: {
@@ -28,6 +28,8 @@ function loadCollectionGuideModule(appRootRef) {
         exports: module.exports,
         console,
         require(id) {
+            if (id === '../GuideCorgiBubble') return {};
+            if (id === '../CreatorWeb') return { isCreatorWeb: () => creator };
             if (id === '../GameCtrlShared') {
                 return {
                     AudioMgr: { inst: { play() {} } },
@@ -211,7 +213,7 @@ async function run() {
     assert.strictEqual(gameRuntime._collectionReplayStarting, false);
 
     const replayTitleLabel = { string: '' };
-    const replayCostLabel = { string: '' };
+    const replayCostLabel = { string: '', node: { active: true } };
     const replayButtonSprite = { spriteFrame: {} };
     const replayVigorSprite = { spriteFrame: {} };
     const replayButtonNode = {
@@ -255,6 +257,12 @@ async function run() {
     assert.strictEqual(replayCostLabel.string, '-1');
     assert.strictEqual(replayBindings.length, 1);
     assert.strictEqual(replayBindings[0].node, replayButtonNode);
+    loadCollectionGuideModule(appRootRef, true).installCollectionGuideModule(replayUiRuntime);
+    replayUiRuntime.bindCollectionReplayButton(
+        { getChildByName: () => replayButtonNode }, 600, 'level_',
+    );
+    assert.equal(replayTitleLabel.string, '体验本关');
+    assert.equal(replayCostLabel.node.active, false, 'creator preview respects unlimited stamina');
 
     const guide = read('assets/Scripts/Core/GameCtrlModules/CollectionGuideModule.ts');
     const collectionPanelController = read('assets/Scripts/Core/Panels/CollectionPanelController.ts');

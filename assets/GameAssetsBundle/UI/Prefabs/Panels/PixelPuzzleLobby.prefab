@@ -243,7 +243,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 0,
+      "y": -40,
       "z": 0
     },
     "_lrot": {
@@ -347,7 +347,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": -292,
-      "y": 96,
+      "y": 122,
       "z": 0
     },
     "_lrot": {
@@ -567,7 +567,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -600,8 +600,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 15
     },
@@ -1038,7 +1038,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 292,
-      "y": 96,
+      "y": 122,
       "z": 0
     },
     "_lrot": {
@@ -1258,7 +1258,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -1291,8 +1291,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 43
     },
@@ -1719,7 +1719,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 92,
+      "y": 118,
       "z": 0
     },
     "_lrot": {
@@ -1760,7 +1760,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 184,
-      "height": 60
+      "height": 64
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1808,20 +1808,20 @@
       "b": 93,
       "a": 255
     },
-    "_string": "像素拼图",
+    "_string": "PK对战",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 46,
-    "_fontSize": 46,
+    "_fontSize": 48,
     "_fontFamily": "Arial",
-    "_lineHeight": 52,
+    "_lineHeight": 58,
     "_overflow": 0,
     "_enableWrapText": true,
     "_font": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
     "_isItalic": false,
-    "_isBold": false,
+    "_isBold": true,
     "_isUnderline": false,
     "_underlineHeight": 2,
     "_cacheMode": 0,
@@ -1870,7 +1870,7 @@
         "__id__": 87
       }
     ],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 78
@@ -1885,7 +1885,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -157,
+      "y": -131,
       "z": 0
     },
     "_lrot": {
@@ -2204,7 +2204,7 @@
       "b": 200,
       "a": 255
     },
-    "_string": "闯关练习 · 异步竞技",
+    "_string": "排位对战 · 双人合作",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 19,
@@ -2278,7 +2278,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -2,
+      "y": -12,
       "z": 0
     },
     "_lrot": {
@@ -2290,8 +2290,8 @@
     },
     "_lscale": {
       "__type__": "cc.Vec3",
-      "x": 0.8,
-      "y": 0.8,
+      "x": 0.96,
+      "y": 0.96,
       "z": 1
     },
     "_mobility": 0,
@@ -2512,7 +2512,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 4,
+      "y": -6,
       "z": 0
     },
     "_lrot": {
@@ -2524,8 +2524,8 @@
     },
     "_lscale": {
       "__type__": "cc.Vec3",
-      "x": 0.8,
-      "y": 0.8,
+      "x": 0.96,
+      "y": 0.96,
       "z": 1
     },
     "_mobility": 0,
@@ -2745,7 +2745,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -115,
+      "y": -170,
       "z": 0
     },
     "_lrot": {
@@ -2785,7 +2785,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 160,
+      "width": 250,
       "height": 46
     },
     "_anchorPoint": {
@@ -2830,17 +2830,17 @@
     "_color": {
       "__type__": "cc.Color",
       "r": 255,
-      "g": 200,
-      "b": 61,
+      "g": 211,
+      "b": 70,
       "a": 255
     },
     "_string": "☆☆☆☆☆",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 32,
-    "_fontSize": 32,
+    "_actualFontSize": 37,
+    "_fontSize": 37,
     "_fontFamily": "Arial",
-    "_lineHeight": 38,
+    "_lineHeight": 43,
     "_overflow": 0,
     "_enableWrapText": true,
     "_font": null,
@@ -2908,7 +2908,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 4,
+      "y": -6.000000000000014,
       "z": 0
     },
     "_lrot": {
@@ -2920,8 +2920,8 @@
     },
     "_lscale": {
       "__type__": "cc.Vec3",
-      "x": 0.65,
-      "y": 0.65,
+      "x": 0.78,
+      "y": 0.78,
       "z": 1
     },
     "_mobility": 0,
@@ -3145,7 +3145,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 4,
+      "y": -5.999999999999993,
       "z": 0
     },
     "_lrot": {
@@ -3157,8 +3157,8 @@
     },
     "_lscale": {
       "__type__": "cc.Vec3",
-      "x": 0.56,
-      "y": 0.56,
+      "x": 0.672,
+      "y": 0.672,
       "z": 1
     },
     "_mobility": 0,
@@ -3771,7 +3771,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -72,
+      "y": -116,
       "z": 0
     },
     "_lrot": {
@@ -3812,7 +3812,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 440,
-      "height": 42
+      "height": 46
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -3855,18 +3855,18 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 53,
+      "r": 37,
       "g": 48,
-      "b": 133,
-      "a": 245
+      "b": 93,
+      "a": 255
     },
     "_string": "排位数据加载中",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 28,
-    "_fontSize": 28,
+    "_actualFontSize": 34,
+    "_fontSize": 34,
     "_fontFamily": "Arial",
-    "_lineHeight": 34,
+    "_lineHeight": 40,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -3933,7 +3933,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -53,
+      "y": -78,
       "z": 0
     },
     "_lrot": {
@@ -3974,7 +3974,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 640,
-      "height": 30
+      "height": 24
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -4017,18 +4017,18 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 119,
-      "g": 128,
-      "b": 157,
+      "r": 83,
+      "g": 91,
+      "b": 124,
       "a": 255
     },
     "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 16,
-    "_fontSize": 16,
+    "_actualFontSize": 18,
+    "_fontSize": 18,
     "_fontFamily": "Arial",
-    "_lineHeight": 22,
+    "_lineHeight": 24,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -4333,7 +4333,7 @@
         "__id__": 231
       }
     ],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 178
@@ -4348,7 +4348,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 260.5,
+      "y": 164,
       "z": 0
     },
     "_lrot": {
@@ -5912,7 +5912,7 @@
     },
     "clickEvents": [],
     "_interactable": false,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -5945,8 +5945,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 231
     },
@@ -6184,7 +6184,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 620,
-      "height": 220
+      "height": 252
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -6278,7 +6278,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 636,
-      "height": 236
+      "height": 268
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -6395,7 +6395,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 5.5,
+      "y": -158,
       "z": 0
     },
     "_lrot": {
@@ -6436,7 +6436,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 620,
-      "height": 220
+      "height": 252
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -6530,7 +6530,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 636,
-      "height": 236
+      "height": 268
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -7255,7 +7255,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 112,
-      "y": 65,
+      "y": 82,
       "z": 0
     },
     "_lrot": {
@@ -7414,7 +7414,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 112,
-      "y": 22,
+      "y": 35,
       "z": 0
     },
     "_lrot": {
@@ -7501,15 +7501,15 @@
       "r": 53,
       "g": 48,
       "b": 133,
-      "a": 245
+      "a": 255
     },
     "_string": "一人拼一半，共同完成",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 22,
-    "_fontSize": 22,
+    "_actualFontSize": 24,
+    "_fontSize": 24,
     "_fontFamily": "Arial",
-    "_lineHeight": 28,
+    "_lineHeight": 30,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -7573,7 +7573,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 112,
-      "y": -12,
+      "y": -8,
       "z": 0
     },
     "_lrot": {
@@ -7657,18 +7657,18 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 119,
-      "g": 128,
-      "b": 157,
+      "r": 83,
+      "g": 91,
+      "b": 124,
       "a": 255
     },
     "_string": "邀请伙伴 · 完成收录图鉴",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 18,
-    "_fontSize": 18,
+    "_actualFontSize": 20,
+    "_fontSize": 20,
     "_fontFamily": "Arial",
-    "_lineHeight": 24,
+    "_lineHeight": 26,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -7739,7 +7739,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 112,
-      "y": -65,
+      "y": -80,
       "z": 0
     },
     "_lrot": {
@@ -7959,7 +7959,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -7992,8 +7992,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 313
     },
@@ -8231,7 +8231,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 620,
-      "height": 252
+      "height": 284
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -8325,7 +8325,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 636,
-      "height": 268
+      "height": 300
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -8451,7 +8451,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -254.5,
+      "y": 142,
       "z": 0
     },
     "_lrot": {
@@ -8492,7 +8492,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 620,
-      "height": 252
+      "height": 284
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -8586,7 +8586,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 636,
-      "height": 268
+      "height": 300
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -8681,7 +8681,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": -198,
-      "y": 48,
+      "y": 72,
       "z": 0
     },
     "_lrot": {
@@ -8839,8 +8839,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -219,
-      "y": -26,
+      "x": -215,
+      "y": -5,
       "z": 0
     },
     "_lrot": {
@@ -8880,8 +8880,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 134,
-      "height": 34
+      "width": 160,
+      "height": 38
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -8927,15 +8927,15 @@
       "r": 53,
       "g": 48,
       "b": 133,
-      "a": 245
+      "a": 255
     },
     "_string": "门票 --/3",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 20,
-    "_fontSize": 20,
+    "_actualFontSize": 24,
+    "_fontSize": 24,
     "_fontFamily": "Arial",
-    "_lineHeight": 26,
+    "_lineHeight": 30,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -8998,8 +8998,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -195,
-      "y": -88,
+      "x": -184,
+      "y": -82,
       "z": 0
     },
     "_lrot": {
@@ -9039,8 +9039,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 180,
-      "height": 28
+      "width": 230,
+      "height": 56
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -9083,20 +9083,20 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 119,
-      "g": 128,
-      "b": 157,
+      "r": 53,
+      "g": 48,
+      "b": 133,
       "a": 255
     },
-    "_string": "每局 1 体力 + 1 门票",
+    "_string": "体力 -- · 每局扣 1\n门票每局扣 1",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 14,
-    "_fontSize": 14,
+    "_actualFontSize": 20,
+    "_fontSize": 20,
     "_fontFamily": "Arial",
-    "_lineHeight": 20,
+    "_lineHeight": 26,
     "_overflow": 2,
-    "_enableWrapText": false,
+    "_enableWrapText": true,
     "_font": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
@@ -9164,8 +9164,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -126,
-      "y": -26,
+      "x": -106,
+      "y": -5,
       "z": 0
     },
     "_lrot": {
@@ -9385,7 +9385,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -9418,8 +9418,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 369
     },
@@ -9612,7 +9612,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 112,
-      "y": 78,
+      "y": 96,
       "z": 0
     },
     "_lrot": {
@@ -9771,7 +9771,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 112,
-      "y": 33,
+      "y": 47,
       "z": 0
     },
     "_lrot": {
@@ -9858,15 +9858,15 @@
       "r": 53,
       "g": 48,
       "b": 133,
-      "a": 245
+      "a": 255
     },
     "_string": "挑战对手成绩，争夺星级",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 18,
-    "_fontSize": 18,
+    "_actualFontSize": 22,
+    "_fontSize": 22,
     "_fontFamily": "Arial",
-    "_lineHeight": 24,
+    "_lineHeight": 28,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -9930,7 +9930,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 112,
-      "y": -2,
+      "y": 10,
       "z": 0
     },
     "_lrot": {
@@ -10014,18 +10014,18 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 119,
-      "g": 128,
-      "b": 157,
+      "r": 83,
+      "g": 91,
+      "b": 124,
       "a": 255
     },
     "_string": "异步对战 · 无道具 · 无复活",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 17,
-    "_fontSize": 17,
+    "_actualFontSize": 20,
+    "_fontSize": 20,
     "_fontFamily": "Arial",
-    "_lineHeight": 23,
+    "_lineHeight": 26,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -10096,7 +10096,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 112,
-      "y": -72,
+      "y": -86,
       "z": 0
     },
     "_lrot": {
@@ -10316,7 +10316,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -10349,8 +10349,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 405
     },
@@ -10552,8 +10552,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -256,
-      "y": -107,
+      "x": 250,
+      "y": -170,
       "z": 0
     },
     "_lrot": {
@@ -10594,7 +10594,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 144,
-      "height": 62
+      "height": 54
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -10688,7 +10688,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 160,
-      "height": 78
+      "height": 70
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -10773,7 +10773,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -10806,8 +10806,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 423
     },
@@ -11013,7 +11013,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": -210,
-      "y": 31,
+      "y": 50,
       "z": 0
     },
     "_lrot": {
@@ -11054,7 +11054,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 190,
-      "height": 72
+      "height": 80
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -11148,7 +11148,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 206,
-      "height": 88
+      "height": 96
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -11233,7 +11233,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -11266,8 +11266,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 441
     },
@@ -11301,7 +11301,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -20,
+      "y": -23,
       "z": 0
     },
     "_lrot": {
@@ -11342,7 +11342,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 170,
-      "height": 28
+      "height": 30
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -11388,15 +11388,15 @@
       "r": 53,
       "g": 48,
       "b": 133,
-      "a": 245
+      "a": 255
     },
     "_string": "排行榜",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 20,
-    "_fontSize": 20,
+    "_actualFontSize": 22,
+    "_fontSize": 22,
     "_fontFamily": "Arial",
-    "_lineHeight": 34,
+    "_lineHeight": 28,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -11704,7 +11704,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 31,
+      "y": 50,
       "z": 0
     },
     "_lrot": {
@@ -11745,7 +11745,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 190,
-      "height": 72
+      "height": 80
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -11839,7 +11839,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 206,
-      "height": 88
+      "height": 96
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -11924,7 +11924,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -11957,8 +11957,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 469
     },
@@ -11992,7 +11992,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -20,
+      "y": -23,
       "z": 0
     },
     "_lrot": {
@@ -12033,7 +12033,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 170,
-      "height": 28
+      "height": 30
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -12079,15 +12079,15 @@
       "r": 53,
       "g": 48,
       "b": 133,
-      "a": 245
+      "a": 255
     },
     "_string": "对战记录",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 20,
-    "_fontSize": 20,
+    "_actualFontSize": 22,
+    "_fontSize": 22,
     "_fontFamily": "Arial",
-    "_lineHeight": 34,
+    "_lineHeight": 28,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -12395,7 +12395,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 210,
-      "y": 31,
+      "y": 50,
       "z": 0
     },
     "_lrot": {
@@ -12436,7 +12436,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 190,
-      "height": 72
+      "height": 80
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -12530,7 +12530,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 206,
-      "height": 88
+      "height": 96
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -12615,7 +12615,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -12648,8 +12648,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 497
     },
@@ -12683,7 +12683,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -20,
+      "y": -23,
       "z": 0
     },
     "_lrot": {
@@ -12724,7 +12724,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 170,
-      "height": 28
+      "height": 30
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -12770,15 +12770,15 @@
       "r": 53,
       "g": 48,
       "b": 133,
-      "a": 245
+      "a": 255
     },
     "_string": "玩法规则",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 20,
-    "_fontSize": 20,
+    "_actualFontSize": 22,
+    "_fontSize": 22,
     "_fontFamily": "Arial",
-    "_lineHeight": 34,
+    "_lineHeight": 28,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -13225,6 +13225,12 @@
       },
       {
         "__id__": 543
+      },
+      {
+        "__id__": 687
+      },
+      {
+        "__id__": 681
       }
     ],
     "_active": true,
@@ -13245,7 +13251,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -23,
+      "y": -36,
       "z": 0
     },
     "_lrot": {
@@ -13286,7 +13292,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 610,
-      "height": 28
+      "height": 52
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -13380,7 +13386,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 626,
-      "height": 44
+      "height": 68
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -13465,7 +13471,7 @@
     },
     "clickEvents": [],
     "_interactable": true,
-    "_transition": 0,
+    "_transition": 3,
     "_normalColor": {
       "__type__": "cc.Color",
       "r": 214,
@@ -13498,8 +13504,8 @@
     "_hoverSprite": null,
     "_pressedSprite": null,
     "_disabledSprite": null,
-    "_duration": 0.1,
-    "_zoomScale": 1.2,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
     "_target": {
       "__id__": 531
     },
@@ -13532,7 +13538,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 0,
+      "x": 20,
       "y": 0,
       "z": 0
     },
@@ -13573,8 +13579,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 80,
-      "height": 42
+      "width": 530,
+      "height": 32
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -13620,17 +13626,17 @@
       "r": 53,
       "g": 48,
       "b": 133,
-      "a": 245
+      "a": 255
     },
-    "_string": "○ 允许本局成绩供其他玩家异步挑战",
+    "_string": "允许本局成绩供其他玩家异步挑战",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 18,
-    "_fontSize": 18,
+    "_actualFontSize": 20,
+    "_fontSize": 20,
     "_fontFamily": "Arial",
-    "_lineHeight": 34,
-    "_overflow": 0,
-    "_enableWrapText": true,
+    "_lineHeight": 26,
+    "_overflow": 2,
+    "_enableWrapText": false,
     "_font": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
@@ -13684,8 +13690,8 @@
     "_target": null,
     "_left": 0,
     "_right": 0,
-    "_top": 0,
-    "_bottom": 0,
+    "_top": 40,
+    "_bottom": -40,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
@@ -13762,7 +13768,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 462,
+      "y": 436,
       "z": 0
     },
     "_lrot": {
@@ -13816,7 +13822,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 720,
-      "height": 356
+      "height": 408
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -13899,7 +13905,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -110.5,
+      "y": -64,
       "z": 0
     },
     "_lrot": {
@@ -13953,7 +13959,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 620,
-      "height": 761
+      "height": 568
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -13982,7 +13988,7 @@
     "_target": null,
     "_left": 50,
     "_right": 50,
-    "_top": 370,
+    "_top": 420,
     "_bottom": 149,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
@@ -13993,7 +13999,7 @@
     "_isAbsHorizontalCenter": true,
     "_isAbsVerticalCenter": true,
     "_originalWidth": 620,
-    "_originalHeight": 761,
+    "_originalHeight": 496,
     "_alignMode": 2,
     "_lockFlags": 0,
     "_id": ""
@@ -14042,7 +14048,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -573,
+      "y": -500,
       "z": 0
     },
     "_lrot": {
@@ -14096,7 +14102,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 720,
-      "height": 134
+      "height": 180
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -14125,7 +14131,7 @@
     "_target": null,
     "_left": 0,
     "_right": 0,
-    "_top": 1146,
+    "_top": 1050,
     "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
@@ -14305,7 +14311,7 @@
     "_target": null,
     "_left": 0,
     "_right": 0,
-    "_top": 123.19999999999999,
+    "_top": 147.84,
     "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
@@ -14341,7 +14347,7 @@
     "_target": null,
     "_left": 0,
     "_right": 0,
-    "_top": 117.19999999999999,
+    "_top": 141.84,
     "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
@@ -14377,7 +14383,7 @@
     "_target": null,
     "_left": 0,
     "_right": 0,
-    "_top": 270,
+    "_top": 351,
     "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
@@ -14413,7 +14419,7 @@
     "_target": null,
     "_left": 0,
     "_right": 0,
-    "_top": 115.5,
+    "_top": 139.8,
     "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
@@ -14449,7 +14455,7 @@
     "_target": null,
     "_left": 0,
     "_right": 0,
-    "_top": 122.47999999999999,
+    "_top": 148.176,
     "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
@@ -14485,7 +14491,7 @@
     "_target": null,
     "_left": 0,
     "_right": 0,
-    "_top": 229,
+    "_top": 297,
     "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
@@ -14517,13 +14523,13 @@
     "__prefab": {
       "__id__": 590
     },
-    "_alignFlags": 9,
+    "_alignFlags": 17,
     "_target": null,
     "_left": 32,
     "_right": 0,
-    "_top": 254,
+    "_top": 347,
     "_bottom": 0,
-    "_horizontalCenter": 0,
+    "_horizontalCenter": 250,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
     "_isAbsRight": true,
@@ -14589,14 +14595,14 @@
     "__prefab": {
       "__id__": 594
     },
-    "_alignFlags": 42,
+    "_alignFlags": 44,
     "_target": null,
     "_left": 0,
     "_right": 0,
     "_top": 0,
     "_bottom": 0,
     "_horizontalCenter": 0,
-    "_verticalCenter": 5.5,
+    "_verticalCenter": 0,
     "_isAbsLeft": true,
     "_isAbsRight": true,
     "_isAbsTop": true,
@@ -14625,7 +14631,7 @@
     "__prefab": {
       "__id__": 596
     },
-    "_alignFlags": 44,
+    "_alignFlags": 41,
     "_target": null,
     "_left": 0,
     "_right": 0,
@@ -14666,7 +14672,7 @@
     "_left": 0,
     "_right": 0,
     "_top": 0,
-    "_bottom": 62,
+    "_bottom": 100,
     "_horizontalCenter": -210,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
@@ -14702,7 +14708,7 @@
     "_left": 0,
     "_right": 0,
     "_top": 0,
-    "_bottom": 62,
+    "_bottom": 100,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
@@ -14738,7 +14744,7 @@
     "_left": 0,
     "_right": 0,
     "_top": 0,
-    "_bottom": 62,
+    "_bottom": 100,
     "_horizontalCenter": 210,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
@@ -14774,7 +14780,7 @@
     "_left": 0,
     "_right": 0,
     "_top": 0,
-    "_bottom": 30,
+    "_bottom": 28,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
@@ -14810,7 +14816,7 @@
     "_left": 0,
     "_right": 0,
     "_top": 0,
-    "_bottom": -1,
+    "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
@@ -16160,5 +16166,300 @@
   {
     "__type__": "cc.CompPrefabInfo",
     "fileId": "985fa32d-127f-4660-be4a-caa628a84eb2"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "Checkmark",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 531
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 682
+      },
+      {
+        "__id__": 685
+      }
+    ],
+    "_prefab": {
+      "__id__": 684
+    },
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": -270,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 33554432,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 681
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 683
+    },
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 44,
+      "height": 44
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "pvp-consent-7027dc99-247e-434f-abc2-ce22be272147"
+  },
+  {
+    "__type__": "cc.PrefabInfo",
+    "root": {
+      "__id__": 1
+    },
+    "asset": {
+      "__id__": 0
+    },
+    "fileId": "pvp-consent-a40b8b71-5d6f-4434-a378-2dfc310e14ff",
+    "instance": null,
+    "targetOverrides": null,
+    "nestedPrefabInstanceRoots": null
+  },
+  {
+    "__type__": "cc.Label",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 681
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 686
+    },
+    "_customMaterial": null,
+    "_srcBlendFactor": 2,
+    "_dstBlendFactor": 4,
+    "_color": {
+      "__type__": "cc.Color",
+      "r": 53,
+      "g": 48,
+      "b": 133,
+      "a": 255
+    },
+    "_string": "",
+    "_horizontalAlign": 1,
+    "_verticalAlign": 1,
+    "_actualFontSize": 34,
+    "_fontSize": 34,
+    "_fontFamily": "Arial",
+    "_lineHeight": 40,
+    "_overflow": 2,
+    "_enableWrapText": false,
+    "_font": null,
+    "_isSystemFontUsed": true,
+    "_spacingX": 0,
+    "_isItalic": false,
+    "_isBold": false,
+    "_isUnderline": false,
+    "_underlineHeight": 2,
+    "_cacheMode": 0,
+    "_enableOutline": false,
+    "_outlineColor": {
+      "__type__": "cc.Color",
+      "r": 151,
+      "g": 112,
+      "b": 221,
+      "a": 255
+    },
+    "_outlineWidth": 2,
+    "_enableShadow": false,
+    "_shadowColor": {
+      "__type__": "cc.Color",
+      "r": 104,
+      "g": 67,
+      "b": 181,
+      "a": 170
+    },
+    "_shadowOffset": {
+      "__type__": "cc.Vec2",
+      "x": 0,
+      "y": -2
+    },
+    "_shadowBlur": 1,
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "pvp-consent-ba3fc22e-580e-4576-a6b8-26546d0ddbac"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "CheckboxBackground",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 531
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 688
+      },
+      {
+        "__id__": 691
+      }
+    ],
+    "_prefab": {
+      "__id__": 690
+    },
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": -270,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 33554432,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 687
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 689
+    },
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 44,
+      "height": 44
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "pvp-checkbox-fce35a0d-298b-4763-ab48-08900139c798"
+  },
+  {
+    "__type__": "cc.PrefabInfo",
+    "root": {
+      "__id__": 1
+    },
+    "asset": {
+      "__id__": 0
+    },
+    "fileId": "pvp-checkbox-b1b2accd-9152-492a-a83f-580714fd3c14",
+    "instance": null,
+    "targetOverrides": null,
+    "nestedPrefabInstanceRoots": null
+  },
+  {
+    "__type__": "cc.Sprite",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 687
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 692
+    },
+    "_customMaterial": null,
+    "_srcBlendFactor": 2,
+    "_dstBlendFactor": 4,
+    "_color": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_spriteFrame": {
+      "__uuid__": "89337a8e-d378-4f86-a4b2-356f0474ddb6@f9941",
+      "__expectedType__": "cc.SpriteFrame"
+    },
+    "_type": 0,
+    "_fillType": 0,
+    "_sizeMode": 0,
+    "_fillCenter": {
+      "__type__": "cc.Vec2",
+      "x": 0,
+      "y": 0
+    },
+    "_fillStart": 0,
+    "_fillRange": 0,
+    "_isTrimmedMode": false,
+    "_useGrayscale": false,
+    "_atlas": null,
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "pvp-checkbox-afc9ee11-d54a-40b3-a71d-1d53f86f6241"
   }
 ]

@@ -60,7 +60,6 @@ export class GameplayVoiceController {
     private homeAttempted = false;
     private homeIdleSeconds = 0;
     private homeAudioVersion = 0;
-    private activeRequest: { kind: VoiceKind; isCurrent: () => boolean; version: number } | null = null;
 
     constructor(private readonly runtime: any) {}
 
@@ -92,8 +91,14 @@ export class GameplayVoiceController {
     }
 
     private request(name: SfxName, kind: VoiceKind, isCurrent: () => boolean): boolean {
+        const initSeq = this.runtime._gameplayInitSeq;
+        const sceneName = this.runtime.getRuntimeSceneName('Game');
         const accepted = AudioMgr.inst.playVoice(name, kind, {
             isCurrent,
+            finishSentence: true,
+            canContinue: () => this.isAlive() && this.runtime._gameplayInitSeq === initSeq
+                && this.runtime.getRuntimeSceneName('Game') === sceneName && !this.isTransitioning()
+                && !this.runtime._adShowing && !this.runtime._shareShowing,
             onStarted: () => {
                 if (name === 'voiceHint') return;
                 const record = readDailyRecord();
@@ -110,7 +115,6 @@ export class GameplayVoiceController {
                 saveDailyRecord(record);
             },
         });
-        if (accepted) this.activeRequest = { kind, isCurrent, version: AudioMgr.inst.getVoiceCancellationVersion() };
         return accepted;
     }
 
@@ -159,8 +163,7 @@ export class GameplayVoiceController {
 
     resumedAfterRevive(): void {
         this.revivePanel = null;
-        this.activeRequest = null;
-        AudioMgr.inst.stopVoice();
+        AudioMgr.inst.cancelPendingResultVoice();
     }
 
     homeShown(): void {
@@ -184,16 +187,7 @@ export class GameplayVoiceController {
     }
 
     update(dt: number): void {
-        if (this.activeRequest && !this.activeRequest.isCurrent()) {
-            if (this.activeRequest.kind === 'hint') {
-                this.homeAttempted = false;
-                this.homeIdleSeconds = 0;
-            }
-            if (this.activeRequest.version === AudioMgr.inst.getVoiceCancellationVersion()) {
-                AudioMgr.inst.stopVoice(this.activeRequest.kind);
-            }
-            this.activeRequest = null;
-        }
+        AudioMgr.inst.updateVoicePlayback();
         if (!this.homeReady) return;
         if (this.homeAudioVersion !== AudioMgr.inst.getVoiceCancellationVersion()) {
             this.homeAudioVersion = AudioMgr.inst.getVoiceCancellationVersion();
@@ -209,13 +203,11 @@ export class GameplayVoiceController {
         if (this.homeIdleSeconds < 3) return;
         const record = readDailyRecord();
         if (!canRemind(record)) return;
-        this.homeAttempted = true;
-        this.request('voiceHint', 'hint', () => this.homeReady && this.isHomeIdle());
+        this.homeAttempted = this.request('voiceHint', 'hint', () => this.homeReady && this.isHomeIdle());
     }
 
     dispose(): void {
         this.homeReady = false;
-        this.activeRequest = null;
         AudioMgr.inst.stopVoice();
     }
 }

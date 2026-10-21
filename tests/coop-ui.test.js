@@ -24,6 +24,7 @@ class BoardSlotBatchRenderer { configure(cells) { this.cells = cells; } }
 class Sprite {}
 Sprite.SizeMode = { CUSTOM: 0 };
 class Button {}
+Button.Transition = { SCALE: 3 };
 Button.EventType = { CLICK: 'click' };
 class Color { constructor(hex, _g, _b, a = 255) { this.hex = hex; this.a = a; } }
 Color.WHITE = new Color('#fff');
@@ -51,6 +52,7 @@ const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKi
 const loaded = { exports: {} };
 new Function('module', 'exports', 'require', code)(loaded, loaded.exports, id => {
     if (id === 'cc') return { Node, Label, UITransform, Graphics, Button, Color, ScrollView, Mask: class {}, BlockInputEvents: class {}, Layers: { Enum: { UI_2D: 1 } }, view: { getVisibleSize: () => ({ width: 720, height: 1280 }) } };
+    if (id.endsWith('AudioMgr')) return { AudioMgr: { inst: { play: name => assert.equal(name, 'button') } } };
     if (id.endsWith('CoopServiceMgr')) return { CoopServiceMgr: { inst: mgr } };
     if (id.endsWith('AppRoot')) return { AppRoot: { ensure: () => app } };
     if (id.endsWith('CoopModeConfig')) return require('../cloudfunctions/coopService/runtime/CoopModeConfig');
@@ -115,6 +117,7 @@ async function main() {
     new Function('module', 'exports', 'require', modeCode)(modeModule, modeModule.exports, id => {
         if (id === 'cc') return { Label, Graphics, Color, UIOpacity, Sprite, BlockInputEvents: class {} };
         if (id.endsWith('AppRoot')) return { AppRoot: { tryGet: () => app } };
+        if (id.endsWith('AudioMgr')) return { AudioMgr: { inst: { play: name => assert.equal(name, 'button') } } };
         if (id.endsWith('CoopServiceMgr')) return { CoopServiceMgr: { inst: mgr } };
         if (id.endsWith('CoopModeConfig')) return require('../cloudfunctions/coopService/runtime/CoopModeConfig');
         if (id.endsWith('CoopPanelController')) return loaded.exports;

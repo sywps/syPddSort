@@ -7,6 +7,7 @@ const vm = require('vm');
 const ts = require('typescript');
 
 class UITransform {
+  get contentSize() { return { width: this.width, height: this.height }; }
   setContentSize(width, height) { this.width = width; this.height = height; }
   setAnchorPoint(x, y) { this.anchor = { x, y }; }
 }
@@ -32,7 +33,7 @@ for (const method of ['roundRect', 'rect', 'stroke', 'moveTo', 'lineTo', 'close'
   Graphics.prototype[method] = () => {};
 }
 class BlockInputEvents {}
-class Widget {}
+class Widget { static AlignMode = { ALWAYS: 2 }; updateAlignment() {} }
 class Node {
   constructor(name) {
     this.name = name;
@@ -43,7 +44,7 @@ class Node {
     this.isValid = true;
     this.scale = { x: 1, y: 1, z: 1 };
   }
-  addChild(child) { child.parent = this; this.children.push(child); }
+  addChild(child) { if (child.parent) child.parent.children = child.parent.children.filter(n => n !== child); child.parent = this; this.children.push(child); }
   getChildByName(name) { return this.children.find(child => child.name === name && child.isValid); }
   getChildByPath(path) { return path.split('/').reduce((node, name) => node?.getChildByName(name), this); }
   addComponent(Type) { const c = new Type(); c.node = this; this.components.set(Type, c); return c; }
@@ -113,6 +114,7 @@ function setup(options = {}) {
   const rewards = require('../cloudfunctions/pvpService/economy').RANK_REWARDS.map((r, i) => ({ ...r, status: i === 0 ? 'claimable' : i === 1 ? 'claimed' : r.pending ? 'pending' : 'locked' }));
   let economy = { tickets: options.tickets ?? 3, capacity: 3, shareUsed: options.shareUsed || 0, shareLimit: 2,
     serverTime: Date.now(), resetAt: Date.now() + 3600000, seasonId: 'S01', rewardsEnabled: true, rewards, inventory: null };
+  let replayConsent = !!options.replayConsent;
   const service = {
     syncInventory: async () => { if (options.syncError) throw new Error('sync failed'); },
     getEconomy: async () => economy,
@@ -127,8 +129,8 @@ function setup(options = {}) {
     claimTicketReward: async () => { calls.ticketClaims = (calls.ticketClaims || 0) + 1; economy = { ...economy, tickets: economy.tickets + 1 }; return economy; },
     claimRankReward: async tier => { calls.prizes = (calls.prizes || 0) + 1; calls.tier = tier; return economy; },
     isLocalPreview: () => !options.cloud,
-    hasReplayConsent: () => false,
-    setReplayConsent: () => {},
+    hasReplayConsent: () => replayConsent,
+    setReplayConsent: value => { replayConsent = value; calls.consentChanges = (calls.consentChanges || 0) + 1; },
     getRankedLevel: async () => ({ levelId: 3, levelHash: 'test-hash', poolVersion: 'test-pool' }),
     getProfile: async () => ({ rankName: '荣耀黄金 IV', stars: 2 }),
     getActiveMatch: async () => {
@@ -141,9 +143,9 @@ function setup(options = {}) {
     toBattleContext: result => ({ matchId: result.matchId, resumeElapsedMs: 1000 }),
     matchmake: async levelId => { calls.ranked++; return { matchId: 'new', levelId }; },
   };
-  const shared = { Node, UITransform, Label, Button, Graphics, Color, Widget, BlockInputEvents, Layers: { Enum: { UI_2D: 1 } }, AudioMgr: { inst: { play() {} } } };
+  const shared = { Node, UITransform, Label, Button, Graphics, Color, Widget, BlockInputEvents, Layers: { Enum: { UI_2D: 1 } }, AudioMgr: { inst: { play() {} } }, AnalyticsMgr: { inst: { trackMultiplayerLobby() {} } } };
   const prefab = new Prefab(); prefab.data = JSON.parse(JSON.stringify(prefabData));
-  if (options.editTitle) prefab.data.find(x => x.__type__ === 'cc.Label' && x._string === '像素拼图')._string = options.editTitle;
+  if (options.editTitle) prefab.data.find(x => x.__type__ === 'cc.Label' && x._string === 'PK对战')._string = options.editTitle;
   const prefabLoads = [];
   const bundle = {
     get: () => options.delayedPrefab || options.prefabError ? null : prefab,
@@ -159,8 +161,10 @@ function setup(options = {}) {
   vm.runInNewContext(compiled, {
     module, exports: module.exports, console, setTimeout, clearTimeout,
     require(id) {
-      if (id === 'cc') return { Mask, ScrollView, Sprite, view: { getVisibleSize: () => ({ width: 720, height: 1558 }) } };
+      if (id === 'cc') return { Mask, ScrollView, Sprite, view: { getVisibleSize: () => ({ width: 720, height: 1558 }) },
+        sys: { getSafeAreaRect: () => ({ x: 0, y: 0, width: 720, height: 1558 }) } };
       if (id.endsWith('GameCtrlShared')) return shared;
+      if (id.endsWith('AnalyticsMgr')) return { AnalyticsMgr: shared.AnalyticsMgr };
       if (id.endsWith('PixelPuzzleLobbyView')) return viewModule.exports;
       if (id.endsWith('AppRoot')) return { AppRoot: { inst: app, tryGet: () => app, ensure: () => app } };
       if (id.endsWith('PvpServiceMgr')) return { PvpServiceMgr: { inst: service } };
@@ -210,15 +214,23 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
   const homeSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts'), 'utf8');
   const homeCompiled = ts.transpileModule(homeSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   const homeModule = { exports: {} };
-  vm.runInNewContext(homeCompiled, { module: homeModule, exports: homeModule.exports, console, require: () => ({ Button }) });
+  class HomeContentLayout {}
+  vm.runInNewContext(homeCompiled, { module: homeModule, exports: homeModule.exports, console,
+    require: () => ({ Button, HomeContentLayout, renderHomeChapter() {} }) });
   const runtime = {};
   homeModule.exports.installHomeAdFlowModule(runtime);
   const menu = new Node('MainMenuFixedRoot');
   const child = (parent, name) => { const node = new Node(name); parent.addChild(node); return node; };
   child(child(menu, 'BackgroundLayer'), 'BG');
-  child(menu, 'TopBarGroup');
-  child(child(child(menu, 'HeroLayer'), 'HeroCard'), 'HeroCardFrame');
-  const primary = child(menu, 'PrimaryActionLayer');
+  const safeArea = child(menu, 'TopBarGroup');
+  const top = child(safeArea, 'TopInfoGroup');
+  child(top, 'GoldGroup'); child(top, 'VigorGroup'); child(top, 'FeedbackButton');
+  const content = child(safeArea, 'HomeContentArea'); content.addComponent(HomeContentLayout);
+  const contentGroup = child(content, 'HomeContentGroup');
+  child(child(contentGroup, 'HeroCard'), 'HeroCardFrame');
+  const action = child(contentGroup, 'ActionArea');
+  child(action, 'LeftEntries'); child(action, 'RightEntries');
+  const primary = child(action, 'PrimaryActionLayer');
   const theme = child(primary, 'ThemeBtn');
   const entries = child(menu, 'EntryLayer');
   child(entries, 'FeedbackButton');
@@ -235,7 +247,7 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
     _applySpriteFrame() {},
     getDefaultEntryLevel: () => 3,
     drawHomeLevelPixelPreview() {},
-    syncTopHud: () => ({}),
+    drawGoldBanner() {}, drawLivesBanner() {}, drawTopRightBtns() {},
     drawStartButton() {},
     drawThemeChallengeButton: parent => { assert.strictEqual(parent.getChildByName('ThemeBtn'), theme); unifiedRenders++; },
     drawLeaderboardButton() {},
@@ -254,20 +266,31 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
 (async () => {
   assertHomeHasOnlyUnifiedPixelEntry();
   const chapter = setup();
+  const consent = find(chapter.overlayRoot, 'ReplayConsent');
+  const consentMark = consent.getChildByName('Checkmark').getComponent(Label);
+  assert.strictEqual(consentMark.string, '', 'opening lobby must not opt the player in');
+  assert.strictEqual(chapter.calls.consentChanges, undefined);
+  click(chapter.overlayRoot, 'ReplayConsent');
+  assert.strictEqual(consentMark.string, '✓');
+  click(chapter.overlayRoot, 'ReplayConsent');
+  assert.strictEqual(consentMark.string, '');
+  const optedIn = setup({ replayConsent: true });
+  assert.strictEqual(find(optedIn.overlayRoot, 'Checkmark').getComponent(Label).string, '✓', 'saved choice is displayed');
+  assert.strictEqual(optedIn.calls.consentChanges, undefined, 'render must not rewrite the saved choice');
   assert.strictEqual(find(chapter.overlayRoot, 'LobbySettings').active, false, 'lobby settings must remain temporarily hidden');
   assert.strictEqual(find(chapter.overlayRoot, 'Close').active, true, 'hiding settings must preserve the back button');
   for (const name of ['StartChapter', 'StartMatch']) {
     assert.strictEqual(find(chapter.overlayRoot, name).getComponent(Graphics), null, 'fixed artwork must come from the prefab');
     assert(find(chapter.overlayRoot, name).getChildByName('Background').getComponent(Sprite).spriteFrame);
   }
-  assert(find(chapter.overlayRoot, 'ChapterLevel').getComponent(Label).string.includes('第 8 关'));
-  assert.strictEqual(chapter.calls.preview.length, 1, 'use actual loaded level preview');
-  const cards = ['ChapterCard', 'CoopCard', 'RankedCard'].map(name => find(chapter.overlayRoot, name));
+  assert.strictEqual(find(chapter.overlayRoot, 'ChapterCard').active, false, 'solo chapter entry is removed');
+  assert.strictEqual(chapter.calls.preview.length, 0, 'rank candidates load without rendering the removed solo preview');
+  const cards = ['RankedCard', 'CoopCard'].map(name => find(chapter.overlayRoot, name));
   for (let i = 0; i < cards.length - 1; i++) {
     const upper = cards[i], lower = cards[i + 1];
     assert(upper.position.y - upper.getComponent(UITransform).height / 2 > lower.position.y + lower.getComponent(UITransform).height / 2, 'mode cards must be ordered with a visible gap');
   }
-  assert.strictEqual(find(chapter.overlayRoot, 'CoopEntry').parent, cards[1], 'cooperation action belongs to its own card below chapter mode');
+  assert.strictEqual(find(chapter.overlayRoot, 'CoopEntry').parent, cards[1], 'cooperation action belongs to its own card below ranked mode');
   await flush();
   assert(chapter.calls.preview.some(args => args[0].name === 'CoopPreview'), 'cooperation card renders its dedicated pattern');
   assert.notStrictEqual(find(chapter.overlayRoot, 'CoopEntry').getComponent(Button).interactable, false);
@@ -276,8 +299,8 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
   assert.strictEqual(find(chapter.overlayRoot, 'PvpFriendBattleOverlay'), null);
   click(chapter.overlayRoot, 'StartChapter');
   await flush();
-  assert.deepStrictEqual(chapter.calls.chapter, [23], 'use physical theme ID, not displayed chapter or mainline level');
-  assert.strictEqual(chapter.session.pvpBattleContext, null);
+  assert.deepStrictEqual(chapter.calls.chapter, [], 'removed chapter entry cannot start a level');
+  assert.strictEqual(chapter.session.pvpBattleContext.matchId, 'existing', 'opening PK lobby preserves the active battle');
   assert.strictEqual(chapter.calls.clear, 0, 'chapter entry must preserve recoverable ranked save');
   assert.strictEqual(chapter.session.pixelPuzzleLobbyActive, true, 'return to unified lobby after chapter');
 
@@ -304,7 +327,7 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
   click(offline.overlayRoot, 'StartMatch');
   await flush();
   assert.strictEqual(offline.calls.ranked, 0, 'failed active lookup must not create a new match');
-  assert.strictEqual(find(offline.overlayRoot, 'StartChapter').getComponent(Button).interactable, true, 'rank service failure must not block chapter mode');
+  assert.strictEqual(find(offline.overlayRoot, 'ChapterCard').active, false, 'rank service failure must not revive the removed chapter mode');
   assert(find(ranked.overlayRoot, 'TicketCount').getComponent(Label).string.includes('3/3'));
   const noTickets = setup({ tickets: 0 });
   await flush();
@@ -401,8 +424,8 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
     click(blocked.overlayRoot, 'StartMatch');
     await flush();
     assert.strictEqual(blocked.calls.ranked, 0, 'missing pixel-puzzle data must not fall back to mainline');
-    click(blocked.overlayRoot, 'StartChapter');
-    assert.strictEqual(blocked.calls.chapter.length, 0, `${failure} must fail visibly, not silently start`);
+    click(blocked.overlayRoot, 'StartMatch');
+    assert.strictEqual(blocked.calls.ranked, 0, `${failure} must fail visibly, not silently start`);
     assert(find(blocked.overlayRoot, 'Status').getComponent(Label).string.length > 0);
   }
   const close = setup();

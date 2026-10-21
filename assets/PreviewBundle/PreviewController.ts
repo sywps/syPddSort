@@ -3,6 +3,7 @@ import { GameRuntimeHost } from '../Scripts/Core/GameRuntimeHost';
 import { ECONOMY_NUMERIC_TABLE } from '../Scripts/Core/EconomyConfig';
 import { HOME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BUNDLE_NAME } from '../Scripts/Core/PackageNames';
 import { AppRoot } from '../Scripts/Core/AppRoot';
+import { WinPanel2Preview } from './WinPanel2Preview';
 
 const { ccclass } = _decorator;
 
@@ -25,6 +26,7 @@ export class PreviewController extends GameRuntimeHost {
     private panelPreviewPage = 0;
     private fxPreviewPage = 0;
     private previewMode: PreviewMode = 'ui';
+    private winPanel2Preview: WinPanel2Preview | null = null;
 
     start() {
         view.setDesignResolutionSize(720, 1280, ResolutionPolicy.FIXED_WIDTH);
@@ -34,6 +36,14 @@ export class PreviewController extends GameRuntimeHost {
         const screenRoot = (this as any).requireCanvasUiRoot('ScreenRoot') as Node;
         this.previewMode = 'ui';
         this.renderCurrentPreviewMode(screenRoot);
+        if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('winPanel2') === '1') {
+            this.openWinPanel2Preview();
+        }
+    }
+
+    onDestroy() {
+        this.winPanel2Preview?.dispose();
+        super.onDestroy();
     }
 
     async requestHomeRoute() {
@@ -138,6 +148,7 @@ export class PreviewController extends GameRuntimeHost {
             [
                 { label: '恢复体力', onClick: () => this.openPanelPreview(() => { (this as any).openRecoverVigorPrefabModal(() => {}); }) },
                 { label: '胜利结算', onClick: () => this.openResultPanelPreview('win') },
+                { label: '胜利界面2（预览）', onClick: () => this.openWinPanel2Preview() },
                 { label: '失败结算', onClick: () => this.openResultPanelPreview('lose') },
                 { label: '复活结算', onClick: () => this.openResultPanelPreview('revive') },
             ],
@@ -229,6 +240,7 @@ export class PreviewController extends GameRuntimeHost {
     }
 
     private clearPreviewPopups() {
+        this.winPanel2Preview?.dispose();
         const runtime = this as any;
         const popupRoot = runtime.requireCanvasUiRoot('PopupRoot') as Node;
         for (const child of popupRoot.children.slice()) {
@@ -242,6 +254,12 @@ export class PreviewController extends GameRuntimeHost {
     private openPanelPreview(open: () => void) {
         this.clearPreviewPopups();
         open();
+    }
+
+    private openWinPanel2Preview() {
+        this.clearPreviewPopups();
+        this.winPanel2Preview ||= new WinPanel2Preview(this, () => this.switchPreviewMode('panel'));
+        void this.winPanel2Preview.open();
     }
 
     private openResultPanelPreview(kind: 'win' | 'lose' | 'revive') {

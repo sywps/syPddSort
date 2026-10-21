@@ -1,5 +1,6 @@
 import {
     AudioMgr,
+    BoardModel,
     BlockInputEvents,
     Button,
     Color,
@@ -12,8 +13,9 @@ import {
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { AnalyticsMgr } from '../AnalyticsMgr';
+import { ensureGameplayResultPanelController } from '../GameplayResultPanelController';
 import { mountPixelPuzzleLobby, lobbyNode, lobbyLabel, bindLobbyButton } from '../Panels/PixelPuzzleLobbyView';
-import { Mask, ScrollView, Sprite, view } from 'cc';
+import { Mask, ScrollView, Sprite, view, sys } from 'cc';
 import { COLOR_HEX } from '../LevelConfig';
 import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
 import { PvpServiceMgr, type PvpLeaderboardEntry, type PvpEconomyState } from '../PvpServiceMgr';
@@ -144,7 +146,10 @@ function addButton(parent: Node, name: string, text: string, x: number, y: numbe
     parent.addChild(node);
     node.setPosition(x, y, 0);
     drawPanel(node, width, height, color, 18);
-    node.addComponent(Button);
+    const button = node.addComponent(Button);
+    button.transition = Button.Transition.SCALE;
+    button.zoomScale = 0.95;
+    button.duration = 0.08;
     addLabel(node, 'Label', text, 0, 0, 28, COLORS.white);
     node.on(Button.EventType.CLICK, onClick);
     return node;
@@ -276,7 +281,14 @@ function setProgress(widget: { fill: Graphics; label: Label; width: number }, va
     widget.fill.fillColor = color;
     widget.fill.roundRect(-width / 2, -9, width, 18, 8);
     widget.fill.fill();
-    widget.label.string = `${Math.round(progress * 100)}%`;
+    widget.label.string = `${progress >= 1 ? 100 : Math.min(99, Math.round(progress * 100))}%`;
+}
+
+// Stored/replayed progress includes cells settled at load time. Only the HUD
+// subtracts that baseline; the existing cloud/replay contract stays unchanged.
+function playablePvpProgress(progress: number, initialProgress: number): number {
+    if (initialProgress >= 1) return 1;
+    return clampPvpProgress((progress - initialProgress) / (1 - initialProgress));
 }
 
 function computeBoardProgress(runtime: any): number {
@@ -301,6 +313,8 @@ function rankDivisionGlyph(rankName: string): string {
 
 function opponentTypeLabel(context: PvpBattleContext): string {
     if (context.matchType === 'friend' || context.opponent.opponentType === 'friend') return '好友挑战';
+    if (context.opponent.opponentType === 'bot') return '机器人对手';
+    if (context.opponent.opponentType === 'human_replay') return '真人历史成绩';
     return '排位对手';
 }
 
@@ -461,13 +475,68 @@ function createPvpEconomyModal(parent: Node, name: string, title: string, height
     card.addChild(ribbon);
     ribbon.setPosition(0, height / 2 - 12, 0);
     drawPixelPanel(ribbon, 430, 88, COLORS.gold, 16);
-    addLabel(ribbon, 'Title', title, 0, 0, 38, COLORS.violetDark);
+    addLabel(ribbon, 'Title', title, 0, 0, 48, COLORS.violetDark).isBold = true;
     addButton(card, 'Close', '×', 282, height / 2 - 30, 54, 54, COLORS.violet, () => {
+        AudioMgr.inst.play('button');
         root.active = false;
         root.destroy();
         onClose();
     });
     return { root, card };
+}
+
+function adaptPvpScreenOverlay(root: Node, splitBackground = false): Node {
+    // The lobby can be design-sized; anchor to its full-screen OverlayRoot ancestor.
+    let target = root.parent!;
+    for (let ancestor: Node | null = root.parent; ancestor; ancestor = ancestor.parent) {
+        if (ancestor.name === 'OverlayRoot') { target = ancestor; break; }
+    }
+    const children = root.children.slice();
+    const content = new Node('ResponsiveContent');
+    content.layer = root.layer;
+    root.addChild(content);
+    ensureTransform(content, 680, 1120);
+    for (const child of children) content.addChild(child);
+    const contentWidget = content.addComponent(Widget);
+    contentWidget.isAlignHorizontalCenter = contentWidget.isAlignVerticalCenter = true;
+    contentWidget.alignMode = Widget.AlignMode.ALWAYS;
+    const graphics = root.getComponent(Graphics)!;
+    const refresh = () => {
+        const { width, height } = root.getComponent(UITransform)!.contentSize;
+        const visible = view.getVisibleSize();
+        const safe = sys.getSafeAreaRect(false);
+        const left = safe.x * width / visible.width;
+        const bottom = safe.y * height / visible.height;
+        const safeWidth = safe.width * width / visible.width;
+        const safeHeight = safe.height * height / visible.height;
+        contentWidget.horizontalCenter = left + safeWidth / 2 - width / 2;
+        contentWidget.verticalCenter = bottom + safeHeight / 2 - height / 2;
+        const scale = Math.min(1, Math.max(1, safeWidth - 32) / 680, Math.max(1, safeHeight - 32) / 1120);
+        content.setScale(scale, scale, 1);
+        contentWidget.updateAlignment();
+        graphics.clear();
+        graphics.fillColor = splitBackground ? new Color(78, 111, 224, 255) : new Color(18, 22, 48, 230);
+        graphics.rect(-width / 2, -height / 2, width, height);
+        graphics.fill();
+        if (splitBackground) {
+            graphics.fillColor = new Color(242, 92, 107, 255);
+            graphics.moveTo(-width / 2, -height / 2);
+            graphics.lineTo(width / 2, -height / 2);
+            graphics.lineTo(width / 2, height * 390 / 1280);
+            graphics.lineTo(-width / 2, -height * 210 / 1280);
+            graphics.close();
+            graphics.fill();
+        }
+    };
+    const widget = root.addComponent(Widget);
+    widget.target = target;
+    widget.isAlignTop = widget.isAlignBottom = widget.isAlignLeft = widget.isAlignRight = true;
+    widget.top = widget.bottom = widget.left = widget.right = 0;
+    widget.alignMode = Widget.AlignMode.ALWAYS;
+    root.on(Node.EventType.SIZE_CHANGED, refresh);
+    widget.updateAlignment();
+    refresh();
+    return content;
 }
 
 function createPvpMatchmakingOverlay(parent: Node): {
@@ -492,7 +561,7 @@ function createPvpMatchmakingOverlay(parent: Node): {
     background.lineTo(-360, -210);
     background.close();
     background.fill();
-    addLabel(root, 'Title', '排位匹配', 0, 455, 48, COLORS.white);
+    addLabel(root, 'Title', '排位匹配', 0, 455, 48, COLORS.white).isBold = true;
     const versus = new Node('MatchmakingVersus');
     versus.layer = Layers.Enum.UI_2D;
     root.addChild(versus);
@@ -505,6 +574,7 @@ function createPvpMatchmakingOverlay(parent: Node): {
     addLabel(versus, 'Caption', '寻找对手成绩', 0, -62, 22, COLORS.white);
     const status = addBoundedLabel(root, 'MatchmakingStatus', '正在同步体力与门票', 0, -130, 25, COLORS.white, 600);
     addBoundedLabel(root, 'FairRule', '同一关卡 · 同一规则 · 异步挑战', 0, -188, 19, COLORS.gold, 600);
+    const content = adaptPvpScreenOverlay(root, true);
     return {
         root,
         setStatus: (message: string) => {
@@ -514,8 +584,9 @@ function createPvpMatchmakingOverlay(parent: Node): {
             if (!root.isValid) return;
             status.string = message;
             status.color = COLORS.white;
-            addBoundedLabel(root, 'FailureHint', '返回后可重试；若云端已创建对局，下次会自动恢复', 0, -242, 17, COLORS.white, 620);
-            const back = addButton(root, 'ReturnToLobby', '返回大厅', 0, -340, 300, 68, COLORS.violetDark, () => {
+            addBoundedLabel(content, 'FailureHint', '返回后可重试；若云端已创建对局，下次会自动恢复', 0, -242, 17, COLORS.white, 620);
+            const back = addButton(content, 'ReturnToLobby', '返回大厅', 0, -340, 300, 68, COLORS.violetDark, () => {
+                AudioMgr.inst.play('button');
                 if (root.isValid) root.destroy();
             });
             styleLobbyButton(back, COLORS.gold);
@@ -537,6 +608,7 @@ export function installPvpModeModule(target: any): void {
         },
 
         openPvpLobby(): void {
+            AnalyticsMgr.inst.trackMultiplayerLobby('pvp', 'multiplayer_lobby_open');
             mountPixelPuzzleLobby(this, (overlay) => this.bindPixelPuzzleLobby(overlay), () => {
                 AppRoot.inst.session.pixelPuzzleLobbyActive = false;
             });
@@ -547,64 +619,40 @@ export function installPvpModeModule(target: any): void {
             AppRoot.inst.session.pixelPuzzleLobbyActive = true;
             const backButton = bindLobbyButton(overlay, 'Content/Header/Close', () => {
                 if (this._pvpMatchStarting) return;
+                AudioMgr.inst.play('button');
                 AppRoot.inst.session.pixelPuzzleLobbyActive = false;
                 overlay.destroy();
             });
             const settingsButton = bindLobbyButton(overlay, 'Content/Header/LobbySettings', () => {
-                if (!this._pvpMatchStarting) this.openSettingsPanel();
+                if (!this._pvpMatchStarting) { AudioMgr.inst.play('button'); this.openSettingsPanel(); }
             });
             const starsLabel = lobbyLabel(overlay, 'Content/Header/Stars');
             const divisionLabel = lobbyLabel(overlay, 'Content/Header/RankCrest/RankMedalCore/RankDivision');
             const rankLabel = lobbyLabel(overlay, 'Content/Header/RankName');
             const status = lobbyLabel(overlay, 'Content/Footer/Status');
-            const chapterPreview = lobbyNode(overlay, 'Content/ModeArea/ChapterCard/ChapterPreview');
-            const previewStatus = lobbyLabel(overlay, 'Content/ModeArea/ChapterCard/ChapterPreview/PreviewStatus');
-            const chapterLevel = lobbyLabel(overlay, 'Content/ModeArea/ChapterCard/ChapterLevel');
-            let chapterLevelId = 0;
-            let chapterLevelData: any = null;
-            const chapterButton = bindLobbyButton(overlay, 'Content/ModeArea/ChapterCard/StartChapter', () => {
-                if (this._pvpMatchStarting || !chapterLevelId) return;
-                this._pvpMatchStarting = true;
-                AudioMgr.inst.play('button');
-                AppRoot.inst.session.clearPvpBattleContext();
-                void Promise.resolve(this.startThemeLevel(chapterLevelId, { suppressFailureToast: true }))
-                    .then((started) => {
-                        this._pvpMatchStarting = false;
-                        if (started && overlay.isValid) overlay.destroy();
-                        else if (overlay.isValid) status.string = '未进入关卡，请检查体力后重试';
-                    }).catch((error) => {
-                        this._pvpMatchStarting = false;
-                        if (overlay.isValid) status.string = pvpPlayerNotice(error, '暂时无法开始，请稍后再试');
-                    });
-            });
-            chapterButton.getComponent(Button)!.interactable = false;
+            let matchLevelId = 0;
+            let matchLevelData: any = null;
+            // Ranked matchmaking still needs the candidate level after removing solo play.
             this.loadThemeConfig(() => {
                 if (!overlay.isValid) return;
                 const levelId = this.getThemeDirectPlayLevelId();
-                chapterLevel.string = `第 ${this.getThemeLevelDisplayNumber(levelId)} 关 · 继续闯关`;
                 this.loadLevelData(levelId, (data: any) => {
                     if (!overlay.isValid) return;
                     if (!data?.correctColorArr?.length) {
-                        previewStatus.string = '关卡加载失败';
                         status.string = '像素关卡资源不可用，请返回后重试';
                         return;
                     }
-                    renderPixelPosterPreview(chapterPreview, data.correctColorArr, { maxW: 160, maxH: 176, cropToContent: true, mode: 'poster' });
-                    previewStatus.node.active = false;
-                    chapterLevelId = levelId;
-                    chapterLevelData = data;
-                    chapterButton.getComponent(Button)!.interactable = true;
+                    matchLevelId = levelId;
+                    matchLevelData = data;
                 }, 'zt_level_');
             }, (error: Error) => {
                 if (!overlay.isValid) return;
-                previewStatus.string = '关卡目录不可用';
-                chapterLevel.string = '加载失败';
                 status.string = pvpPlayerNotice(error, '暂时无法加载，请返回后重试');
             });
             const coopPreview = lobbyNode(overlay, 'Content/ModeArea/CoopCard/CoopPreview');
             const coopPreviewStatus = lobbyLabel(overlay, 'Content/ModeArea/CoopCard/CoopPreview/CoopPreviewStatus');
             const coopButton = bindLobbyButton(overlay, 'Content/ModeArea/CoopCard/CoopEntry', () => {
-                if (!this._pvpMatchStarting) this.openCoopLobby();
+                if (!this._pvpMatchStarting) { AudioMgr.inst.play('button'); this.openCoopLobby(); }
             });
             void CoopServiceMgr.inst.fullLevel(this, 1).then((data) => {
                 if (!overlay.isValid) return;
@@ -628,7 +676,7 @@ export function installPvpModeModule(target: any): void {
                     if (!overlay.isValid) return;
                     economyState = state;
                     ticketLabel.string = `门票 ${state.tickets}/${state.capacity}`;
-                    vigorLabel.string = `体力 ${this.getVigor()} · 每局各扣 1`;
+                    vigorLabel.string = `体力 ${this.getVigor()} · 每局扣 1\n门票每局扣 1`;
                     economyRefreshAt = Date.now() + Math.max(1000, state.resetAt - state.serverTime);
                 } catch (error) {
                     if (overlay.isValid) status.string = pvpPlayerNotice(error, '门票信息待更新，请稍后再试');
@@ -636,10 +684,14 @@ export function installPvpModeModule(target: any): void {
                 } finally { economyLoading = false; }
             };
             const ticketMore = bindLobbyButton(overlay, 'Content/ModeArea/RankedCard/TicketMore', () => {
-                if (!this._pvpMatchStarting) void this.openPvpTickets(overlay, status, refreshEconomy);
+                if (!this._pvpMatchStarting && !this._pvpEconomyPanelOpening) {
+                    AudioMgr.inst.play('button'); void this.openPvpTickets(overlay, status, refreshEconomy);
+                }
             });
             const rankRewards = bindLobbyButton(overlay, 'Content/Header/RankRewards', () => {
-                if (!this._pvpMatchStarting) void this.openPvpRankRewards(overlay, status, refreshEconomy);
+                if (!this._pvpMatchStarting && !this._pvpEconomyPanelOpening) {
+                    AudioMgr.inst.play('button'); void this.openPvpRankRewards(overlay, status, refreshEconomy);
+                }
             });
             void refreshEconomy();
             const refreshDailyTickets = () => {
@@ -671,7 +723,7 @@ export function installPvpModeModule(target: any): void {
                     checkActiveMatch();
                     return;
                 }
-                if (!activeMatchId && !chapterLevelId) {
+                if (!activeMatchId && !matchLevelId) {
                     status.string = '像素关卡尚未就绪，请等待加载或返回重试';
                     return;
                 }
@@ -709,7 +761,7 @@ export function installPvpModeModule(target: any): void {
                     });
                     return;
                 }
-                const levelId = chapterLevelId;
+                const levelId = matchLevelId;
                 if (!economyState) {
                     this._pvpMatchStarting = false;
                     void refreshEconomy();
@@ -732,7 +784,7 @@ export function installPvpModeModule(target: any): void {
                 void PvpServiceMgr.inst.syncInventory(this).then(async () => {
                     if (PvpServiceMgr.inst.isLocalPreview()) {
                         matching.setStatus('正在准备本地模拟对手');
-                        return PvpServiceMgr.inst.matchmake(levelId, chapterLevelData);
+                        return PvpServiceMgr.inst.matchmake(levelId, matchLevelData);
                     }
                     matching.setStatus('正在分配排位关卡');
                     const offer = await PvpServiceMgr.inst.getRankedLevel();
@@ -780,21 +832,25 @@ export function installPvpModeModule(target: any): void {
             };
             if (!activeMatchChecked) checkActiveMatch();
             const leaderboard = bindLobbyButton(overlay, 'Content/Footer/PvpLeaderboard', () => {
+                AudioMgr.inst.play('button');
                 void this.openPvpLeaderboard(overlay, status);
             });
             const history = bindLobbyButton(overlay, 'Content/Footer/History', () => {
+                AudioMgr.inst.play('button');
                 void this.openPvpHistory(overlay, status);
             });
             const rules = bindLobbyButton(overlay, 'Content/Footer/Rules', () => {
+                AudioMgr.inst.play('button');
                 this.openPvpRules(overlay);
             });
             const replayConsent = bindLobbyButton(overlay, 'Content/Footer/ReplayConsent', () => {
+                AudioMgr.inst.play('button');
                 PvpServiceMgr.inst.setReplayConsent(!PvpServiceMgr.inst.hasReplayConsent());
                 refreshReplayConsent();
             });
             const refreshReplayConsent = () => {
-                replayConsent.getChildByName('Label')!.getComponent(Label)!.string =
-                    `${PvpServiceMgr.inst.hasReplayConsent() ? '✓' : '○'} 允许本局成绩供其他玩家异步挑战`;
+                replayConsent.getChildByName('Checkmark')!.getComponent(Label)!.string =
+                    PvpServiceMgr.inst.hasReplayConsent() ? '✓' : '';
             };
             refreshReplayConsent();
         },
@@ -837,6 +893,7 @@ export function installPvpModeModule(target: any): void {
                 const finalize = () => { busy = false; this._pvpEconomyClaiming = false; refresh(); void onChange(); };
                 const acquire = async (source: 'ad' | 'share') => {
                     if (busy || this._pvpEconomyClaiming) return;
+                    AudioMgr.inst.play('button');
                     busy = true;
                     this._pvpEconomyClaiming = true;
                     refresh();
@@ -873,6 +930,7 @@ export function installPvpModeModule(target: any): void {
                 addLabel(card, 'Limits', '广告不限次数 · 分享每天最多 2 次', 0, -149, 18, COLORS.muted);
                 retry = addButton(card, 'RetryTicketClaim', '补领已完成奖励的门票', 0, -282, 410, 44, COLORS.violet, () => {
                     if (busy || this._pvpEconomyClaiming) return;
+                    AudioMgr.inst.play('button');
                     busy = true;
                     this._pvpEconomyClaiming = true;
                     refresh();
@@ -972,8 +1030,9 @@ export function installPvpModeModule(target: any): void {
                     const captions = { claimable: '领取', claimed: '已领取', locked: '去挑战', disabled: '待开放', pending: '待配置' };
                     const action = addButton(row, 'Claim', captions[reward.status], 191, 0, 140, 56,
                         reward.status === 'claimable' ? COLORS.gold : new Color(211, 212, 224), () => {
-                            if (reward.status === 'locked') { root.active = false; root.destroy(); void onChange(); return; }
+                            if (reward.status === 'locked') { AudioMgr.inst.play('button'); root.active = false; root.destroy(); void onChange(); return; }
                             if (reward.status !== 'claimable' || this._pvpEconomyClaiming) return;
+                            AudioMgr.inst.play('button');
                             this._pvpEconomyClaiming = true;
                             action.getComponent(Button)!.interactable = false;
                             void PvpServiceMgr.inst.syncInventory(this).then(() => PvpServiceMgr.inst.claimRankReward(reward.tier, state.seasonId)).then(next => {
@@ -1007,7 +1066,7 @@ export function installPvpModeModule(target: any): void {
             panel.addComponent(BlockInputEvents);
 
             const launchCode = PvpServiceMgr.inst.getLaunchChallengeCode();
-            addLabel(panel, 'Title', '异步好友对战', 0, 310, 40, COLORS.violetDark);
+            addLabel(panel, 'Title', '异步好友对战', 0, 310, 44, COLORS.violetDark).isBold = true;
             addBoundedLabel(panel, 'Subtitle', '不用同时在线 · 同一关卡 · 好友局不影响排位', 0, 258, 20, COLORS.muted, 540);
 
             const joinCard = new Node('JoinFriendCard');
@@ -1027,6 +1086,7 @@ export function installPvpModeModule(target: any): void {
                 }
                 this._pvpMatchStarting = true;
                 panelStatus.string = `正在读取好友的已完成挑战 ${launchCode}…`;
+                AudioMgr.inst.play('button');
                 void PvpServiceMgr.inst.joinFriendChallenge(launchCode).then((context) => {
                     this._pvpMatchStarting = false;
                     if (!parent?.isValid) return;
@@ -1050,6 +1110,7 @@ export function installPvpModeModule(target: any): void {
                 if (this._pvpMatchStarting) return;
                 this._pvpMatchStarting = true;
                 panelStatus.string = '正在创建好友挑战…';
+                AudioMgr.inst.play('button');
                 const levelId = this.getThemeDirectPlayLevelId();
                 void PvpServiceMgr.inst.createFriendChallenge(levelId).then((result) => {
                     this._pvpMatchStarting = false;
@@ -1066,7 +1127,7 @@ export function installPvpModeModule(target: any): void {
 
             const panelStatus = addBoundedLabel(panel, 'FriendStatus', launchCode ? '好友成绩已准备好，可以开始挑战' : '也可以先发起一局，再把成绩分享给好友', 0, -276, 18, COLORS.muted, 540);
             addButton(panel, 'Close', '返回', 0, -330, 220, 58, COLORS.violetDark, () => {
-                if (!this._pvpMatchStarting) panel.destroy();
+                if (!this._pvpMatchStarting) { AudioMgr.inst.play('button'); panel.destroy(); }
             });
         },
 
@@ -1078,7 +1139,7 @@ export function installPvpModeModule(target: any): void {
             panel.setPosition(0, 10, 0);
             drawPixelPanel(panel, 620, 830, new Color(255, 249, 226, 255), 20);
             panel.addComponent(BlockInputEvents);
-            addLabel(panel, 'Title', '排位玩法', 0, 350, 42, COLORS.violetDark);
+            addLabel(panel, 'Title', '排位玩法', 0, 350, 48, COLORS.violetDark).isBold = true;
             const rules = [
                 '双方挑战同一像素拼图',
                 '先通关的一方获胜',
@@ -1092,7 +1153,7 @@ export function installPvpModeModule(target: any): void {
             ];
             rules.forEach((rule, index) => addLabel(panel, `Rule${index}`, `${index + 1}. ${rule}`, 0, 262 - index * 57, 21, COLORS.ink));
             addLabel(panel, 'RankTitle', '段位：青铜 → 白银 → 黄金 → 铂金 → 钻石 → 星耀 → 王者', 0, -257, 18, COLORS.violet);
-            addButton(panel, 'Close', '我知道了', 0, -340, 250, 66, COLORS.violet, () => panel.destroy());
+            addButton(panel, 'Close', '我知道了', 0, -340, 250, 66, COLORS.violet, () => { AudioMgr.inst.play('button'); panel.destroy(); });
         },
 
         async openPvpHistory(parent: Node, status: Label): Promise<void> {
@@ -1106,7 +1167,7 @@ export function installPvpModeModule(target: any): void {
                 panel.setPosition(0, 10, 0);
                 drawPixelPanel(panel, 620, 850, COLORS.pale, 22);
                 panel.addComponent(BlockInputEvents);
-                addLabel(panel, 'Title', '对战记录', 0, 360, 40, COLORS.ink);
+            addLabel(panel, 'Title', '对战记录', 0, 360, 48, COLORS.ink).isBold = true;
                 history.slice(0, 7).forEach((match: any, index: number) => {
                     const result = match.settlement?.outcome === 'win' ? '胜利' : match.settlement?.outcome === 'lose' ? '失败' : match.status === 'SETTLED' ? '平局' : match.status === 'WAITING_OPPONENT' ? '待好友挑战' : '待结算';
                     const color = result === '胜利' ? COLORS.gold : result === '失败' ? COLORS.coral : COLORS.muted;
@@ -1116,7 +1177,7 @@ export function installPvpModeModule(target: any): void {
                     addLabel(panel, `Delta${index}`, match.status === 'SETTLED' ? `${delta >= 0 ? '+' : ''}${delta}` : '—', 235, 280 - index * 82, 19, color);
                 });
                 if (history.length === 0) addLabel(panel, 'Empty', '完成第一场排位后，这里会显示战绩', 0, 80, 21, COLORS.muted);
-                addButton(panel, 'Close', '关闭', 0, -360, 190, 60, COLORS.violet, () => panel.destroy());
+                addButton(panel, 'Close', '关闭', 0, -360, 190, 60, COLORS.violet, () => { AudioMgr.inst.play('button'); panel.destroy(); });
                 status.string = '对战记录已更新';
             } catch (error) {
                 status.string = pvpPlayerNotice(error, '战绩待更新，请稍后再试');
@@ -1142,13 +1203,19 @@ export function installPvpModeModule(target: any): void {
                 card.layer = Layers.Enum.UI_2D;
                 panel.addChild(card);
                 drawPixelPanel(card, 580, 390, new Color(255, 249, 226, 255), 18);
-                addLabel(card, 'Title', '认输并退出？', 0, 120, 40, COLORS.coral);
+            addLabel(card, 'Title', '认输并退出？', 0, 120, 44, COLORS.coral).isBold = true;
                 addLabel(card, 'Body', '认输后本局立即判负，不能恢复。', 0, 52, 22, COLORS.ink);
+                let forfeiting = false;
                 addButton(card, 'Continue', '继续对战', -135, -95, 220, 68, COLORS.violet, () => {
+                    if (forfeiting) return;
+                    AudioMgr.inst.play('button');
                     panel.destroy();
                     resolve();
                 });
                 addButton(card, 'Forfeit', '认输并退出', 135, -95, 220, 68, COLORS.coral, () => {
+                    if (forfeiting) return;
+                    forfeiting = true;
+                    AudioMgr.inst.play('button');
                     const elapsedMs = Math.max(1, Date.now() - context.startedAtMs);
                     const progress = computeBoardProgress(this);
                     const leave = context.demo
@@ -1160,6 +1227,7 @@ export function installPvpModeModule(target: any): void {
                         panel.destroy();
                         return this.requestHomeRoute('pvp-forfeit', 'auto');
                     }).then(resolve).catch((error) => {
+                        forfeiting = false;
                         const body = card.getChildByName('Body')?.getComponent(Label);
                         if (body) body.string = pvpPlayerNotice(error, '对局结果待同步，请稍后再试');
                     });
@@ -1187,7 +1255,7 @@ export function installPvpModeModule(target: any): void {
             background.close();
             background.fill();
             const creatingFriendChallenge = context.matchType === 'friend' && context.friendRole === 'creator';
-            addLabel(reveal, 'Title', creatingFriendChallenge ? '创建异步挑战' : '对手成绩已就绪', 0, 490, 48, COLORS.white);
+            addLabel(reveal, 'Title', creatingFriendChallenge ? '创建异步挑战' : '对手成绩已就绪', 0, 490, 48, COLORS.white).isBold = true;
             addAvatar(this, reveal, 'SelfAvatar', context.self, -180, 240);
             addAvatar(this, reveal, 'OpponentAvatar', context.opponent, 180, -35);
             addLabel(reveal, 'SelfName', context.self.displayName, -180, 180, 24, COLORS.white);
@@ -1209,6 +1277,7 @@ export function installPvpModeModule(target: any): void {
             addLabel(fairRule, 'Line1', '同一关卡 · 无道具 · 无复活', 0, 22, 21, COLORS.white);
             addLabel(fairRule, 'Line2', creatingFriendChallenge ? '先完成本局，再邀请好友挑战' : '按同一时间轴回放已冻结成绩', 0, -22, 19, COLORS.gold);
             addLabel(reveal, 'Ready', creatingFriendChallenge ? '准备生成挑战成绩' : '准备挑战', 0, -465, 23, COLORS.white);
+            adaptPvpScreenOverlay(reveal, true);
             this.scheduleOnce(() => {
                 if (!reveal?.isValid) return;
                 const appRoot = AppRoot.tryGet();
@@ -1234,9 +1303,13 @@ export function installPvpModeModule(target: any): void {
             blocker.addComponent(BlockInputEvents);
             drawPanel(blocker, 720, 1280, new Color(26, 23, 61, 205), 0);
             const status = addBoundedLabel(blocker, 'Status', '正在确认进入排位…', 0, 24, 28, COLORS.white, 620);
-            const retry = addButton(blocker, 'Retry', '重试进入', 0, -92, 300, 68, COLORS.violet, () => { void confirm(); });
+            const retry = addButton(blocker, 'Retry', '重试进入', 0, -92, 300, 68, COLORS.violet, () => {
+                if (confirming || !blocker.isValid) return;
+                AudioMgr.inst.play('button'); void confirm();
+            });
             retry.active = false;
             const back = addButton(blocker, 'Back', '返回大厅', 0, -180, 300, 60, COLORS.white, () => {
+                AudioMgr.inst.play('button');
                 PvpServiceMgr.inst.clearPersistedBattle();
                 AppRoot.tryGet()?.session.clearPvpBattleContext();
                 void this.requestHomeRoute('pvp-entry-confirm-failed', 'none');
@@ -1257,7 +1330,7 @@ export function installPvpModeModule(target: any): void {
                 } catch (error) {
                     confirming = false;
                     if (!blocker.isValid) return;
-                    status.string = `进入确认失败：${pvpErrorMessage(error)}\n未扣除门票和体力`;
+                    status.string = `进入确认失败：${pvpErrorMessage(error)}\n请重试确认，不会重复扣除门票和体力`;
                     retry.active = true;
                     back.active = true;
                 }
@@ -1273,6 +1346,8 @@ export function installPvpModeModule(target: any): void {
             if (!context) throw new Error('[PvpMode] ranked route missing battle context');
             PvpServiceMgr.inst.preparePreviewBattle(context, this.levelData);
             if (context.levelHash && pixelLevelHash(this.levelData) !== context.levelHash) throw new Error('[PvpMode] replay level version mismatch');
+            // Rebuild from original level data, not a partially completed reconnect snapshot.
+            this._pvpInitialBoardProgress = computeBoardProgress({ boardModel: new BoardModel(this.levelData) });
             this._pvpReplayResumeState = context.resumeReplay ? replayHumanEvents(this.levelData, context.resumeReplay) : null;
             if (this._pvpReplayResumeState) this.boardModel = this._pvpReplayResumeState.board;
             this.confirmPvpMatchEntry(context);
@@ -1299,6 +1374,10 @@ export function installPvpModeModule(target: any): void {
             const settingsWidget = settingsNode?.getComponent(Widget);
             if (!settingsNode || !settingsWidget) throw new Error('[PvpMode] PVP settings control requires the scene Widget anchor');
             alignPvpUtilityCenter(settingsNode, settingsWidget);
+            const helpNode = topBar.getChildByName('GameplayHelpButton');
+            const helpWidget = helpNode?.getComponent(Widget);
+            if (!helpNode || !helpWidget) throw new Error('[PvpMode] gameplay help requires the scene Widget anchor');
+            alignPvpUtilityCenter(helpNode, helpWidget);
             this.getGameplayBottomHudChild('SkillArea').active = false;
             topBar.getChildByName('PvpBattleHud')?.destroy();
             const hud = new Node('PvpBattleHud');
@@ -1362,6 +1441,7 @@ export function installPvpModeModule(target: any): void {
             }
             this._pvpBattleSettled = false;
             this._pvpSubmitting = false;
+            this._pvpCompletionPresentation = null;
             this._pvpActions = this._pvpReplayResumeState ? [...this._pvpReplayResumeState.actions] : [];
             this._pvpRuleEvents = context.resumeReplay ? [...context.resumeReplay.events] : [];
             this._pvpProgressTimeline = [{ elapsedMs: 0, progress: 0 }];
@@ -1426,7 +1506,7 @@ export function installPvpModeModule(target: any): void {
                 appendPvpBoardDelta(this, elapsedMs);
             }
             const opponentProgress = opponentProgressAt(context, elapsedMs);
-            setProgress(this._pvpSelfProgress, ownProgress, COLORS.blue);
+            setProgress(this._pvpSelfProgress, playablePvpProgress(ownProgress, this._pvpInitialBoardProgress), COLORS.blue);
             if (opponentProgress === null) {
                 this._pvpOpponentProgress.label.string = context.friendRole === 'creator' ? '待好友挑战' : '暂不可用';
                 if (context.friendRole !== 'creator' && this._pvpSyncLabel) {
@@ -1435,7 +1515,8 @@ export function installPvpModeModule(target: any): void {
                     this._pvpSyncLabel.node.active = true;
                 }
             } else {
-                setProgress(this._pvpOpponentProgress, opponentProgress, opponentProgress >= 0.9 ? COLORS.gold : COLORS.coral);
+                const opponentDisplayProgress = playablePvpProgress(opponentProgress, this._pvpInitialBoardProgress);
+                setProgress(this._pvpOpponentProgress, opponentDisplayProgress, opponentDisplayProgress >= 0.9 ? COLORS.gold : COLORS.coral);
                 const boardState = opponentBoardStateAt(this, context, elapsedMs, opponentProgress);
                 if (boardState.revision !== this._pvpLastOpponentBoardRevision) {
                     this._pvpLastOpponentBoardRevision = boardState.revision;
@@ -1517,9 +1598,29 @@ export function installPvpModeModule(target: any): void {
             this._pchConveyorGameplayController?.pauseForSettlement?.();
             const context = getPvpContext();
             if (!context) throw new Error('[PvpMode] missing context during settlement');
+            const isCurrent = () => this.isValid && getPvpContext() === context && this._pvpBattleHudContext === context;
+            // Freeze the terminal time above; presentation must never extend the score.
+            // Keep this promise across submission retries so completion plays only once.
+            if (!this._pvpCompletionPresentation) {
+                this.closePinchGuide?.();
+                this._patternCompleteWinPending = false;
+                this.clearIdleHint();
+                this.clearAdRewardHintVisuals?.();
+                this.clearEndgameHints(false);
+                this._pvpCompletionPresentation = terminalType === 'PASS'
+                    ? new Promise<void>(resolve => {
+                        try { this.playCompletedPatternPresentation(resolve, isCurrent); }
+                        catch (error) {
+                            console.error('[pvp] completion presentation failed:', error);
+                            resolve();
+                        }
+                    })
+                    : Promise.resolve();
+            }
             this._settlementAnalyticsId = AnalyticsMgr.inst.beginSettlement('pvp_result', null, 'pvp');
             appendPvpBoardDelta(this, ownTimeMs);
             const localOutcome = resolvePvpOutcome(terminalType, ownTimeMs, context.opponentTerminalType, context.opponentTargetMs);
+            AnalyticsMgr.inst.finishMultiplayerAnalytics('pvp', terminalType, localOutcome);
             if (context.demo) PvpServiceMgr.inst.recordPreviewResult(context, localOutcome);
             let outcome = localOutcome;
             let settlement: any = null;
@@ -1538,6 +1639,7 @@ export function installPvpModeModule(target: any): void {
                         replay: { protocol: context.replayProtocol, levelHash: context.levelHash,
                             events: this._pvpRuleEvents || [] },
                     });
+                    if (!isCurrent()) return;
                     submittedMatch = result;
                     PvpServiceMgr.inst.clearPersistedBattle();
                     if (result.status === 'WAITING_OPPONENT' || result.status === 'WAITING_RESULT') {
@@ -1551,6 +1653,8 @@ export function installPvpModeModule(target: any): void {
                         outcome = settlement.outcome;
                     }
                 } catch (error) {
+                    await this._pvpCompletionPresentation;
+                    if (!isCurrent()) return;
                     this._pvpSubmitting = false;
                     console.error('[pvp] result submission failed', error);
                     const overlayRoot = this.requireCanvasUiRoot('OverlayRoot');
@@ -1564,13 +1668,17 @@ export function installPvpModeModule(target: any): void {
                     addLabel(failed, 'Reason', '本局成绩待同步', 0, 125, 22, COLORS.muted);
                     addLabel(failed, 'Hint', '同步完成后更新段位', 0, 60, 20, COLORS.muted);
                     addButton(failed, 'Retry', '继续同步', 0, -70, 300, 78, COLORS.violet, () => {
+                        AudioMgr.inst.play('button');
                         failed.destroy();
                         this._pvpBattleSettled = false;
                         void this.finishPvpBattle(terminalType, ownTimeMs, reason);
                     });
+                    adaptPvpScreenOverlay(failed);
                     return;
                 }
             }
+            await this._pvpCompletionPresentation;
+            if (!isCurrent()) return;
             this._pvpSubmitting = false;
             const overlayRoot = this.requireCanvasUiRoot('OverlayRoot');
             const overlay = new Node('PvpResultOverlay');
@@ -1616,12 +1724,14 @@ export function installPvpModeModule(target: any): void {
                         shareStatus.string = '挑战码不可用，请返回大厅后重试';
                         return;
                     }
+                    AudioMgr.inst.play('button');
                     shareStatus.string = PvpServiceMgr.inst.shareFriendChallenge(challengeCode)
                         ? '已打开分享面板'
                         : `挑战码 ${challengeCode} · 当前平台不支持分享`;
                 });
             }
             addButton(overlay, 'ReturnLobby', '返回大厅', 0, shareableFriendChallenge ? -275 : -205, 350, 86, COLORS.violet, () => {
+                AudioMgr.inst.play('button');
                 const attempt = AnalyticsMgr.inst.settlement.action(this._settlementAnalyticsId, 'home', null);
                 PvpServiceMgr.inst.clearPersistedBattle();
                 AppRoot.tryGet()?.session.clearPvpBattleContext();
@@ -1633,6 +1743,11 @@ export function installPvpModeModule(target: any): void {
                     console.error('[pvp] return from settlement failed', error);
                 });
             });
+            const resultContent = adaptPvpScreenOverlay(overlay);
+            if (!waitingForFriend && outcome === 'win') {
+                AudioMgr.inst.play('winSettlement');
+                ensureGameplayResultPanelController(this).playPvpWinSettlementFx(overlay, resultContent);
+            }
             AnalyticsMgr.inst.settlement.shown(this._settlementAnalyticsId, 'pvp_result');
         },
 
@@ -1647,13 +1762,13 @@ export function installPvpModeModule(target: any): void {
                 panel.setPosition(0, 20, 0);
                 drawPanel(panel, 610, 760, COLORS.pale, 28);
                 panel.addComponent(BlockInputEvents);
-                addLabel(panel, 'Title', '像素排位榜', 0, 320, 38, COLORS.ink);
+                addLabel(panel, 'Title', '像素排位榜', 0, 320, 48, COLORS.ink).isBold = true;
                 result.entries.slice(0, 8).forEach((entry: PvpLeaderboardEntry, index: number) => {
                     addLabel(panel, `Rank${index}`, `${entry.rank}. ${entry.displayName}`, -145, 250 - index * 66, 21, entry.isSelf ? COLORS.coral : COLORS.ink);
                     addLabel(panel, `Score${index}`, `${entry.rankName} · ${entry.stars}星`, 145, 250 - index * 66, 18, COLORS.muted);
                 });
                 if (result.entries.length === 0) addLabel(panel, 'Empty', '暂无排位数据', 0, 80, 24, COLORS.muted);
-                addButton(panel, 'Close', '关闭', 0, -320, 180, 58, COLORS.violet, () => panel.destroy());
+                addButton(panel, 'Close', '关闭', 0, -320, 180, 58, COLORS.violet, () => { AudioMgr.inst.play('button'); panel.destroy(); });
                 status.string = '排行榜已更新';
             } catch (error) {
                 status.string = pvpPlayerNotice(error, '排行榜待更新，请稍后再试');

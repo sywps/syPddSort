@@ -6,7 +6,7 @@ export function isPixelPvpMatch(value: { levelPrefix?: string; rulesVersion?: st
     return value?.levelPrefix === PVP_LEVEL_PREFIX && value?.rulesVersion === PVP_RULES_VERSION;
 }
 
-export type PvpOpponentType = 'ranked' | 'friend';
+export type PvpOpponentType = 'ranked' | 'friend' | 'bot' | 'human_replay';
 export type PvpTerminalType = 'PASS' | 'DEAD_CONVEYOR_FULL' | 'DEAD_TIMEOUT' | 'FORFEIT' | 'SURVIVED_OPPONENT_DEATH';
 
 export interface PvpPublicProfile {

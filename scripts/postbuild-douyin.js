@@ -4,24 +4,30 @@ const childProcess = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const buildCommon = require('./minigame-build-common.js');
+const { configureDouyinCdnEnvironment, extractRequiredDouyinCdnSlot, assertRuntimeDouyinCdnTarget } = require('./douyin-cdn-slot-config');
+
+let postbuildArgs = process.argv.slice(2);
+let douyinCdnTarget;
+try {
+    const hasSlotArg = postbuildArgs.some(arg => arg === '--cdn-slot' || arg.startsWith('--cdn-slot='));
+    const command = extractRequiredDouyinCdnSlot(hasSlotArg ? postbuildArgs : [...postbuildArgs, '--cdn-slot=' + (process.env.PDD_DOUYIN_CDN_SLOT || '')]);
+    postbuildArgs = command.remainingArgs;
+    if (postbuildArgs.length > 1 || postbuildArgs.some(arg => arg.startsWith('--'))) throw new Error('用法: postbuild-douyin.js [build目录] --cdn-slot=<A|B>');
+    douyinCdnTarget = configureDouyinCdnEnvironment(command.target, process.env);
+} catch (error) {
+    buildCommon.fail(error.message);
+}
 
 const projectRoot = path.resolve(__dirname, '..');
-const buildPath = process.argv[2] || process.env.BUILD_PATH || path.join(projectRoot, 'build', 'bytedance-mini-game');
+const buildPath = postbuildArgs[0] || process.env.BUILD_PATH || path.join(projectRoot, 'build', 'bytedance-mini-game');
 const buildMode = process.env.DOUYIN_BUILD_MODE || 'release';
 const debugLevelDataBundle = buildMode === 'debug';
 const SKIN_BUNDLE_NAMES = [];
-const levelDataCdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_douyin/levels/';
-const skinDataCdnUrl = process.env.PDD_SKIN_DATA_CDN_URL || deriveSkinDataCdnUrl(levelDataCdnUrl);
+const levelDataCdnUrl = douyinCdnTarget.levelDataCdnUrl;
+const skinDataCdnUrl = douyinCdnTarget.skinDataCdnUrl;
 const douyinCloudEnv = process.env.PDD_DOUYIN_CLOUD_ENV || '';
 const douyinCloudPathPrefix = process.env.PDD_DOUYIN_CLOUD_PATH_PREFIX || '';
 const MAIN_PACKAGE_LIMIT_BYTES = 4 * 1024 * 1024;
-
-function deriveSkinDataCdnUrl(levelUrl) {
-    const normalized = String(levelUrl || '').trim().replace(/\/?$/, '/');
-    if (!normalized) return 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_douyin/skin/';
-    if (/\/levels\/$/i.test(normalized)) return normalized.replace(/\/levels\/$/i, '/skin/');
-    return normalized + 'skin/';
-}
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -234,15 +240,19 @@ function ensureDouyinRuntimeMarker(runtimeRoot) {
     const platformMarker = 'globalThis.__PDD_BUILD_PLATFORM__="douyin";';
     const buildMarker = 'globalThis.__PDD_DOUYIN_BUILD__=true;';
     const modeMarker = 'globalThis.__PDD_DOUYIN_BUILD_MODE__=' + JSON.stringify(buildMode) + ';';
+    const cdnSlotMarker = 'globalThis.__PDD_CDN_SLOT__=' + JSON.stringify(douyinCdnTarget.slot) + ';';
     const levelDataCdnMarker = 'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(levelDataCdnUrl) + ';';
     const skinDataCdnMarker = 'globalThis.__PDD_SKIN_DATA_CDN_URL__=' + JSON.stringify(skinDataCdnUrl) + ';';
+    const profileDataCdnMarker = 'globalThis.__PDD_PROFILE_DATA_CDN_URL__=' + JSON.stringify(douyinCdnTarget.profileDataCdnUrl) + ';';
     const cloudEnvMarker = 'globalThis.__PDD_DOUYIN_CLOUD_ENV__=' + JSON.stringify(douyinCloudEnv) + ';';
     const cloudPathPrefixMarker = 'globalThis.__PDD_DOUYIN_CLOUD_PATH_PREFIX__=' + JSON.stringify(douyinCloudPathPrefix) + ';';
     const replacements = [
         [/globalThis\.__PDD_BUILD_PLATFORM__="[^"]*";/g, platformMarker],
         [/globalThis\.__PDD_DOUYIN_BUILD_MODE__="[^"]*";/g, modeMarker],
+        [/globalThis\.__PDD_CDN_SLOT__="[^"]*";/g, cdnSlotMarker],
         [/globalThis\.__PDD_LEVEL_DATA_CDN_URL__="[^"]*";/g, levelDataCdnMarker],
         [/globalThis\.__PDD_SKIN_DATA_CDN_URL__="[^"]*";/g, skinDataCdnMarker],
+        [/globalThis\.__PDD_PROFILE_DATA_CDN_URL__="[^"]*";/g, profileDataCdnMarker],
         [/globalThis\.__PDD_DOUYIN_CLOUD_ENV__="[^"]*";/g, cloudEnvMarker],
         [/globalThis\.__PDD_DOUYIN_CLOUD_PATH_PREFIX__="[^"]*";/g, cloudPathPrefixMarker],
     ];
@@ -250,7 +260,7 @@ function ensureDouyinRuntimeMarker(runtimeRoot) {
         content = pattern.test(content) ? content.replace(pattern, value) : content;
     }
     const missingLines = [];
-    for (const line of [platformMarker, buildMarker, modeMarker, levelDataCdnMarker, skinDataCdnMarker, cloudEnvMarker, cloudPathPrefixMarker]) {
+    for (const line of [platformMarker, buildMarker, modeMarker, cdnSlotMarker, levelDataCdnMarker, skinDataCdnMarker, profileDataCdnMarker, cloudEnvMarker, cloudPathPrefixMarker]) {
         if (!content.includes(line)) missingLines.push(line);
     }
     if (missingLines.length) content = missingLines.join('\n') + '\n' + content;
@@ -273,7 +283,7 @@ function normalizeSettings(runtimeRoot) {
     assets.projectBundles = projectBundles;
     const subpackages = (Array.isArray(assets.subpackages) ? assets.subpackages.slice() : [])
         .filter((name) => debugLevelDataBundle || name !== 'levelData');
-    for (const bundleName of bundleNames.filter((name) => name !== 'bootstrap')) {
+    for (const bundleName of bundleNames) {
         if (!subpackages.includes(bundleName)) subpackages.push(bundleName);
     }
     assets.subpackages = subpackages;
@@ -287,6 +297,8 @@ function normalizeSettings(runtimeRoot) {
 const runtimeRoot = resolveRuntimeRoot(buildPath);
 if (!fs.existsSync(runtimeRoot)) fail('抖音构建目录不存在: ' + runtimeRoot);
 
+console.log('[douyin-postbuild] restored RichText export: ' + require('./ensure-douyin-rich-text-export').ensureDouyinRichTextExport(runtimeRoot));
+ensureBundleSubpackage(runtimeRoot, 'bootstrap');
 ensureBundleSubpackage(runtimeRoot, 'homeAssets');
 ensureBundleSubpackage(runtimeRoot, 'gameAssets');
 for (const bundleName of SKIN_BUNDLE_NAMES) ensureBundleSubpackage(runtimeRoot, bundleName);
@@ -294,7 +306,14 @@ if (debugLevelDataBundle) ensureBundleSubpackage(runtimeRoot, 'levelData');
 removeReleaseLevelDataSubpackage(runtimeRoot);
 normalizeSettings(runtimeRoot);
 ensureDouyinRuntimeMarker(runtimeRoot);
+console.log('[douyin-postbuild] business: ' + require('./install-douyin-business')(runtimeRoot));
+console.log('[douyin-postbuild] analytics: ' + require('./install-douyin-analytics')(runtimeRoot));
 runNode('scripts/postbuild-minigame-bundles.js', [runtimeRoot]);
+console.log('[douyin-postbuild] normalized pack indices: ' + require('./normalize-minigame-pack-indices').normalizeRuntimePackIndices(runtimeRoot));
+console.log('[douyin-postbuild] atlas dependencies: ' + JSON.stringify(require('./repair-douyin-atlas-dependencies').repairAtlasDependencies(runtimeRoot)));
+console.log('[douyin-postbuild] Shengye SDK: ' + require('./install-douyin-sysdk').installDouyinSySdk(runtimeRoot).vendorVersion);
+console.log('[douyin-postbuild] dev identity test: ' + require('./install-douyin-identity-test').installDouyinIdentityTest(runtimeRoot));
 assertMainPackageSize(runtimeRoot);
+assertRuntimeDouyinCdnTarget(fs.readFileSync(path.join(runtimeRoot, 'game.js'), 'utf8'), douyinCdnTarget);
 
 console.log('抖音后处理完成: ' + runtimeRoot);

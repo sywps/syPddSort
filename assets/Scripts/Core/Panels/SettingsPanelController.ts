@@ -10,6 +10,7 @@ import {
     instantiate,
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
+import { isCreatorWeb } from '../CreatorWeb';
 import { openFeedbackPanel } from './FeedbackPanelController';
 
 const SETTINGS_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/SettingsPanel';
@@ -32,7 +33,7 @@ function buildSettingsToggle(runtime: any, parent: Node, initialOn: boolean, onT
     };
     sync(initialOn);
     toggle.targetOff(runtime);
-    toggle.getComponent(Button) || toggle.addComponent(Button);
+    if (!toggle.getComponent(Button)) throw new Error('[settings-prefab] missing Button on toggle');
     toggle.on(Button.EventType.CLICK, () => {
         const next = !currentOn;
         sync(next);
@@ -371,6 +372,9 @@ export class SettingsPanelController {
             let button = node.getComponent(Button);
             if (!button) {
                 button = node.addComponent(Button);
+                button.transition = Button.Transition.SCALE;
+                button.zoomScale = 0.95;
+                button.duration = 0.08;
             }
             node.targetOff(runtime);
             node.on(Button.EventType.CLICK, handler, runtime);
@@ -435,6 +439,7 @@ export class SettingsPanelController {
 
                 bindClick(xBtn, closeSettings);
                 const feedbackEntry = requireChild(box, 'FeedbackEntry');
+                feedbackEntry.active = !isCreatorWeb();
                 bindClick(feedbackEntry, () => {
                     if (settingsClosed || homeRouteInFlight || !overlay?.isValid || !overlay.active) return;
                     AudioMgr.inst.play('button');

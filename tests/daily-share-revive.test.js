@@ -74,7 +74,7 @@ function createStorage() {
     };
 }
 
-function loadController(storage, pchController, random = () => 0) {
+function loadController(storage, pchController, random = () => 0, douyin = null) {
     const module = { exports: {} };
     class Label {}
     vm.runInNewContext(transpile(controllerPath), {
@@ -111,7 +111,12 @@ function loadController(storage, pchController, random = () => 0) {
                 };
             }
             if (id === './AppRoot') return { AppRoot: {} };
-            if (id === './MiniGamePlatform') return { isMiniGameRuntime: () => false };
+            if (id === './WinShareBadgeSway') return { WinShareBadgeSway: class {} };
+            if (id === './MiniGamePlatform') return {
+                isMiniGameRuntime: () => false,
+                isDouyinMiniGameRuntime: () => !!douyin,
+                getDouyinMiniGameRuntime: () => douyin,
+            };
             if (id === './PchConveyorGameplayController') {
                 return { ensurePchConveyorGameplayController: () => pchController };
             }
@@ -394,7 +399,7 @@ function testEarlyProgressUnlimitedRevive() {
     assert.strictEqual(board.getInitiallyUnsettledCompletionRatio(), 0.5);
     const storage = createStorage();
     let draws = 0;
-    let roll = 0.899999;
+    let roll = 0.599999;
     const Controller = loadController(storage, {
         continueAfterBufferFull: () => true, grantReviveCapacity: () => true,
     }, () => { draws += 1; return roll; });
@@ -415,9 +420,9 @@ function testEarlyProgressUnlimitedRevive() {
         assert.strictEqual(calls.filter(call => call[0] === 'share').at(-1)[2](), true);
         assert.strictEqual(storage.getItem('pdd.revive.shareState.v1'), oldState);
     }
-    roll = 0.9;
+    roll = 0.6;
     controller.captureReviveFailure('timeout');
-    assert.strictEqual(controller.canUseReviveShare(), false, 'top 10% selects ad');
+    assert.strictEqual(controller.canUseReviveShare(), false, 'top 40% selects ad');
     roll = 0;
     controller.captureReviveFailure('timeout');
     assert.strictEqual(controller.canUseReviveShare(), true, 'new failure rerolls');
@@ -438,6 +443,20 @@ function testEarlyProgressUnlimitedRevive() {
     assert.strictEqual(complete.getInitiallyUnsettledCompletionRatio(), 1);
 }
 
+function testDouyinReviveShareEligibility() {
+    const storage = createStorage();
+    const tt = { shareAppMessage() {} }; // No wx/onShow/offShow required.
+    const Controller = loadController(storage, {}, () => 0, tt);
+    const { runtime } = makeRuntime();
+    runtime.getWeChatRuntime = () => null;
+    runtime.boardModel = { getInitiallyUnsettledCompletionRatio: () => 0.25 };
+    const controller = new Controller(runtime);
+    assert.strictEqual(controller.canUseReviveShare(), true);
+    delete tt.shareAppMessage;
+    assert.strictEqual(controller.canUseReviveShare(), false);
+}
+
+testDouyinReviveShareEligibility();
 testEarlyProgressUnlimitedRevive();
 testSourceContract();
 testThreeLevelInterval();

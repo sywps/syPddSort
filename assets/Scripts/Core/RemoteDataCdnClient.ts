@@ -5,6 +5,7 @@ import {
     isMiniGameRuntime,
 } from './MiniGamePlatform';
 import { beginStartupRequestDiagnostic, recordStartupDiagnostic } from './StartupTrace';
+import { isCreatorWeb } from './CreatorWeb';
 
 export function normalizeCdnBaseUrl(value: unknown): string {
     const text = typeof value === 'string' ? value.trim() : '';
@@ -40,6 +41,7 @@ export function isLocalBrowserCdnOptIn(): boolean {
 }
 
 export function shouldUseLocalLevelDataMirror(): boolean {
+    if (isCreatorWeb()) return true;
     return !isMiniGameRuntime() && isLocalBrowserPreview() && !isLocalBrowserCdnOptIn();
 }
 

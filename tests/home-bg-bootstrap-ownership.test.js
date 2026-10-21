@@ -67,7 +67,7 @@ assert.strictEqual(homeMeta.uuid, HOME_IMAGE_UUID, 'Home background image must u
 assert.strictEqual(homeMeta.subMetas?.f9941?.uuid, HOME_SPRITE_FRAME_UUID, 'Home background SpriteFrame UUID must match Home.scene');
 assert.notStrictEqual(HOME_IMAGE_UUID, BOOTSTRAP_IMAGE_UUID, 'Home and Bootstrap backgrounds must not share a Cocos UUID');
 assert.strictEqual(sha256(TARGET_IMAGE), sha256('assets/LevelData/Skins/Background/bg_005/background.png'), 'startup background must be exact bg_005 pixels');
-assert.strictEqual(sha256(HOME_IMAGE), 'f1b6b94a91955a23262d10ab22afcb2ea502bd42b3065dcd7e599cbf30196bed', 'Home background must stay unchanged');
+assert.strictEqual(sha256(HOME_IMAGE), 'c75f7db725b1720521425219e3faff8ca7d3c6689c89adfbe2ef0b6c8b607ad1', 'Home background must retain its approved same-size JPEG90 encoding');
 assert.ok(!fs.existsSync(absolute('assets/BootstrapBundle/GameUI/home_bg.jpeg')), 'old startup background must be removed');
 assert.ok(!fs.existsSync(absolute('assets/GameAssetsBundle/Skins/Icons/bg_000.png')), 'retired icon must be removed');
 assert.deepStrictEqual(

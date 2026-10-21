@@ -20,12 +20,12 @@ const scene = JSON.parse(fs.readFileSync(
 
 const BOOTSTRAP_UUID = 'd2fee374-a06c-43bd-a2bd-8fdbb71522c3';
 const BOOTSTRAP_SPRITE_UUID = `${BOOTSTRAP_UUID}@f9941`;
-const BOOTSTRAP_IMAGE_SHA256 = '50355c32517dd6e469262939dbb4e615be81b31f64837d017567292ad5090eb2';
+const BOOTSTRAP_IMAGE_SHA256 = 'beb64b695597c33f8087f4cba4e6db2cbd3f89b26b5a90ce5b2e481d5468de5d';
 
 assert.equal(
     crypto.createHash('sha256').update(fs.readFileSync(bootstrapPath)).digest('hex'),
     BOOTSTRAP_IMAGE_SHA256,
-    'Bootstrap skill-slot background must preserve its independently approved image bytes',
+    'Bootstrap skill-slot background must retain its approved same-size q100 encoding',
 );
 assert.equal(bootstrapMeta.uuid, BOOTSTRAP_UUID);
 assert.equal(bootstrapMeta.subMetas['6c48a'].uuid, `${BOOTSTRAP_UUID}@6c48a`);

@@ -33,6 +33,7 @@ function loadClientCollectionCatalogContract(liveManifest = null, packs = {}) {
         console,
         __PDD_LEVEL_DATA_CDN_URL__: liveManifest ? 'https://example.test/levels/' : '',
         require(id) {
+            if (id === '../CreatorWeb') return { isCreatorWeb: () => false };
             if (id === './LevelExperimentService') {
                 return {
                     getFrontLevelExperimentDiagnostics: () => ({}),
@@ -100,6 +101,7 @@ function loadCollectionUnlockPolicies() {
         exports: module.exports,
         console,
         require(id) {
+            if (id === '../CreatorWeb') return { isCreatorWeb: () => false };
             if (
                 id === '../GameCtrlShared'
                 || id === '../Panels/CollectionPanelController'

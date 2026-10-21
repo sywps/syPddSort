@@ -1,5 +1,7 @@
 import { getBrowserLevelPreview } from '../BrowserLevelPreview';
 import { PreviewRewardSave } from '../PreviewRewardSave';
+import { isCreatorWeb } from '../CreatorWeb';
+import { isMiniGameRuntime } from '../MiniGamePlatform';
 import {
     AudioMgr,
     BlockInputEvents,
@@ -1211,7 +1213,8 @@ export function installSkinBackgroundModule(target: any): void {
             }
             for (const row of config.rows) {
                 if (
-                    row.isDefault
+                    isCreatorWeb()
+                    || row.isDefault
                     || row.unlockType === 'default'
                     || row.unlockType === 'free'
                     || this.isBackgroundSkinAdUnlocked(row)
@@ -1234,14 +1237,14 @@ export function installSkinBackgroundModule(target: any): void {
             return this._readBackgroundSkinOwnedIds().has(safeId);
         },
 
-        grantBackgroundSkin(id: number): boolean {
+        grantBackgroundSkin(id: number, sync: boolean = true): boolean {
             const safeId = toBackgroundSkinStorageId(id);
             if (!safeId || isRetiredBackgroundSkinId(safeId)) return false;
             const owned = this._readBackgroundSkinOwnedIds();
             const hadOwned = owned.has(safeId);
             owned.add(safeId);
             this._writeBackgroundSkinOwnedIds(owned);
-            if (!hadOwned) this.syncBackgroundSkinCloudState?.();
+            if (!hadOwned && sync) this.syncBackgroundSkinCloudState?.();
             return true;
         },
 
@@ -1662,7 +1665,14 @@ export function installSkinBackgroundModule(target: any): void {
             // 背景皮肤大图在 release 包中来自 skin CDN，不能作为关卡初始化前置条件。
             this._appliedGameplayBackgroundSkinId = 0;
             this._appliedGameplayBackgroundRefreshSeq = -1;
+            const requestVersion = Number(this._gameplayLoadRequestVersion) || 0;
+            let started = false;
             const startGameplay = () => {
+                if (isMiniGameRuntime()) {
+                    if (started || !this.isValid || this._levelDataLoadStopped
+                        || requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
+                    started = true;
+                }
                 if (init) init();
                 else this.initGame(data, activeLevelId);
                 this._refreshEquippedGameplayBackgroundForStartup?.();
@@ -1767,7 +1777,7 @@ export function installSkinBackgroundModule(target: any): void {
             this.requireSceneSpriteFrame?.(icon, 'EntryLayer/SkinBtn/SkinIcon');
             btn.active = true;
             btn.targetOff(this);
-            btn.getComponent(Button) || btn.addComponent(Button);
+            if (!btn.getComponent(Button)) throw new Error('[HomeScene] SkinBtn requires an authored Button');
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
                 this.openBackgroundSkinPanel();
@@ -1824,11 +1834,15 @@ export function installSkinBackgroundModule(target: any): void {
                             const close = requireSkinPanelChild(box, 'XBtn', 'BackgroundSkinPanel/Box');
                             const content = requireSkinPanelChild(box, 'Content', 'BackgroundSkinPanel/Box');
                             requireSkinPanelChild(content, SKIN_PANEL_SCROLL_CONTENT_NAME, 'BackgroundSkinPanel/Box/Content');
-                            bindSkinPanelButton(this, close, 'BackgroundSkinPanel/Box/XBtn', () => this.closeBackgroundSkinPanel());
+                            const dismiss = () => {
+                                if (!this._backgroundSkinPanelOverlay?.isValid) return;
+                                AudioMgr.inst.play('button'); this.closeBackgroundSkinPanel();
+                            };
+                            bindSkinPanelButton(this, close, 'BackgroundSkinPanel/Box/XBtn', dismiss);
                             const shade = requireSkinPanelChild(overlay, 'Shade', 'BackgroundSkinPanel');
                             overlay.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
                                 if (event.target !== overlay && event.target !== shade) return;
-                                this.closeBackgroundSkinPanel();
+                                dismiss();
                             }, this);
                             this._backgroundSkinPanelOverlay = overlay;
                             this.setupBeanSkinPanelTabs?.(box, content);
@@ -2072,6 +2086,7 @@ export function installSkinBackgroundModule(target: any): void {
                 if (owned && skin.id !== equippedId) {
                     bindSkinPanelButton(this, action, card.name + '/ActionBtn', () => {
                         if (consumeSuppressedClick()) return;
+                        AudioMgr.inst.play('button');
                         const button = action.getComponent(Button);
                         if (button) button.interactable = false;
                         setActionVisual(false, '加载中');
@@ -2087,6 +2102,7 @@ export function installSkinBackgroundModule(target: any): void {
                 } else if (canWatchAd) {
                     bindSkinPanelButton(this, action, card.name + '/ActionBtn', () => {
                         if (consumeSuppressedClick()) return;
+                        AudioMgr.inst.play('button');
                         const button = action.getComponent(Button);
                         if (button) button.interactable = false;
                         setActionVisual(true);

@@ -45,6 +45,8 @@ import {
 } from './AnalyticsMgr';
 import type { PchSpeedMultiplier } from './AppSession';
 import { EffectAsset, Material, Vec4, sp } from 'cc';
+import { createGuideCorgiBubble } from './GuideCorgiBubble';
+import { isMiniGameRuntime } from './MiniGamePlatform';
 import {
     createRoundedConveyorPath,
     conveyorEntranceCarrier,
@@ -77,7 +79,7 @@ const PCH_CAPACITY_BLOCKED_TOAST_COOLDOWN_MS = 1500;
 const OPENING_GUIDE_DIM_MASK_OPACITY = 168;
 const OPENING_GUIDE_TARGET_FOCUS_PADDING = 12;
 const OPENING_GUIDE_CONVEYOR_FOCUS_PADDING = 8;
-const OPENING_GUIDE_PROMPT_WIDTH = 520;
+const OPENING_GUIDE_PROMPT_WIDTH = 560;
 const OPENING_GUIDE_PROMPT_HEIGHT = 140;
 const OPENING_GUIDE_PROMPT_CONVEYOR_GAP = 96;
 const PCH_CAPACITY_FULL_WARNING_CLIP = 'PchCapacityFullWarning';
@@ -252,6 +254,8 @@ export class PchConveyorGameplayController {
     private openingGuide: Node | null = null;
     private openingGuideTarget: Node | null = null;
     private openingGuideRingData: sp.SkeletonData | null = null;
+    private openingGuideRingOptionalUnavailable = false;
+    private openingGuideRingTimeout: ReturnType<typeof setTimeout> | undefined;
     private openingGuideRingNodes: Node[] = [];
     private openingGuideRingLoadVersion = 0;
     private capacityGuideMaterial: Material | null = null;
@@ -514,11 +518,11 @@ export class PchConveyorGameplayController {
         SySDKMgr.inst.reportTutorialStart();
     }
 
-    private reportOpeningGuideTutorialFinish(): void {
+    private reportOpeningGuideTutorialFinish(guideName?: string): void {
         if (!this.openingGuideTutorialStarted || this.openingGuideTutorialFinished) return;
         this.openingGuideTutorialFinished = true;
         this.trackPchFunnelEvent('guide_complete', { success: true,
-            extra: { guideId: this.getOpeningGuideAnalyticsMeta()?.guideId || '' } });
+            extra: { guideId: this.getOpeningGuideAnalyticsMeta(guideName)?.guideId || '' } });
         SySDKMgr.inst.reportTutorialFinish();
     }
 
@@ -628,24 +632,32 @@ export class PchConveyorGameplayController {
         this.inputRoot.on(Node.EventType.TOUCH_CANCEL, this.onRootTouchCancel, this);
         this.inputRoot.on(Node.EventType.MOUSE_WHEEL, this.onRootMouseWheel, this);
         this.renderGame();
-        this.runtime.refitBoardViewportToSafeRect?.();
 
         const topBar = this.runtime.getGameplayFixedGroup('TopBarGroup');
         const settingsButton = topBar.getChildByName('Settings');
         if (!settingsButton?.isValid) {
             throw new Error('[pch-core] Game.scene is missing TopBarGroup/Settings');
         }
-        settingsButton.active = !hideFirstLevelControls;
+        settingsButton.active = true;
         const helpButton = topBar.getChildByName('GameplayHelpButton');
         if (!helpButton) throw new Error('[pch-core] Game.scene is missing TopBarGroup/GameplayHelpButton');
-        helpButton.active = !hideFirstLevelControls && !this.runtime.isPvpMode?.() && !this.runtime.isCoopMode?.();
+        helpButton.active = !hideFirstLevelControls && !this.runtime.isCoopMode?.();
         this.bindSpeedButton(topBar, !hideFirstLevelControls);
+        // Fit only after the final HUD visibility and widgets are ready.
+        this.runtime.refitBoardViewportToSafeRect?.();
         if (this.runtime._activeGameplayEntryMode === 'main'
-            && this.runtime.getActiveLogicalLevelId?.() === 1
-            && !this.runtime.isRankedPvpMode?.()
-            && getFirstLevelContent() === 'A'
-            && !this.runtime.levelData?.tutorialGuide?.openingColors) {
-            AudioMgr.inst.prepareGuideVoices();
+            && !this.runtime.isRankedPvpMode?.()) {
+            const guideLevel = this.runtime.getActiveLogicalLevelId?.();
+            if (guideLevel === 1 && getFirstLevelContent() === 'A'
+                && !this.runtime.levelData?.tutorialGuide?.openingColors) {
+                this.runOptionalGuideAudio(() => AudioMgr.inst.prepareGuideVoices());
+            } else if (guideLevel === 2) {
+                this.runOptionalGuideAudio(() => AudioMgr.inst.prepareGuideVoices(['guideSpeed']));
+            } else if (guideLevel === 3) {
+                this.runOptionalGuideAudio(() => AudioMgr.inst.prepareGuideVoices(['guideCapacity']));
+            } else if (guideLevel === 4) {
+                this.runOptionalGuideAudio(() => AudioMgr.inst.prepareGuideVoices(['guideZoom']));
+            }
         }
         if (this.runtime._coopReplayResumeState || this.runtime._pvpReplayResumeState) {
             this.openingPatternState = 'ready';
@@ -891,7 +903,7 @@ export class PchConveyorGameplayController {
             this.speedButton.active = false;
         }
         this.clearOpeningGuideNodes();
-        AudioMgr.inst.releasePreparedGuideVoices();
+        this.runOptionalGuideAudio(() => AudioMgr.inst.releasePreparedGuideVoices());
         this.levelTwoSoftHandReminderArmed = false;
         this.levelTwoSoftHandReminderUsed = false;
         this.levelTwoSoftHandIdleSeconds = 0;
@@ -1036,7 +1048,7 @@ export class PchConveyorGameplayController {
         // Child bounds cover the track, carriers and entry without the layout container's empty margin.
         let top = Number.NEGATIVE_INFINITY;
         for (const child of this.belt.children) {
-            if (!child.activeInHierarchy) continue;
+            if (!child.active) continue;
             const bounds = this.runtime.getGameplayNodeBoundsInFixedRoot(child);
             if (bounds) top = Math.max(top, bounds.top);
         }
@@ -1170,8 +1182,10 @@ export class PchConveyorGameplayController {
 
     shouldRenderSettledPixelBlock(row: number, col: number): boolean {
         return PCH_SETTLED_PIXEL_BLOCK_EXPERIMENT
-            && this.runtime._activeGameplayEntryMode === 'theme'
+            && (this.runtime._activeGameplayEntryMode === 'main' || this.runtime._activeGameplayEntryMode === 'theme')
             && this.isActive()
+            // Rules commit before the return animation; reveal pixels only on arrival.
+            && !this.runtime._flyingTargets?.has?.(`${row},${col}`)
             && this.rules?.board.locked?.[row]?.[col] === true;
     }
 
@@ -1209,7 +1223,7 @@ export class PchConveyorGameplayController {
         if (!this.settlementPaused) return;
         this.settlementPaused = false;
         if (this.settingsPaused) return;
-        for (const bean of new Set([...this.activeReturnBeans, ...(this.activeFlyBeans || [])])) {
+        for (const bean of new Set([...Array.from(this.activeReturnBeans), ...Array.from(this.activeFlyBeans || [])])) {
             if (!bean?.isValid) continue;
             const completion = this.pendingReturnCompletions.get(bean);
             if (completion) {
@@ -1228,7 +1242,7 @@ export class PchConveyorGameplayController {
         if (!this.isActive() || this.settingsPaused) return;
         this.flushCsdObservations('settings');
         this.settingsPaused = true;
-        for (const bean of new Set([...this.activeReturnBeans, ...this.activeFlyBeans])) {
+        for (const bean of new Set([...Array.from(this.activeReturnBeans), ...Array.from(this.activeFlyBeans)])) {
             if (bean?.isValid) Tween.pauseAllByTarget(bean);
         }
         for (const callback of this.pendingReturnCompletions.values()) {
@@ -1243,7 +1257,7 @@ export class PchConveyorGameplayController {
         if (!this.settingsPaused) return;
         this.settingsPaused = false;
         if (this.settlementPaused) return;
-        for (const bean of new Set([...this.activeReturnBeans, ...this.activeFlyBeans])) {
+        for (const bean of new Set([...Array.from(this.activeReturnBeans), ...Array.from(this.activeFlyBeans)])) {
             if (!bean?.isValid) continue;
             const completion = this.pendingReturnCompletions.get(bean);
             if (completion) {
@@ -1259,6 +1273,16 @@ export class PchConveyorGameplayController {
     }
 
     private getEffectiveBeltSpeedMultiplier(): PchSpeedMultiplier | 5 {
+        const levelOne = this.runtime._activeGameplayEntryMode === 'main'
+            && this.runtime.getActiveLogicalLevelId?.() === 1
+            && !this.runtime.isRankedPvpMode?.() && !this.runtime.isCoopMode?.();
+        if (levelOne) {
+            if (!this.beforeWinSpeedActive && this.rules && this.rules.bufferCount > 0
+                && !this.rules.cells.some(cell => !cell.locked && cell.current > 0)) {
+                this.beforeWinSpeedActive = true;
+            }
+            return this.beforeWinSpeedActive ? 3 : this.manualSpeedMultiplier;
+        }
         if (!this.beforeWinSpeedActive && this.rules?.conveyorSpeedMultiplier === 5) {
             this.beforeWinSpeedActive = true;
         }
@@ -1558,6 +1582,10 @@ export class PchConveyorGameplayController {
             if (this.statusLabel) this.statusLabel.string = '传送带已满，请等待出口归位';
             this.maybeShowCapacityBlockedToast();
             return 'capacity_blocked';
+        }
+        if (this.runtime._activeGameplayEntryMode === 'main'
+            && this.runtime.getActiveLogicalLevelId?.() === 4 && this.runtime._pinchGuideLayer) {
+            this.runtime.closePinchGuide('bean_tap');
         }
         this.clearLevelTwoSoftHand();
         this.levelTwoSoftHandIdleSeconds = 0;
@@ -2672,6 +2700,9 @@ export class PchConveyorGameplayController {
             return false;
         }
         this.runtime._skillActive = true;
+        for (const move of result.moves) {
+            this.runtime._flyingTargets?.add?.(`${move.target.row},${move.target.col}`);
+        }
         if (isRevive) this.runtime.continueAfterLose(0, true);
         // continueAfterLose resets timer pause references, so acquire our pause afterwards.
         this.beginSkillUsePause(isRevive ? 'brush' : kind);
@@ -2730,9 +2761,6 @@ export class PchConveyorGameplayController {
                 move,
                 source: this.resolveSkillSourceVisual(move.source),
             }));
-            for (const move of result.moves) {
-                this.runtime._flyingTargets?.add?.(`${move.target.row},${move.target.col}`);
-            }
             this.runtime.renderBoardCells?.(result.boardCells);
             this.renderConveyor();
             this.renderEntranceQueue();
@@ -3265,7 +3293,7 @@ export class PchConveyorGameplayController {
         this.capacityGuideArmed = logicalLevelId === 4 || logicalLevelId === 5;
         if (logicalLevelId === 4) {
             this.runtime.startPinchGuide({
-                title: '双指拖动可放大缩小图案',
+                title: '双指拖动可以放大图案哦',
                 autoCloseSeconds: 0,
             });
             return;
@@ -3278,7 +3306,7 @@ export class PchConveyorGameplayController {
             if (logicalLevelId === 1) {
                 this.showLevelOneBoardGuide(parent);
             } else if (logicalLevelId === 2 && this.speedButton?.isValid) {
-                this.showOpeningTargetGuide(parent, this.speedButton, 'PchLevelTwoSpeedGuide', '你可以调整传送带的速度', this.onOpeningGuideTripleSpeed);
+                this.showRoundedMaterialGuide(parent, true);
             } else if (logicalLevelId === 3 && this.adButton?.isValid) {
                 this.trackPchFunnelEvent('capacity_eligibility', { source: 'opening_guide', success: true,
                     extra: { mode: 'free', eligible: true, basis: 'per_round_guide', capacity: this.rules?.bufferCapacity || 0 } });
@@ -3346,8 +3374,7 @@ export class PchConveyorGameplayController {
         const x = 0;
         const y = this.getOpeningGuidePromptCenterYAboveConveyor(parent, height) - 36;
         this.capacityHint = this.makeNode('PchCapacitySoftHint', parent, width, height, x, y);
-        const background = this.makeNode('OpeningGuideBubbleBackground', this.capacityHint, width, height, 0, 0);
-        this.runtime._applySpriteFrame(background, guideBubbleFrame, width, height, Sprite.Type.SLICED);
+        createGuideCorgiBubble(this.runtime, this.capacityHint, width, height);
         const title = this.makeLabel(this.capacityHint, '传送带快满了', 32, Color.WHITE, 0, 26, width - 64);
         const detail = this.makeLabel(this.capacityHint, `本次扩容免费，点击增加${this.getCapacityButtonIncrement()}格`, 28, Color.WHITE, 0, -22, width - 64);
         this.applyOpeningGuidePromptLabelStyle(title);
@@ -3435,6 +3462,7 @@ export class PchConveyorGameplayController {
     }
 
     private loadOpeningGuideBeanRing(parent: Node, onReady: () => void): void {
+        if (isMiniGameRuntime() && this.openingGuideRingOptionalUnavailable) { onReady(); return; }
         if (this.openingGuideRingData) {
             onReady();
             return;
@@ -3446,10 +3474,25 @@ export class PchConveyorGameplayController {
             && this.rules === rules && !!rules && parent.isValid && !this.runtime.isGameEnd;
         const fail = (message: string) => {
             if (!isCurrent()) return;
+            if (isMiniGameRuntime()) {
+                clearTimeout(this.openingGuideRingTimeout);
+                this.openingGuideRingOptionalUnavailable = true;
+                this.reportOpeningGuideResourceFailure('opening_guide_ring_failed', message);
+                this.clearOpeningGuideNodes();
+                try { onReady(); }
+                catch (guideError) {
+                    this.clearOpeningGuideNodes();
+                    this.runtime._stopGameplayEntryWithFatalError('opening-guide', 'opening_guide_create_failed', String(guideError));
+                }
+                return;
+            }
             this.runtime._stopGameplayEntryWithFatalError(
                 'Effects/GuideBeanRing/guang_quan', 'opening_guide_ring_missing', message,
             );
         };
+        if (isMiniGameRuntime()) {
+            this.openingGuideRingTimeout = setTimeout(() => fail('guide ring load timed out'), 5000);
+        }
         this.runtime._withBootstrapBundle((bundle: any, error?: Error) => {
             if (!isCurrent()) return;
             if (error || !bundle) {
@@ -3457,7 +3500,8 @@ export class PchConveyorGameplayController {
                 return;
             }
             bundle.load('Effects/GuideBeanRing/guang_quan', sp.SkeletonData, (err: Error | null, data: sp.SkeletonData | null) => {
-                if (!isCurrent()) return;
+                if (!isCurrent() || this.openingGuideRingOptionalUnavailable) return;
+                clearTimeout(this.openingGuideRingTimeout);
                 if (err || !data) {
                     fail(err?.message || 'guide ring SkeletonData unavailable');
                     return;
@@ -3467,13 +3511,14 @@ export class PchConveyorGameplayController {
                     onReady();
                 } catch (error) {
                     fail(error instanceof Error ? error.message : String(error));
-                    this.clearOpeningGuideNodes();
+                    if (!isMiniGameRuntime()) this.clearOpeningGuideNodes();
                 }
             });
         });
     }
 
     private showOpeningGuideBeanRings(cells: Array<{ row: number; col: number }>): void {
+        if (isMiniGameRuntime() && this.openingGuideRingOptionalUnavailable) return;
         const data = this.openingGuideRingData;
         if (!data) throw new Error('[pch-guide] guide ring is not loaded');
         for (const cell of cells) {
@@ -3558,7 +3603,7 @@ export class PchConveyorGameplayController {
             this.showOpeningGuideBeanRings(emptyTargets);
         }
         if (getFirstLevelContent() === 'A' && !guideConfig?.openingColors) {
-            AudioMgr.inst.playGuideVoice(this.openingGuideLevelOneStep === 0 ? 'guideA1' : 'guideA2');
+            this.runOptionalGuideAudio(() => AudioMgr.inst.playGuideVoice(this.openingGuideLevelOneStep === 0 ? 'guideA1' : 'guideA2'));
         }
     }
 
@@ -3668,80 +3713,47 @@ export class PchConveyorGameplayController {
         targetWidth: number,
         targetHeight: number,
     ): void {
-        const openingGuide = this.openingGuide;
-        const parentTransform = parent.getComponent(UITransform);
-        if (!openingGuide?.isValid || !parentTransform) {
-            throw new Error('[pch-core] level 2 guide mask parent is unavailable');
+        if (isMiniGameRuntime() && !this.capacityGuideMaterial) return;
+        const parentUi = parent.getComponent(UITransform);
+        const material = this.capacityGuideMaterial;
+        if (!parentUi || !this.openingGuide?.isValid || !material) {
+            throw new Error('[pch-guide] speed mask material or parent unavailable');
         }
-
-        const mask = this.makeNode(
-            'PchOpeningGuideSpeedDimMask',
-            openingGuide,
-            parentTransform.contentSize.width,
-            parentTransform.contentSize.height,
-            0,
-            0,
-        );
+        const visual = this.speedActiveState?.active ? this.speedActiveState : this.speedInactiveState;
+        const bounds = visual?.getComponent(UITransform)?.getBoundingBoxToWorld();
+        if (!bounds) throw new Error('[pch-guide] speed button visual bounds unavailable');
+        const low = parentUi.convertToNodeSpaceAR(new Vec3(bounds.xMin, bounds.yMin, 0));
+        const high = parentUi.convertToNodeSpaceAR(new Vec3(bounds.xMax, bounds.yMax, 0));
+        const radius = Math.max(Math.abs(high.x - low.x), Math.abs(high.y - low.y)) / 2 + 3;
+        material.setProperty('holeRect', new Vec4((low.x + high.x) / 2, (low.y + high.y) / 2, radius, radius));
+        material.setProperty('holeStyle', new Vec4(radius, 1.5, 0, 0));
+        const badge = this.speedBadgeLabel?.node;
+        const badgeBounds = badge?.activeInHierarchy ? badge.getComponent(UITransform)?.getBoundingBoxToWorld() : null;
+        if (badgeBounds) {
+            const a = parentUi.convertToNodeSpaceAR(new Vec3(badgeBounds.xMin, badgeBounds.yMin, 0));
+            const b = parentUi.convertToNodeSpaceAR(new Vec3(badgeBounds.xMax, badgeBounds.yMax, 0));
+            material.setProperty('badgeRect', new Vec4((a.x + b.x) / 2, (a.y + b.y) / 2,
+                Math.abs(b.x - a.x) / 2 + 2, Math.abs(b.y - a.y) / 2 + 2));
+        }
+        const mask = this.makeNode('PchOpeningGuideSpeedDimMask', this.openingGuide,
+            parentUi.width, parentUi.height, 0, 0);
         mask.setSiblingIndex(0);
-        const maskMinX = -parentTransform.contentSize.width * parentTransform.anchorPoint.x;
-        const maskMaxX = parentTransform.contentSize.width * (1 - parentTransform.anchorPoint.x);
-        const maskMinY = -parentTransform.contentSize.height * parentTransform.anchorPoint.y;
-        const maskMaxY = parentTransform.contentSize.height * (1 - parentTransform.anchorPoint.y);
-        if (!Number.isFinite(maskMinX + maskMaxX + maskMinY + maskMaxY)
-            || maskMaxX - maskMinX < 1
-            || maskMaxY - maskMinY < 1) {
-            throw new Error('[pch-core] level 2 guide dim mask bounds are unavailable');
-        }
-        const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
-        const targetLeft = clamp(targetLocal.x - targetWidth / 2 - OPENING_GUIDE_TARGET_FOCUS_PADDING, maskMinX, maskMaxX);
-        const targetRight = clamp(targetLocal.x + targetWidth / 2 + OPENING_GUIDE_TARGET_FOCUS_PADDING, maskMinX, maskMaxX);
-        const targetBottom = clamp(targetLocal.y - targetHeight / 2 - OPENING_GUIDE_TARGET_FOCUS_PADDING, maskMinY, maskMaxY);
-        const targetTop = clamp(targetLocal.y + targetHeight / 2 + OPENING_GUIDE_TARGET_FOCUS_PADDING, maskMinY, maskMaxY);
-        if (targetRight - targetLeft < 1 || targetTop - targetBottom < 1) {
-            throw new Error('[pch-core] level 2 guide speed focus is invalid');
-        }
-        const createPanel = (name: string, x: number, y: number, width: number, height: number): void => {
-            const panel = this.makeNode(name, mask, Math.max(1, width), Math.max(1, height), x, y);
-            panel.active = width > 0.5 && height > 0.5;
-            if (!panel.active) return;
-            const graphics = panel.addComponent(Graphics);
-            graphics.fillColor = new Color(0, 0, 0, OPENING_GUIDE_DIM_MASK_OPACITY);
-            graphics.rect(-width / 2, -height / 2, width, height);
-            graphics.fill();
-        };
-        const fullWidth = maskMaxX - maskMinX;
-        const targetHeightWithPadding = targetTop - targetBottom;
-        createPanel(
-            'GuideSpeedDimTop',
-            (maskMinX + maskMaxX) / 2,
-            targetTop + (maskMaxY - targetTop) / 2,
-            fullWidth,
-            maskMaxY - targetTop,
-        );
-        createPanel(
-            'GuideSpeedDimLeft',
-            maskMinX + (targetLeft - maskMinX) / 2,
-            (targetTop + targetBottom) / 2,
-            targetLeft - maskMinX,
-            targetHeightWithPadding,
-        );
-        createPanel(
-            'GuideSpeedDimRight',
-            targetRight + (maskMaxX - targetRight) / 2,
-            (targetTop + targetBottom) / 2,
-            maskMaxX - targetRight,
-            targetHeightWithPadding,
-        );
-        createPanel(
-            'GuideSpeedDimBottom',
-            (maskMinX + maskMaxX) / 2,
-            maskMinY + (targetBottom - maskMinY) / 2,
-            fullWidth,
-            targetBottom - maskMinY,
-        );
+        const graphics = mask.addComponent(Graphics);
+        graphics.customMaterial = material;
+        graphics.fillColor = new Color(0, 0, 0, OPENING_GUIDE_DIM_MASK_OPACITY);
+        graphics.rect(-parentUi.width * parentUi.anchorX, -parentUi.height * parentUi.anchorY, parentUi.width, parentUi.height);
+        graphics.fill();
     }
 
     private showLevelThreeCapacityGuide(parent: Node): void {
+        this.showRoundedMaterialGuide(parent, false);
+    }
+
+    private showRoundedMaterialGuide(parent: Node, speedGuide: boolean): void {
+        if (isMiniGameRuntime()) {
+            this.showWeChatRoundedMaterialGuide(parent, speedGuide);
+            return;
+        }
         this.inputLocked = true;
         const version = ++this.openingGuideRingLoadVersion;
         const rules = this.rules;
@@ -3769,12 +3781,108 @@ export class PchConveyorGameplayController {
                     const material = new Material();
                     this.capacityGuideMaterial = material;
                     material.initialize({ effectAsset: effect });
-                    this.showOpeningTargetGuide(parent, this.adButton!, 'PchLevelThreeCapacityGuide', '点击扩容可以增加传送带容量\n传送带满了就会失败哦', this.onOpeningGuideFreeCapacity);
+                    if (speedGuide) {
+                        this.showOpeningTargetGuide(parent, this.speedButton!, 'PchLevelTwoSpeedGuide', '你可以调整传送带的速度', this.onOpeningGuideTripleSpeed);
+                    } else {
+                        this.showOpeningTargetGuide(parent, this.adButton!, 'PchLevelThreeCapacityGuide', '点击扩容可以增加传送带容量\n传送带满了就会失败哦', this.onOpeningGuideFreeCapacity);
+                    }
+                    const guide = this.openingGuide;
+                    if (guide?.isValid) {
+                        AudioMgr.inst.playGuideVoice(speedGuide ? 'guideSpeed' : 'guideCapacity',
+                            () => isCurrent() && guide.isValid && this.openingGuide === guide);
+                    }
                 } catch (error) {
                     fail(error instanceof Error ? error.message : String(error));
                 }
             });
         });
+    }
+
+    private reportOpeningGuideResourceFailure(code: string, error: unknown): void {
+        console.error('[OpeningGuide]', code, error);
+        try {
+            AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'opening_guide_resource_failed', success: false,
+                source: 'opening_guide', levelId: this.runtime.getActiveLogicalLevelId?.() || 0,
+                errorCode: code, errorMessage: String(error) });
+        } catch (reportError) { console.warn('[OpeningGuide] telemetry failed:', reportError); }
+    }
+
+    private runOptionalGuideAudio(action: () => void): void {
+        try { action(); }
+        catch (error) {
+            if (!isMiniGameRuntime()) throw error;
+            this.reportOpeningGuideResourceFailure('opening_guide_audio_failed', error);
+        }
+    }
+
+    private showWeChatRoundedMaterialGuide(parent: Node, speedGuide: boolean): void {
+        this.inputLocked = true;
+        const version = ++this.openingGuideRingLoadVersion;
+        const rules = this.rules;
+        let finished = false;
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        const isCurrent = () => version === this.openingGuideRingLoadVersion
+            && this.rules === rules && !!rules && parent.isValid && !this.runtime.isGameEnd;
+        const show = (effect: EffectAsset | null, error?: unknown) => {
+            if (finished || !isCurrent()) return;
+            finished = true;
+            if (timeout !== undefined) clearTimeout(timeout);
+            if (error) this.reportOpeningGuideResourceFailure('opening_guide_material_failed', error);
+            this.capacityGuideMaterial?.destroy();
+            this.capacityGuideMaterial = null;
+            if (effect) {
+                try {
+                    this.capacityGuideMaterial = new Material();
+                    this.capacityGuideMaterial.initialize({ effectAsset: effect });
+                } catch (materialError) {
+                    this.reportOpeningGuideResourceFailure('opening_guide_material_init_failed', materialError);
+                    this.capacityGuideMaterial?.destroy();
+                    this.capacityGuideMaterial = null;
+                }
+            }
+            // Keep the same prompt, hand, tap target and reward handler even without the dim shader.
+            const showGuide = () => {
+                this.showOpeningTargetGuide(parent, speedGuide ? this.speedButton! : this.adButton!,
+                    speedGuide ? 'PchLevelTwoSpeedGuide' : 'PchLevelThreeCapacityGuide',
+                    speedGuide ? '你可以调整传送带的速度' : '点击扩容可以增加传送带容量\n传送带满了就会失败哦',
+                    speedGuide ? this.onOpeningGuideTripleSpeed : this.onOpeningGuideFreeCapacity);
+            };
+            try {
+                showGuide();
+            } catch (guideError) {
+                this.reportOpeningGuideResourceFailure('opening_guide_create_failed', guideError);
+                const canRetryWithoutMaterial = !!this.capacityGuideMaterial;
+                this.clearOpeningGuideNodes();
+                try {
+                    if (!canRetryWithoutMaterial) throw guideError;
+                    showGuide();
+                } catch (retryError) {
+                    this.clearOpeningGuideNodes();
+                    this.runtime._stopGameplayEntryWithFatalError('opening-guide', 'opening_guide_create_failed', String(retryError));
+                    return;
+                }
+            }
+            const guide = this.openingGuide;
+            if (guide?.isValid) {
+                try {
+                    AudioMgr.inst.playGuideVoice(speedGuide ? 'guideSpeed' : 'guideCapacity',
+                        () => isCurrent() && guide.isValid && this.openingGuide === guide);
+                } catch (voiceError) {
+                    this.reportOpeningGuideResourceFailure('opening_guide_voice_failed', voiceError);
+                }
+            }
+        };
+        timeout = setTimeout(() => show(null, new Error('guide material load timed out')), 5000);
+        try {
+            this.runtime._withBootstrapBundle((bundle: any, error?: Error) => {
+                if (finished || !isCurrent()) return;
+                if (error || !bundle) { show(null, error || new Error('BootstrapBundle unavailable')); return; }
+                try {
+                    bundle.load('Effects/GuideRoundedMask', EffectAsset, (loadError: Error | null, effect: EffectAsset | null) =>
+                        show(effect, loadError || (!effect ? new Error('GuideRoundedMask unavailable') : undefined)));
+                } catch (loadError) { show(null, loadError); }
+            });
+        } catch (loadError) { show(null, loadError); }
     }
 
     private createOpeningGuideCapacityFocusMask(
@@ -3783,6 +3891,7 @@ export class PchConveyorGameplayController {
         targetWidth: number,
         targetHeight: number,
     ): void {
+        if (isMiniGameRuntime() && !this.capacityGuideMaterial) return;
         const openingGuide = this.openingGuide;
         const parentTransform = parent.getComponent(UITransform);
         if (!openingGuide?.isValid || !parentTransform) {
@@ -3872,48 +3981,13 @@ export class PchConveyorGameplayController {
         this.showOpeningTargetGuideAt(parent, targetLocal, targetWidth, targetHeight, guideName, copy, onTargetTap, true, promptYOverride);
     }
 
-    private chooseLevelOnePromptLayout(boardBottom: number, boardTop: number,
-        safeBottom: number, safeTop: number, height: number): { y: number; scale: number; boardY: number } {
-        const gap = 24;
-        const boardY = (boardBottom + boardTop) / 2;
-        if (boardTop + gap + height <= safeTop) {
-            return { y: boardTop + gap + height / 2, scale: 1, boardY };
-        }
-        if (boardBottom - gap - height >= safeBottom) {
-            return { y: boardBottom - gap - height / 2, scale: 1, boardY };
-        }
-        const room = safeTop - safeBottom - height - gap;
-        if (room <= 0 || boardTop <= boardBottom) {
-            throw new Error('[pch-guide] insufficient viewport space for level 1 prompt');
-        }
-        const scale = Math.min(1, room / (boardTop - boardBottom));
-        const boardHeight = (boardTop - boardBottom) * scale;
-        return { y: safeTop - height / 2, scale, boardY: safeBottom + boardHeight / 2 };
-    }
-
     private prepareLevelOnePromptLayout(parent: Node): number {
         const parentUi = parent.getComponent(UITransform)!;
-        const bounds = this.runtime.getGameplayNodeBoundsInFixedRoot(this.runtime.boardNode);
         const beltBounds = this.runtime.getGameplayNodeBoundsInFixedRoot(this.belt);
-        if (!bounds || !beltBounds) throw new Error('[pch-guide] level 1 layout bounds unavailable');
-        const topBarBottom = this.runtime.getTopBarAvoidBottomY();
-        const parentTop = parentUi.height * (1 - parentUi.anchorY) - 24;
-        const safeTop = topBarBottom === null ? parentTop : Math.min(parentTop, topBarBottom - 24);
-        const safeBottom = Math.max(-parentUi.height * parentUi.anchorY + 24, beltBounds.top + 24);
-        const layout = this.chooseLevelOnePromptLayout(bounds.bottom, bounds.top,
-            safeBottom, safeTop, OPENING_GUIDE_PROMPT_HEIGHT);
-        if (layout.scale < 1 || Math.abs(layout.boardY - (bounds.bottom + bounds.top) / 2) > 0.1) {
-            const group = this.runtime.boardGroup as Node;
-            const groupParent = group.parent!.getComponent(UITransform)!;
-            const centerWorld = parentUi.convertToWorldSpaceAR(new Vec3((bounds.left + bounds.right) / 2, layout.boardY, 0));
-            const centerLocal = groupParent.convertToNodeSpaceAR(centerWorld);
-            const scale = this.runtime.boardViewport.scale * layout.scale;
-            const board = this.runtime.boardNode as Node;
-            this.runtime.boardViewport.setViewTransformClamped(scale,
-                new Vec2(centerLocal.x - board.position.x * scale, centerLocal.y - board.position.y * scale), false);
-            this.runtime.boardViewScale = this.runtime.boardViewport.scale;
-        }
-        return layout.y;
+        if (!beltBounds) throw new Error('[pch-guide] level 1 layout bounds unavailable');
+        // Move only the prompt another 40 UI units down; leave the board untouched.
+        const bottom = Math.max(-parentUi.height * parentUi.anchorY + 24, beltBounds.top - 32);
+        return bottom + OPENING_GUIDE_PROMPT_HEIGHT / 2;
     }
 
     private getOpeningGuidePromptCenterYAboveConveyor(parent: Node, promptHeight: number): number {
@@ -3966,17 +4040,18 @@ export class PchConveyorGameplayController {
         this.openingGuideTarget.setSiblingIndex(Math.max(0, parent.children.length - 1));
         const button = this.openingGuideTarget.addComponent(Button);
         button.transition = Button.Transition.SCALE;
-        button.zoomScale = 0.92;
+        button.zoomScale = 0.95;
+        button.duration = 0.08;
         this.openingGuideTarget.on(Node.EventType.TOUCH_END, isLevelOneBoardGuide ? this.handleOpeningGuideRootTap : onTargetTap, this);
 
         const guideBubbleFrame = useGuideBubbleFrame ? this.runtime.getSF?.('guide_bubble_frame') || null : null;
         const usesVideoGuideBubbleLayout = isStarterOpeningGuide && !!guideBubbleFrame;
-        const promptWidth = isLevelOneBoardGuide && usesVideoGuideBubbleLayout ? 660 : usesVideoGuideBubbleLayout
+        const promptWidth = useGuideBubbleFrame
             ? OPENING_GUIDE_PROMPT_WIDTH
-            : (useGuideBubbleFrame ? 560 : 500);
-        const promptHeight = usesVideoGuideBubbleLayout
+            : 500;
+        const promptHeight = useGuideBubbleFrame
             ? OPENING_GUIDE_PROMPT_HEIGHT
-            : (useGuideBubbleFrame ? 128 : 64);
+            : 64;
         const sharedPromptY = promptYOverride ?? Math.max(-520, targetLocal.y - targetHeight / 2 - promptHeight / 2 - 40);
         const promptY = isLevelOneBoardGuide && promptYOverride !== undefined ? promptYOverride : usesVideoGuideBubbleLayout
             ? this.getOpeningGuidePromptCenterYAboveConveyor(parent, promptHeight)
@@ -3993,8 +4068,7 @@ export class PchConveyorGameplayController {
             if (typeof this.runtime._applySpriteFrame !== 'function') {
                 throw new Error('[pch-core] guide bubble sprite applicator is unavailable');
             }
-            const bubbleBackground = this.makeNode('OpeningGuideBubbleBackground', prompt, promptWidth, promptHeight, 0, 0);
-            this.runtime._applySpriteFrame(bubbleBackground, guideBubbleFrame, promptWidth, promptHeight, Sprite.Type.SLICED);
+            const bubbleBackground = createGuideCorgiBubble(this.runtime, prompt, promptWidth, promptHeight);
             bubbleBackground.setScale(1, 1, 1);
             if (isLevelOneBoardGuide) {
                 const [title, detail] = copy.split('\n', 2);
@@ -4237,9 +4311,12 @@ export class PchConveyorGameplayController {
         event.propagationStopped = true;
         if (!this.rules || this.runtime.isGameEnd) return;
         if (this.openingGuide?.name !== 'PchLevelThreeCapacityGuide') return;
-        AudioMgr.inst.play('button');
+        const guideName = this.openingGuide.name;
+        this.runOptionalGuideAudio(() => AudioMgr.inst.play('button'));
         const capacityBefore = this.rules.bufferCapacity;
         const expanded = this.expandCapacity();
+        // Consume the guide interaction before optional feedback can fail or receive a second tap.
+        if (expanded && isMiniGameRuntime()) this.dismissOpeningGuide();
         this.trackPchFunnelEvent('capacity_grant', { source: 'guide_free', success: expanded,
             extra: { mode: 'free', capacityBefore, capacityAfter: this.rules.bufferCapacity,
                 guideId: 'pch_level_3_capacity_v1' } });
@@ -4247,24 +4324,30 @@ export class PchConveyorGameplayController {
             'pch_guide_tap_result',
             expanded,
             expanded ? 'capacity_expanded' : 'capacity_expand_failed',
+            guideName,
         );
         if (!expanded) return;
         this.capacityAdBlockedUntil = Date.now() + 800;
         this.capacityAdFreshTouchRequired = true;
         this.resetCapacityAdGesture();
-        const feedbackParent = this.runtime.getGameplayFixedRoot();
-        const feedbackPosition = feedbackParent.getComponent(UITransform)!.convertToNodeSpaceAR(this.adButton!.worldPosition);
-        this.playCapacityGuideTapRings(feedbackParent, feedbackPosition);
-        this.trackOpeningGuideEvent('pch_guide_step_done', true, 'completed');
-        this.reportOpeningGuideTutorialFinish();
+        try {
+            const feedbackParent = this.runtime.getGameplayFixedRoot();
+            const feedbackPosition = feedbackParent.getComponent(UITransform)!.convertToNodeSpaceAR(this.adButton!.worldPosition);
+            this.playCapacityGuideTapRings(feedbackParent, feedbackPosition);
+        } catch (error) {
+            if (!isMiniGameRuntime()) throw error;
+            this.reportOpeningGuideResourceFailure('opening_guide_feedback_failed', error);
+        }
+        this.trackOpeningGuideEvent('pch_guide_step_done', true, 'completed', guideName);
+        this.reportOpeningGuideTutorialFinish(guideName);
         this.runtime.markDynamicCountdownAssisted?.();
-        this.dismissOpeningGuide();
+        if (!isMiniGameRuntime()) this.dismissOpeningGuide();
         this.runtime.showToast(`传送带已扩容 +${this.rules.bufferCapacity - capacityBefore}`);
     }
 
     private dismissOpeningGuide(): void {
         this.clearOpeningGuideNodes();
-        AudioMgr.inst.releasePreparedGuideVoices();
+        this.runOptionalGuideAudio(() => AudioMgr.inst.releasePreparedGuideVoices());
         this.openingGuideLevelOneCells = [];
         this.openingGuideLevelOneStep = -1;
         this.inputLocked = false;
@@ -4272,7 +4355,12 @@ export class PchConveyorGameplayController {
     }
 
     private clearOpeningGuideNodes(): void {
-        AudioMgr.inst.stopGuideVoice();
+        clearTimeout(this.openingGuideRingTimeout);
+        try { AudioMgr.inst.stopGuideVoice(); }
+        catch (error) {
+            if (!isMiniGameRuntime()) throw error;
+            this.reportOpeningGuideResourceFailure('opening_guide_voice_stop_failed', error);
+        }
         this.clearLevelTwoSoftHand();
         this.clearCapacityHint();
         this.openingGuideRingLoadVersion += 1;

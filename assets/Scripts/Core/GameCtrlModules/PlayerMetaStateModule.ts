@@ -1,4 +1,5 @@
 import { getBrowserLevelPreview } from '../BrowserLevelPreview';
+import { isCreatorWeb } from '../CreatorWeb';
 import { PreviewRewardSave } from '../PreviewRewardSave';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
@@ -117,7 +118,7 @@ export function installPlayerMetaStateModule(target: any): void {
             return JSON.parse(sys.localStorage.getItem(WECHAT_GIFT_TOTALS_KEY) || '{}');
         },
 
-        applyWechatGiftState(state: Partial<CloudGameState> | null | undefined, replace: boolean = false): void {
+        applyWechatGiftState(state: Partial<CloudGameState> | null | undefined, replace: boolean = false, markUpdated: boolean = true): void {
             if (state?.wechatGiftProtocol !== 1) return;
             const previous = this.readWechatGiftTotals();
             const totals = state.wechatGiftTotals || {};
@@ -138,7 +139,7 @@ export function installPlayerMetaStateModule(target: any): void {
             // Write-ahead record makes interrupted multi-key localStorage updates replayable.
             sys.localStorage.setItem(WECHAT_GIFT_JOURNAL_KEY, JSON.stringify({ values, totals }));
             this.recoverWechatGiftJournal();
-            if (changed && !replace) this.setLocalUserStateUpdatedAt(Date.now());
+            if (changed && !replace && markUpdated) this.setLocalUserStateUpdatedAt(Date.now());
             this.refreshGoldUI?.();
             this.syncSkillButtonRuntimeStates?.();
         },
@@ -226,6 +227,7 @@ export function installPlayerMetaStateModule(target: any): void {
 
         getPropCount(kind: InventoryPropKind): number {
             if (getBrowserLevelPreview().active) return PreviewRewardSave.prop(kind);
+            this.recoverDouyinDesktopReward?.();
             this.recoverWechatGiftJournal();
             const raw = sys.localStorage.getItem(this.getPropStorageKey(kind));
             const value = raw ? parseInt(raw, 10) : 0;
@@ -309,6 +311,7 @@ export function installPlayerMetaStateModule(target: any): void {
 
         /** 消耗体力 */
         costVigor(): boolean {
+            if (isCreatorWeb()) return true;
             const vigor = this.updateVigor();
             if (vigor <= 0) return false;
             this.setVigor(vigor - 1);
@@ -319,6 +322,8 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         isTutorialVigorFreeLevel(levelId: unknown, entryMode: string = 'main'): boolean {
+            // The creator edition exempts every level, including restart/next-level UI badges.
+            if (isCreatorWeb()) return true;
             if (entryMode !== 'main') return false;
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             return normalizedLevelId <= 2;
@@ -541,12 +546,12 @@ export function installPlayerMetaStateModule(target: any): void {
             this.syncRecoverVigorRoundedBg(button, 168, 64, 18, fill, stroke, 4);
             const sprite = button.getComponent(Sprite);
             if (sprite) {
-                sprite.color = interactable ? new Color(255, 255, 255, 255) : new Color(170, 170, 170, 255);
+                sprite.color = new Color(255, 255, 255, 255);
             }
             const buttonComp = button.getComponent(Button) ?? button.addComponent(Button);
             buttonComp.interactable = interactable;
             const opacity = button.getComponent(UIOpacity) ?? button.addComponent(UIOpacity);
-            opacity.opacity = interactable ? 255 : 140;
+            opacity.opacity = 255;
 
             this.ensureRecoverVigorUiNode(button, 'ActionIcon', 34, 34, -54, 0);
             this.ensureRecoverVigorUiNode(button, 'ActionLabel', 110, 38, 25, 1);
@@ -683,7 +688,7 @@ export function installPlayerMetaStateModule(target: any): void {
                 const button = closeButton.getComponent(Button) ?? closeButton.addComponent(Button);
                 button.interactable = !busy;
                 const opacity = closeButton.getComponent(UIOpacity) ?? closeButton.addComponent(UIOpacity);
-                opacity.opacity = busy ? 140 : 255;
+                opacity.opacity = 255;
             }
         },
 

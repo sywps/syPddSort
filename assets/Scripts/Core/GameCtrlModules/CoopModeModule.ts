@@ -1,8 +1,9 @@
-import { Label, Graphics, Color, BlockInputEvents, Sprite } from 'cc';
+import { Label, Graphics, Color, BlockInputEvents, Sprite, Button } from 'cc';
 import { BOARD_SLOT_BATCH_MAX_CELLS, BoardSlotBatchRenderer } from '../BoardSlotBatchRenderer';
 import type { BoardSlotBatchCell } from '../BoardSlotBatchRenderer';
 import { AppRoot } from '../AppRoot';
 import { AnalyticsMgr } from '../AnalyticsMgr';
+import { AudioMgr } from '../AudioMgr';
 import { CoopServiceMgr } from '../CoopServiceMgr';
 import { COOP_ROUTE_REASON, coopRegionGrid, type CoopLevelData } from '../CoopModeConfig';
 import { CoopPanelController, coopButton, coopNode, coopText } from '../Panels/CoopPanelController';
@@ -15,6 +16,7 @@ export function installCoopModeModule(target: any): void {
             return !!CoopServiceMgr.inst.active && (session?.activeGameplayContext || session?.pendingGameplayRequest)?.routeReason === COOP_ROUTE_REASON;
         },
         openCoopLobby(tab: 'mine' | 'square' | 'collection' = 'mine', postId = ''): void {
+            AnalyticsMgr.inst.trackMultiplayerLobby('coop', 'multiplayer_lobby_open', tab);
             this._coopPanel ||= new CoopPanelController(this);
             this._coopPanel.open(tab, postId);
         },
@@ -49,7 +51,12 @@ export function installCoopModeModule(target: any): void {
             if (this.levelLabel) this.levelLabel.string = '合作模式';
             top.getChildByName('LevelTitleLevel1')!.active = false;
             title.getChildByName('等待同步 · 点击继续')?.destroy();
-            const retry = coopButton(title, '等待同步 · 点击继续', 0, -48, () => { void this.retryCoopSave(); }, 320);
+            let retrying = false;
+            const retry = coopButton(title, '等待同步 · 点击继续', 0, -48, () => {
+                if (retrying || this._coopLeaving) return;
+                retrying = true; AudioMgr.inst.play('button');
+                void this.retryCoopSave().finally(() => { retrying = false; });
+            }, 320);
             retry.active = false;
             this._coopRetryButton = retry;
             this._freezeTimeLeft = active.replay.freezeRemaining;
@@ -246,6 +253,7 @@ export function installCoopModeModule(target: any): void {
             if (this._coopTerminal) return true;
             this._coopTerminal = true; this.isGameEnd = true;
             this._settlementAnalyticsId = AnalyticsMgr.inst.beginSettlement('win', null, 'coop');
+            AnalyticsMgr.inst.finishMultiplayerAnalytics('coop', 'COMPLETE', 'completed');
             CoopServiceMgr.inst.active!.completed = true;
             this.unschedule(this.tickTimer);
             this._pchConveyorGameplayController?.pauseForSettlement();
@@ -255,6 +263,7 @@ export function installCoopModeModule(target: any): void {
             panel.addComponent(BlockInputEvents);
             const status = coopText(panel, '正在保存结果…', 0, 90, 27);
             const share = coopButton(panel, '分享给好友', -155, -145, () => {
+                AudioMgr.inst.play('button');
                 try {
                     CoopServiceMgr.inst.share(CoopServiceMgr.inst.active!.post);
                     if (CoopServiceMgr.inst.isLocalSimulation()) status.string = '模拟邀请已生成，返回大厅切换玩家后打开邀请';
@@ -262,29 +271,60 @@ export function installCoopModeModule(target: any): void {
                 catch (e) { console.error('[coop] share failed', e); status.string = '暂时无法分享，请稍后再试'; }
             });
             share.active = false;
+            let publishing = false;
             const publish = coopButton(panel, '发布到广场', 155, -145, () => {
+                if (publishing || CoopServiceMgr.inst.active?.post.published) return;
+                AudioMgr.inst.play('button');
+                publishing = true;
+                const button = publish.getComponent(Button)!;
+                const text = publish.getChildByName('Text')!.getComponent(Label)!;
+                button.interactable = false;
+                text.string = '发布中…';
+                status.string = '正在发布到合作广场…';
                 void (async () => {
                     try {
                         const a = CoopServiceMgr.inst.active!;
                         await CoopServiceMgr.inst.call('publish', { postId: a.post.id, published: true });
                         a.post.published = true;
-                        if (status.isValid) status.string = '已发布到合作广场，等待伙伴来拼';
-                    } catch (e) { console.error('[coop] publish failed', e); if (status.isValid) status.string = '暂时无法发布，请稍后再试'; }
+                        if (status.isValid) status.string = '发布成功！\n已进入合作广场，等待伙伴来拼';
+                        if (text.isValid) text.string = '已发布到广场';
+                        this.showToast?.('发布成功，等待伙伴来拼', 3);
+                    } catch (e) {
+                        console.error('[coop] publish failed', e);
+                        if (status.isValid) status.string = '发布失败，请点击重试';
+                        if (text.isValid) text.string = '重新发布';
+                        if (button.isValid) button.interactable = true;
+                    } finally { publishing = false; }
                 })();
             });
             publish.active = false;
+            let saving = false;
             const save = async () => {
+                if (saving) return;
+                saving = true;
                 try {
                     await CoopServiceMgr.inst.flushAll();
                     const a = CoopServiceMgr.inst.active!;
                     if (a.run.status !== 'complete') throw new Error('服务端尚未确认完成，请重试保存');
                     share.active = true;
                     publish.active = a.run.role === 'creator';
-                    status.string = a.run.role === 'creator' ? '你的部分已完成！\n邀请伙伴完成后解锁图鉴' : '合作完成！完整图案已收入图鉴';
+                    if (a.post.published) {
+                        publish.getChildByName('Text')!.getComponent(Label)!.string = '已发布到广场';
+                        publish.getComponent(Button)!.interactable = false;
+                    }
+                    status.string = a.run.role === 'creator'
+                        ? (a.post.published ? '已发布到合作广场\n等待伙伴来拼' : '你的部分已完成！\n邀请伙伴完成后解锁图鉴')
+                        : '合作完成！完整图案已收入图鉴';
                 } catch (e) { console.error('[coop] result submission failed', e); if (status.isValid) status.string = '本局结果待同步\n点击继续同步后解锁分享与收藏'; }
+                finally { saving = false; }
             };
-            coopButton(panel, '继续同步', -155, -55, () => { void save(); });
+            coopButton(panel, '继续同步', -155, -55, () => {
+                if (saving || this._coopLeaving) return;
+                AudioMgr.inst.play('button'); void save();
+            });
             coopButton(panel, '保存并返回', 155, -55, () => {
+                if (this._coopLeaving) return;
+                AudioMgr.inst.play('button');
                 const attempt = AnalyticsMgr.inst.settlement.action(this._settlementAnalyticsId, 'home', null);
                 void this.leaveCoop(attempt);
             });

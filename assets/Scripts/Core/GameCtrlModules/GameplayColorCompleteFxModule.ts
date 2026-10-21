@@ -13,6 +13,8 @@ import {
 } from '../GameCtrlShared';
 import { PatternCompleteWaveFx, getPatternWaveDuration, type PatternWaveCell } from '../PatternCompleteWaveFx';
 import { debugPerfTrace, reportRuntimeMemorySnapshot } from '../DebugPerfTrace';
+import { isMiniGameRuntime } from '../MiniGamePlatform';
+import { AnalyticsMgr } from '../AnalyticsMgr';
 
 const PINDD_SPINE_FX_PATH = 'Spine/PinddFx/zhuanshi';
 const SPINE_WASM_SUBPACKAGE_NAME = 'spineWasm';
@@ -145,7 +147,39 @@ function selectPinddSpineFxBatchNodes(nodes: Node[], maxNodes?: number): Node[] 
 
 export function installGameplayColorCompleteFxMethods(target: any): void {
     Object.assign(target, {
-        failGameplayFxPrewarm(error: Error): never {
+        failGameplayFxPrewarm(error: Error): void {
+            if (isMiniGameRuntime()) {
+                const firstFailure = !this._pinddSpineFxUnavailable;
+                this._pinddSpineFxUnavailable = true;
+                this._pinddSpineFxPrewarmReady = false;
+                this._pinddSpineFxPrewarmLoading = false;
+                this._pinddSpineFxSkeletonDataLoading = false;
+                clearTimeout(this._pinddSpineFxPrewarmTimeout);
+                const loads = this._pinddSpineFxSkeletonDataCallbacks || [];
+                const entries = this._pinddSpineFxPrewarmCallbacks || [];
+                this._pinddSpineFxSkeletonDataCallbacks = [];
+                this._pinddSpineFxPrewarmCallbacks = [];
+                if (firstFailure) {
+                    console.error('[GameplayFX] optional effect unavailable:', error);
+                    try {
+                        AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'gameplay_fx_unavailable', success: false,
+                            source: 'gameplay_fx', levelId: this.getActiveLogicalLevelId?.() || 0,
+                            errorCode: 'gameplay_fx_failed', errorMessage: error.message });
+                    } catch (reportError) { console.warn('[GameplayFX] telemetry failed:', reportError); }
+                }
+                // Complete only the optional visual wait; original gameplay callbacks still run.
+                let callbackFailed = false;
+                let callbackError: unknown;
+                for (const callback of [...loads.map((load: (data: sp.SkeletonData | null) => void) => () => load(null)), ...entries]) {
+                    try { callback(); }
+                    catch (error) {
+                        if (!callbackFailed) callbackError = error;
+                        callbackFailed = true;
+                    }
+                }
+                if (callbackFailed) throw callbackError;
+                return;
+            }
             if (this._pinddSpineFxPrewarmLoading) {
                 this._pinddSpineFxPrewarmLoading = false;
                 this._pinddSpineFxPrewarmCallbacks = [];
@@ -154,10 +188,16 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             throw error;
         },
 
-        ensurePinddSpineFxSkeletonData(onDone: (data: sp.SkeletonData) => void): void {
+        ensurePinddSpineFxSkeletonData(onDone: (data: sp.SkeletonData | null) => void): void {
+            if (this._pinddSpineFxUnavailable) { onDone(null); return; }
             const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
             const skeletonDataCtor = (sp as any)?.SkeletonData;
             if (!skeletonDataCtor) {
+                if (isMiniGameRuntime()) {
+                    this.failGameplayFxPrewarm(createPinddSpineFxError('Spine module is disabled or unavailable'));
+                    onDone(null);
+                    return;
+                }
                 throw createPinddSpineFxError('Spine module is disabled or unavailable');
             }
             if (this._pinddSpineFxSkeletonData) {
@@ -172,7 +212,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             this._pinddSpineFxSkeletonDataLoading = true;
             this._pinddSpineFxSkeletonDataCallbacks = [onDone];
             const finish = (data: sp.SkeletonData) => {
-                if (!isRuntimeAlive()) return;
+                if (!isRuntimeAlive() || this._pinddSpineFxUnavailable) return;
                 this._pinddSpineFxSkeletonDataLoading = false;
                 this._pinddSpineFxSkeletonData = data;
                 const callbacks = this._pinddSpineFxSkeletonDataCallbacks || [];
@@ -182,14 +222,14 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             const loadFromBundle = (bundle: Bundle | null) => {
                 if (!bundle) {
                     this._pinddSpineFxSkeletonDataLoading = false;
-                    this._pinddSpineFxSkeletonDataCallbacks = [];
+                    if (!isMiniGameRuntime()) this._pinddSpineFxSkeletonDataCallbacks = [];
                     this.failGameplayFxPrewarm(createPinddSpineFxError('gameAssets bundle unavailable'));
                     return;
                 }
                 bundle.load(PINDD_SPINE_FX_PATH, skeletonDataCtor, (err: Error | null, data: sp.SkeletonData | null) => {
                     if (err || !data) {
                         this._pinddSpineFxSkeletonDataLoading = false;
-                        this._pinddSpineFxSkeletonDataCallbacks = [];
+                        if (!isMiniGameRuntime()) this._pinddSpineFxSkeletonDataCallbacks = [];
                         this.failGameplayFxPrewarm(createPinddSpineFxError(`missing required SkeletonData ${PINDD_SPINE_FX_PATH}: ${err?.message || 'asset missing'}`));
                         return;
                     }
@@ -207,7 +247,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     if (!isRuntimeAlive()) return;
                     if (err || !bundle) {
                         this._pinddSpineFxSkeletonDataLoading = false;
-                        this._pinddSpineFxSkeletonDataCallbacks = [];
+                        if (!isMiniGameRuntime()) this._pinddSpineFxSkeletonDataCallbacks = [];
                         this.failGameplayFxPrewarm(createPinddSpineFxError(`gameAssets bundle unavailable: ${err?.message || 'missing bundle'}`));
                         return;
                     }
@@ -216,15 +256,22 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 });
             };
 
-            ensurePinddSpineWasmReady().then(() => {
+            const loadAfterWasm = () => {
                 if (!isRuntimeAlive()) return;
                 loadSkeletonData();
-            }).catch((err: Error) => {
+            };
+            const failWasm = (err: Error) => {
                 if (!isRuntimeAlive()) return;
                 this._pinddSpineFxSkeletonDataLoading = false;
-                this._pinddSpineFxSkeletonDataCallbacks = [];
+                if (!isMiniGameRuntime()) this._pinddSpineFxSkeletonDataCallbacks = [];
                 this.failGameplayFxPrewarm(err);
-            });
+            };
+            if (isMiniGameRuntime()) {
+                // A gameplay callback failure must not be reclassified as a wasm failure.
+                ensurePinddSpineWasmReady().then(loadAfterWasm, failWasm);
+            } else {
+                ensurePinddSpineWasmReady().then(loadAfterWasm).catch(failWasm);
+            }
         },
 
         ensurePatternCompleteFxPrefab(onDone: (prefab: Prefab) => void): void {
@@ -233,10 +280,11 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 return;
             }
             this._withGameAssetsBundle((bundle: Bundle | null) => {
-                if (!bundle) this.failGameplayFxPrewarm(new Error('[pattern-wave-fx] gameAssets bundle unavailable'));
+                if (this._pinddSpineFxUnavailable) return;
+                if (!bundle) { this.failGameplayFxPrewarm(new Error('[pattern-wave-fx] gameAssets bundle unavailable')); return; }
                 bundle.load(PATTERN_COMPLETE_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
-                    if (!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid)) return;
-                    if (err || !prefab) this.failGameplayFxPrewarm(new Error(`[pattern-wave-fx] required prefab load failed: ${err?.message || PATTERN_COMPLETE_PREFAB_PATH}`));
+                    if (!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid) || this._pinddSpineFxUnavailable) return;
+                    if (err || !prefab) { this.failGameplayFxPrewarm(new Error(`[pattern-wave-fx] required prefab load failed: ${err?.message || PATTERN_COMPLETE_PREFAB_PATH}`)); return; }
                     this._patternCompleteWavePrefab = prefab;
                     onDone(prefab);
                 });
@@ -244,6 +292,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
         },
 
         prewarmPinddSpineFx(onDone?: () => void): void {
+            if (this._pinddSpineFxUnavailable) { onDone?.(); return; }
             if (this._pinddSpineFxPrewarmReady) {
                 onDone?.();
                 return;
@@ -255,7 +304,15 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
 
             this._pinddSpineFxPrewarmLoading = true;
             this._pinddSpineFxPrewarmCallbacks = onDone ? [onDone] : [];
+            if (isMiniGameRuntime()) {
+                this._pinddSpineFxPrewarmTimeout = setTimeout(() => {
+                    if (!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid) || !this._pinddSpineFxPrewarmLoading) return;
+                    this.failGameplayFxPrewarm(new Error('optional gameplay FX prewarm timed out'));
+                }, 5000);
+            }
             const finish = () => {
+                if (!this._pinddSpineFxPrewarmLoading || this._pinddSpineFxUnavailable) return;
+                clearTimeout(this._pinddSpineFxPrewarmTimeout);
                 this._pinddSpineFxPrewarmLoading = false;
                 this._pinddSpineFxPrewarmReady = true;
                 this.noteGameplayLoadingProgress?.('spine-prewarm-ready');
@@ -263,15 +320,17 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 this._pinddSpineFxPrewarmCallbacks = [];
                 for (const callback of callbacks) callback();
             };
-            this.ensurePinddSpineFxSkeletonData((skeletonData: sp.SkeletonData) => {
+            this.ensurePinddSpineFxSkeletonData((skeletonData: sp.SkeletonData | null) => {
+                if (!skeletonData || this._pinddSpineFxUnavailable) return;
                 try {
                     const { node, skeleton } = this.acquirePinddSpineFxNode(true);
                     skeleton.skeletonData = skeletonData;
                     this.recyclePinddSpineFxNode(node);
-                    this.ensurePatternCompleteFxPrefab(() => finish());
                 } catch (error) {
                     this.failGameplayFxPrewarm(error instanceof Error ? error : new Error(String(error)));
+                    return;
                 }
+                this.ensurePatternCompleteFxPrefab(() => finish());
             });
         },
 
@@ -342,6 +401,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
         },
 
         clearPinddSpineFx(): void {
+            clearTimeout(this._pinddSpineFxPrewarmTimeout);
             this._pinddSpineFxBatchSeq = (Number(this._pinddSpineFxBatchSeq) || 0) + 1;
             this._pinddSpineFxReservedCount = 0;
             const skeletonCtor = (sp as any)?.Skeleton;
@@ -391,7 +451,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             onDone?: () => void,
             options?: PinddSpineFxPlayOptions,
         ): void {
-            if (!beanNode?.isValid) {
+            if (this._pinddSpineFxUnavailable || !beanNode?.isValid) {
                 if (typeof onDone === 'function') onDone();
                 return;
             }
@@ -409,8 +469,9 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 }
                 setTimeout(tryPlay, PINDD_SPINE_FX_BATCH_ACTIVE_LIMIT_RETRY_SECONDS * 1000);
             };
-            const tryPlay = () => this.ensurePinddSpineFxSkeletonData((skeletonData: sp.SkeletonData) => {
+            const tryPlay = () => this.ensurePinddSpineFxSkeletonData((skeletonData: sp.SkeletonData | null) => {
                 if (!isBatchStillCurrent()) return;
+                if (!skeletonData) { onDone?.(); return; }
                 if (!beanNode?.isValid) {
                     if (typeof onDone === 'function') onDone();
                     return;
@@ -423,24 +484,39 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     }
                     return;
                 }
-                const acquired = this.acquirePinddSpineFxNode(allowActiveLimitOverride);
+                let acquired: { node: Node; skeleton: sp.Skeleton };
+                try { acquired = this.acquirePinddSpineFxNode(allowActiveLimitOverride); }
+                catch (error) {
+                    if (!isMiniGameRuntime()) throw error;
+                    this.failGameplayFxPrewarm(createPinddSpineFxError(`FX node creation failed: ${String(error)}`));
+                    onDone?.();
+                    return;
+                }
                 const { node, skeleton } = acquired;
                 const seq = ((node as any).__pinddSpineFxSeq || 0) + 1;
                 (node as any).__pinddSpineFxSeq = seq;
-                beanNode.addChild(node);
-                setFxLayerDeep(node, Layers.Enum.UI_2D);
-                node.setPosition(0, 0, 0);
-                node.setRotationFromEuler(0, 0, 0);
-                const scale = this.getPinddSpineFxScaleForBean(beanNode, animationName);
-                node.setScale(scale, scale, 1);
-                const opacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
-                opacity.opacity = PINDD_SPINE_FX_OPACITY_BY_ANIMATION[animationName] ?? 255;
-                if (options?.fxParent) {
-                    // Keep the settled bean's transform, but render all color FX after the cells.
-                    // The board remains the shared ancestor for zoom, opacity and clipping.
-                    opacity.opacity *= (beanNode.getComponent(UIOpacity)?.opacity ?? 255) / 255
-                        * (beanNode.getComponent(Sprite)?.color.a ?? 255) / 255;
-                    node.setParent(options.fxParent, true);
+                try {
+                    beanNode.addChild(node);
+                    setFxLayerDeep(node, Layers.Enum.UI_2D);
+                    node.setPosition(0, 0, 0);
+                    node.setRotationFromEuler(0, 0, 0);
+                    const scale = this.getPinddSpineFxScaleForBean(beanNode, animationName);
+                    node.setScale(scale, scale, 1);
+                    const opacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
+                    opacity.opacity = PINDD_SPINE_FX_OPACITY_BY_ANIMATION[animationName] ?? 255;
+                    if (options?.fxParent) {
+                        // Keep the settled bean's transform, but render all color FX after the cells.
+                        // The board remains the shared ancestor for zoom, opacity and clipping.
+                        opacity.opacity *= (beanNode.getComponent(UIOpacity)?.opacity ?? 255) / 255
+                            * (beanNode.getComponent(Sprite)?.color.a ?? 255) / 255;
+                        node.setParent(options.fxParent, true);
+                    }
+                } catch (error) {
+                    if (!isMiniGameRuntime()) throw error;
+                    this.recyclePinddSpineFxNode(node);
+                    this.failGameplayFxPrewarm(createPinddSpineFxError(`FX node setup failed: ${String(error)}`));
+                    onDone?.();
+                    return;
                 }
 
                 let completed = false;
@@ -458,6 +534,11 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     skeleton.setAnimation(0, animationName, false);
                     this.scheduleOnce(completeOnce, (PINDD_SPINE_FX_DURATION[animationName] || 0.8) + 0.12);
                 } catch (err) {
+                    if (isMiniGameRuntime()) {
+                        this.failGameplayFxPrewarm(createPinddSpineFxError(`play failed for ${animationName}: ${String(err)}`));
+                        completeOnce();
+                        return;
+                    }
                     this.recyclePinddSpineFxNode(node);
                     throw createPinddSpineFxError(`play failed for ${animationName}: ${err instanceof Error ? err.message : String(err)}`);
                 }
@@ -594,7 +675,8 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 activeLimit: PINDD_SPINE_FX_ACTIVE_LIMIT,
                 allowActiveLimitOverride,
             });
-            this.ensurePinddSpineFxSkeletonData(() => {
+            this.ensurePinddSpineFxSkeletonData((data: sp.SkeletonData | null) => {
+                if (!data) { onDone?.(); return; }
                 let fxParent: Node | undefined;
                 if (animationName === PINDD_SPINE_FX_ANIMATION.colorComplete) {
                     const boardNode = this.boardNode as Node;
@@ -769,18 +851,35 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
         },
 
         getPatternCompleteMatchFxDuration(): number {
+            if (this._pinddSpineFxUnavailable) return 0;
             return getPatternWaveDuration(this.getPatternCompleteWaveCells());
         },
 
         playPatternCompleteMatchFx(onDone?: () => void): void {
-            const prefab = this._patternCompleteWavePrefab as Prefab | null;
-            if (!prefab?.isValid) throw new Error('[pattern-wave-fx] prefab was not preloaded');
+            if (this._pinddSpineFxUnavailable) { onDone?.(); return; }
             const cells = this.getPatternCompleteWaveCells();
-            this.clearPatternCompleteMatchFx();
-            const fxRoot = this.getPatternCompleteMatchFxRoot();
-            const player = fxRoot.getComponent(PatternCompleteWaveFx) || fxRoot.addComponent(PatternCompleteWaveFx);
-            debugPerfTrace('patternWaveFx.patternComplete', { cellCount: cells.length, duration: getPatternWaveDuration(cells) });
-            player.play(prefab, cells, onDone);
+            let completed = false;
+            const completeOnce = () => {
+                if (completed) return;
+                completed = true;
+                onDone?.();
+            };
+            const failed = (error: unknown) => this.failGameplayFxPrewarm(
+                new Error(`[pattern-wave-fx] play failed: ${String(error)}`));
+            try {
+                const prefab = this._patternCompleteWavePrefab as Prefab | null;
+                if (!prefab?.isValid) throw new Error('[pattern-wave-fx] prefab was not preloaded');
+                this.clearPatternCompleteMatchFx();
+                const fxRoot = this.getPatternCompleteMatchFxRoot();
+                const player = fxRoot.getComponent(PatternCompleteWaveFx) || fxRoot.addComponent(PatternCompleteWaveFx);
+                debugPerfTrace('patternWaveFx.patternComplete', { cellCount: cells.length, duration: getPatternWaveDuration(cells) });
+                player.play(prefab, cells, completeOnce, isMiniGameRuntime() ? failed : undefined);
+            } catch (error) {
+                if (!isMiniGameRuntime() || completed) throw error;
+                this.clearPatternCompleteMatchFx();
+                failed(error);
+                completeOnce();
+            }
         },
 
         enqueueColorCompleteEffect(colorId: number, playSound: boolean = true): void {

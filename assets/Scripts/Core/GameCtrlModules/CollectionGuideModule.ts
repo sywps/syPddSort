@@ -1,3 +1,4 @@
+import { createGuideCorgiBubble } from '../GuideCorgiBubble';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, Bundle, Button,
@@ -30,6 +31,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
+import { isCreatorWeb } from '../CreatorWeb';
 import { openCollectionShellOverlay } from '../Panels/CollectionShellOverlay';
 
 export const COLLECTION_REPLAY_ROUTE_REASON = 'collection_replay';
@@ -176,8 +178,9 @@ export function installCollectionGuideModule(target: any): void {
                 throw new Error('[collection-replay] missing prefab replay button nodes or components');
             }
 
-            titleLabel.string = '重玩本关';
+            titleLabel.string = isCreatorWeb() ? '体验本关' : '重玩本关';
             costLabel.string = '-1';
+            vigorIcon.active = costLabel.node.active = !isCreatorWeb();
             button.active = true;
 
             this.bindPanelButton(button, () => {
@@ -307,7 +310,10 @@ export function installCollectionGuideModule(target: any): void {
 
             if (unlocked) {
                 // 打开图案详情
-                if (!card.getComponent(Button)) card.addComponent(Button);
+                if (!card.getComponent(Button)) {
+                    const button = card.addComponent(Button);
+                    button.transition = Button.Transition.SCALE; button.zoomScale = 0.95; button.duration = 0.08;
+                }
                 card.targetOff(this);
                 card.on(Button.EventType.CLICK, (e: EventTouch) => {
                     e.propagationStopped = true;
@@ -321,6 +327,8 @@ export function installCollectionGuideModule(target: any): void {
             } else {
                 card.targetOff(this);
             }
+            const cardButton = card.getComponent(Button);
+            if (cardButton) cardButton.interactable = unlocked;
 
             return { card, previewX, previewY, previewW, previewH };
         },
@@ -370,7 +378,7 @@ export function installCollectionGuideModule(target: any): void {
         startPinchGuide(options: { title?: string; subtitle?: string; autoCloseSeconds?: number } = {}) {
             if (this.isGameEnd) return;
             if (this._pinchGuideLayer) return;
-            const title = options.title || '双指拖动可放大缩小图案';
+            const title = options.title || '双指拖动可以放大图案哦';
             const subtitle = options.subtitle || '';
             const autoCloseSeconds = Math.max(0, Number(options.autoCloseSeconds ?? 8) || 0);
             const requiredFrames = ['guide_hand', 'guide_bubble_frame'];
@@ -404,20 +412,21 @@ export function installCollectionGuideModule(target: any): void {
             layer.addChild(bubble);
             const bubbleText = title;
             const hasSubtitle = subtitle.length > 0;
-            const bubbleWidth = hasSubtitle ? 430 : Math.max(560, Math.min(640, bubbleText.length * 40 + 120));
-            const bubbleHeight = hasSubtitle ? 132 : 128;
+            const bubbleWidth = 560;
+            const bubbleHeight = 140;
             bubble.addComponent(UITransform).setContentSize(bubbleWidth, bubbleHeight);
             bubble.layer = Layers.Enum.UI_2D;
-            const bubbleY = Math.min(visibleHalfH - 150, 430);
+            // Reserve room above the text frame for the corgi, without moving the board.
+            const bubbleY = Math.min(visibleHalfH - bubbleHeight / 2 - 150, 430);
             bubble.setPosition(0, bubbleY, 0);
-            this._applySpriteFrame(bubble, guideBubbleFrame, bubbleWidth, bubbleHeight, Sprite.Type.SLICED);
+            createGuideCorgiBubble(this, bubble, bubbleWidth, bubbleHeight);
 
             const titleLabel = syncDynamicGuideLabelNode(
                 bubble,
                 'PinchText',
                 bubbleText,
                 hasSubtitle ? 32 : 34,
-                new Color('#7162A2'),
+                new Color('#202020'),
                 bubbleWidth - 112,
                 hasSubtitle ? 40 : 64,
                 0,
@@ -425,7 +434,7 @@ export function installCollectionGuideModule(target: any): void {
             );
             (titleLabel as Label & { isBold?: boolean }).isBold = true;
             if (hasSubtitle) {
-                syncDynamicGuideLabelNode(bubble, 'PinchSub', subtitle, 22, new Color('#7162A2'), 330, 32, 0, -18);
+                syncDynamicGuideLabelNode(bubble, 'PinchSub', subtitle, 22, new Color('#202020'), 330, 32, 0, -18);
             }
 
             const handSize = Math.round(GUIDE_HAND_SPRITE_SIZE * 1.15);
@@ -462,6 +471,8 @@ export function installCollectionGuideModule(target: any): void {
             createPinchHand('PinchGuideLeftHand', true, -nearGap / 2, -farGap / 2);
             createPinchHand('PinchGuideRightHand', false, nearGap / 2, farGap / 2);
             if (this._activeGameplayEntryMode === 'main' && this.getActiveLogicalLevelId?.() === 4) {
+                AudioMgr.inst.playGuideVoice('guideZoom', () =>
+                    this._pinchGuideLayer === layer && layer.isValid && layer.activeInHierarchy && !this.isGameEnd);
                 AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'pch_guide_step_shown', levelId: 4, stepId: 1,
                     success: true, source: 'pinch_guide', extra: { guideId: 'pch_level_4_zoom_v1' } });
             }
@@ -476,7 +487,9 @@ export function installCollectionGuideModule(target: any): void {
 
         closePinchGuide(reason: string = 'interrupted') {
             if (this._pinchGuideLayer && this._activeGameplayEntryMode === 'main' && this.getActiveLogicalLevelId?.() === 4) {
-                const completed = reason === 'gesture';
+                AudioMgr.inst.stopGuideVoice();
+                AudioMgr.inst.releasePreparedGuideVoices();
+                const completed = reason === 'gesture' || reason === 'bean_tap';
                 AnalyticsMgr.inst.trackFunnelEvent({ eventName: completed ? 'pch_guide_step_done' : 'guide_interrupted',
                     levelId: 4, stepId: 1, success: completed, source: reason, extra: { guideId: 'pch_level_4_zoom_v1' } });
                 if (completed) AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'guide_complete', levelId: 4,

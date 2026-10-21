@@ -149,6 +149,33 @@ for (let y = -(v2Total - v2Height) / 2; y <= (v2Total - v2Height) / 2; y += 1) {
 assert.equal(lastWindow.lastIndexExclusive, 600, 'the final level remains reachable');
 
 const previewCache = new Map();
+// Preview permission changes card presentation only, with no completed-state mutation.
+for (const creator of [false, true]) {
+    for (const prefix of ['level_', 'zt_level_', 'coop_level_']) {
+        const viewport = { getComponent: () => ({ height: 100 }) };
+        const content = { position: { y: 0 } };
+        const entry = { levelId: 600, prefix, unlockLevel: 600, unlocked: false };
+        const card = { isValid: true, getChildByName: () => null };
+        const item = { slot: { isValid: true, active: false, setPosition() {} }, entryIndex: -1 };
+        const state = { viewport, content, entries: [entry], pool: [item], columnCount: 1,
+            columnXs: [0], startY: 0, rowPitch: 100, generation: 1, bindingSerial: 0,
+            savedLevel: 1, completedThemeLevelIds: new Set() };
+        let previewable;
+        const runtime = { _collectionVirtualState: state,
+            drawCollectionCard(...args) { previewable = args[6]; return { card }; } };
+        const render = compileObjectMethod(source, 'renderCollectionVisiblePreviews(\n            viewport?: Node', {
+            UITransform: class {}, Graphics: class {}, resolveCollectionVirtualWindow,
+            isCreatorWeb: () => creator, isCollectionEntryUnlockedForProgress: () => false,
+        });
+        render.call(runtime, viewport, content, 100, 100, 0, true);
+        assert.equal(previewable, creator, 'unplayed cards are clickable only in creator edition');
+        assert.equal(item.previewRequest.grayscale, !creator);
+        assert.equal(state.savedLevel, 1);
+        assert.equal(state.completedThemeLevelIds.size, 0);
+        assert.equal(entry.unlocked, false);
+    }
+}
+
 const gridA = [[1]];
 const gridB = [[2]];
 const gridC = [[3]];

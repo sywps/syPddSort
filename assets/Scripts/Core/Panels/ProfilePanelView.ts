@@ -17,7 +17,7 @@ export class ProfilePanelView extends Component {
     @property({ tooltip: '错误提示停留秒数' }) statusSeconds = 2.5;
     @property({ tooltip: '飘字停留秒数' }) floatHold = 1;
     @property({ tooltip: '飘字淡出秒数' }) floatFade = 0.8;
-    @property({ tooltip: '感叹号最大晃动角度' }) badgeAngle = 12;
+    @property({ tooltip: '感叹号最大晃动角度' }) badgeAngle = 26;
     @property({ tooltip: '感叹号晃动时长倍率' }) badgeSpeed = 1;
     @property({ tooltip: '感叹号两次晃动间隔秒数' }) badgePause = 1.3;
     @property({ multiline: true }) clearedFormat = '<b>已通关 <color=#45b72b>{count}</color> 关</b>';

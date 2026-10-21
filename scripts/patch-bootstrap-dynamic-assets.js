@@ -19,6 +19,8 @@ const homeAssetsBundleName = 'homeAssets';
 const bootstrapImageAllowlist = new Set([
 	'Beans/bean-atlas',
 	'Effects/GuideBeanRing/guang_quan',
+	'Effects/GuideCorgi/corgi',
+	'Effects/GuideCorgi/resting_paw',
 	'GameUI/Atlases/GameSceneSmall/gameplay_skill_slot_background',
 	'GameUI/Atlases/Conveyor/conveyor_7a',
 	'GameUI/Atlases/Conveyor/conveyor_7b',
@@ -39,7 +41,8 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/Atlases/BoardEffects/pdpx_eff_Mask_01',
 	'GameUI/Atlases/BoardEffects/pdpx_eff_Star_01',
 	'GameUI/Atlases/BoardEffects/pdpx_eff_Trail_02',
-	'GameUI/Atlases/GameSceneSmall/pch_speed_inactive',
+	'GameUI/Atlases/GameSceneSmall/gameplay_help_lilac',
+	'GameUI/Atlases/GameSceneSmall/pch_speed_lilac',
 	'GameUI/Atlases/GameSceneSmall/popup_ad_play_icon',
 	'GameUI/Atlases/GameSceneSmall/popup_tool_add_badge',
 	'GameUI/Atlases/GameSceneSmall/popup_tool_count_badge',
@@ -48,8 +51,8 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/Atlases/GameSceneSmall/popup_tool_brush_icon',
 	'GameUI/Atlases/GameSceneSmall/popup_tool_magnet_icon',
 	'GameUI/Atlases/GameSceneSmall/solid_white',
+	'GameUI/Atlases/GameSceneSmall/settings_lilac',
 	'GameUI/Atlases/GameSceneSmall/toast_bubble_background',
-	'GameUI/Atlases/GameSceneSmall/设置',
 ]);
 const criticalGameAssetsPathMap = new Map([
     ['Audio/bgm', 'Audio/bgm'],
@@ -1225,6 +1228,7 @@ if (require.main === module) main();
 module.exports = {
     copyBuiltSpriteFrameArtifact,
     buildBundleSourceRecord,
+    materializeBundleEntry,
     ensureStandaloneCconExtensionMap,
     localizeRedirectedBundleEntries,
     requiresNativeArtifact,

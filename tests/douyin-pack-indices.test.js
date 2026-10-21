@@ -1,0 +1,17 @@
+const assert = require('assert');
+const { normalizePackIndices } = require('../scripts/normalize-minigame-pack-indices');
+const uuid = '90afab70-4b0a-471c-b4e5-12f299647b94@f9941';
+const config = { debug: false, uuids: ['existing'], packs: { abc: [0, uuid] } };
+const section = { name: 'settings_lilac' };
+const pack = [[], [], [], [], [], [[], section]];
+assert.equal(normalizePackIndices(config, () => pack), 1);
+assert.deepStrictEqual(config.packs.abc, [0, 1]);
+assert.equal(config.uuids[1], uuid);
+assert.strictEqual(pack[5][1], section);
+assert.equal(normalizePackIndices(config, () => { throw Error('should not re-read'); }), 0);
+assert.throws(() => normalizePackIndices({ debug: false, uuids: [], packs: { abc: [uuid] } }, () => pack), /Cannot verify/);
+assert.throws(() => normalizePackIndices({ debug: false, uuids: [], packs: { abc: [7] } }, () => pack), /Invalid pack/);
+const debug = { debug: true, uuids: [uuid], packs: { abc: [uuid] } };
+assert.equal(normalizePackIndices(debug, () => pack), 0);
+assert.equal(debug.packs.abc[0], uuid);
+console.log('douyin-pack-indices.test.js passed');

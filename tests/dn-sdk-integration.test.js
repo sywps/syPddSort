@@ -55,6 +55,8 @@ function createManagerRuntime() {
         },
         require(request) {
             if (request === './RuntimeLog') return { runtimeLog() {} };
+            if (request === './DouyinCloudMgr') return { DouyinCloudMgr: { inst: { getSdkRoleId() { throw Error('WeChat must not access Douyin identity'); } } } };
+            if (request === './MiniGamePlatform') return { isDouyinMiniGameRuntime: () => false, getDouyinMiniGameRuntime: () => null };
             if (request === '../Platform/WeChatShareReturnService') {
                 return {
                     installLocalWeChatPassiveShare(runtime) {
@@ -212,7 +214,9 @@ function loadSySdkManager(sygame) {
         },
         location: { hostname: '' },
         require(request) {
+            if (request === './DouyinCloudMgr') return { DouyinCloudMgr: { inst: { getSdkRoleId() { throw Error('WeChat must not access Douyin identity'); } } } };
             if (request === './RuntimeLog') return { runtimeLog() {} };
+            if (request === './MiniGamePlatform') return { isDouyinMiniGameRuntime: () => false, getDouyinMiniGameRuntime: () => null };
             if (request === '../Platform/WeChatShareReturnService') {
                 return { installLocalWeChatPassiveShare: () => true };
             }

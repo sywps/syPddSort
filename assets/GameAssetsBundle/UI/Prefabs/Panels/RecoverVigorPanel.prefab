@@ -336,6 +336,9 @@
     "_components": [
       {
         "__id__": 12
+      },
+      {
+        "__id__": 163
       }
     ],
     "_prefab": {
@@ -484,7 +487,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 309,
+      "y": 311,
       "z": 0
     },
     "_lrot": {
@@ -534,7 +537,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 0,
+      "y": 3,
       "z": 0
     },
     "_lrot": {
@@ -574,7 +577,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 330,
+      "width": 324,
       "height": 68
     },
     "_anchorPoint": {
@@ -683,8 +686,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 365,
-      "height": 86
+      "width": 364,
+      "height": 84
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1292,6 +1295,9 @@
       },
       {
         "__id__": 63
+      },
+      {
+        "__id__": 164
       }
     ],
     "_prefab": {
@@ -1672,7 +1678,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "59184d4a-8349-4b3b-9653-fe99537fbf3d@f9941",
+      "__uuid__": "fea69d37-d1d6-43fa-a98f-4214bf323b8d@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -2180,6 +2186,9 @@
       },
       {
         "__id__": 99
+      },
+      {
+        "__id__": 165
       }
     ],
     "_prefab": {
@@ -2560,7 +2569,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "d32c3490-5ef2-489f-b31d-158385e5b817@f9941",
+      "__uuid__": "764d4e24-1f97-4ba3-928e-cba75d664f0d@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -3977,5 +3986,179 @@
   {
     "__type__": "cc.CompPrefabInfo",
     "fileId": "RecoverVigorPanel-CloseIcon-ui"
+  },
+  {
+    "__type__": "cc.Button",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 11
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 166
+    },
+    "clickEvents": [],
+    "_interactable": true,
+    "_transition": 3,
+    "_normalColor": {
+      "__type__": "cc.Color",
+      "r": 214,
+      "g": 214,
+      "b": 214,
+      "a": 255
+    },
+    "_hoverColor": {
+      "__type__": "cc.Color",
+      "r": 211,
+      "g": 211,
+      "b": 211,
+      "a": 255
+    },
+    "_pressedColor": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_disabledColor": {
+      "__type__": "cc.Color",
+      "r": 124,
+      "g": 124,
+      "b": 124,
+      "a": 255
+    },
+    "_normalSprite": null,
+    "_hoverSprite": null,
+    "_pressedSprite": null,
+    "_disabledSprite": null,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
+    "_target": {
+      "__id__": 11
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.Button",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 48
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 167
+    },
+    "clickEvents": [],
+    "_interactable": true,
+    "_transition": 3,
+    "_normalColor": {
+      "__type__": "cc.Color",
+      "r": 214,
+      "g": 214,
+      "b": 214,
+      "a": 255
+    },
+    "_hoverColor": {
+      "__type__": "cc.Color",
+      "r": 211,
+      "g": 211,
+      "b": 211,
+      "a": 255
+    },
+    "_pressedColor": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_disabledColor": {
+      "__type__": "cc.Color",
+      "r": 124,
+      "g": 124,
+      "b": 124,
+      "a": 255
+    },
+    "_normalSprite": null,
+    "_hoverSprite": null,
+    "_pressedSprite": null,
+    "_disabledSprite": null,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
+    "_target": {
+      "__id__": 48
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.Button",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 84
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 168
+    },
+    "clickEvents": [],
+    "_interactable": true,
+    "_transition": 3,
+    "_normalColor": {
+      "__type__": "cc.Color",
+      "r": 214,
+      "g": 214,
+      "b": 214,
+      "a": 255
+    },
+    "_hoverColor": {
+      "__type__": "cc.Color",
+      "r": 211,
+      "g": 211,
+      "b": 211,
+      "a": 255
+    },
+    "_pressedColor": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_disabledColor": {
+      "__type__": "cc.Color",
+      "r": 124,
+      "g": 124,
+      "b": 124,
+      "a": 255
+    },
+    "_normalSprite": null,
+    "_hoverSprite": null,
+    "_pressedSprite": null,
+    "_disabledSprite": null,
+    "_duration": 0.08,
+    "_zoomScale": 0.95,
+    "_target": {
+      "__id__": 84
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "RecoverVigorPanel-component-163"
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "RecoverVigorPanel-component-164"
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "RecoverVigorPanel-component-165"
   }
 ]

@@ -1,5 +1,4 @@
 import {
-    Label,
     Node,
     SKILL_UNLOCK_FREEZE,
     tween,
@@ -11,7 +10,6 @@ import { isGameplaySkillUnlocked } from '../SlotOnboardingPolicy';
 
 const FREEZE_HINT_REMAIN_SECONDS = 60;
 const FREEZE_HINT_EXPIRE_SECONDS = 30;
-const FREEZE_HINT_BUBBLE_TEXT = '时间不多啦';
 const SLOT_REMINDER_MAX_PER_GAME = 3;
 const SLOT_REMINDER_COOLDOWN_MS = 22000;
 
@@ -63,16 +61,6 @@ function cacheScale(node: Node): Vec3 {
     return cache.__adRewardBaseScale as Vec3;
 }
 
-function cacheTransform(node: Node): void {
-    const cache = node as any;
-    if (!cache.__adRewardBasePos) {
-        cache.__adRewardBasePos = new Vec3(node.position.x, node.position.y, node.position.z);
-    }
-    if (!cache.__adRewardBaseScale) {
-        cache.__adRewardBaseScale = new Vec3(node.scale.x, node.scale.y, node.scale.z);
-    }
-}
-
 function playScalePulse(node: Node, peakScale: number, repeat: number, growSeconds: number, shrinkSeconds: number): void {
     if (!node?.isValid) return;
     const scale = cacheScale(node);
@@ -86,16 +74,6 @@ function playScalePulse(node: Node, peakScale: number, repeat: number, growSecon
         .start();
 }
 
-function findFirstLabel(root: Node): Label | null {
-    const label = root.getComponent(Label);
-    if (label) return label;
-    for (const child of root.children) {
-        const found = findFirstLabel(child);
-        if (found) return found;
-    }
-    return null;
-}
-
 function hideSceneBubble(bubble: Node | null | undefined): void {
     if (!bubble?.isValid) return;
     Tween.stopAllByTarget(bubble);
@@ -106,32 +84,6 @@ function hideSceneBubble(bubble: Node | null | undefined): void {
     }
     restoreTransform(bubble);
     bubble.active = false;
-}
-
-function showSceneBubble(bubble: Node | null | undefined, text: string): Node | null {
-    if (!bubble?.isValid) return null;
-    const label = findFirstLabel(bubble);
-    if (label) label.string = text;
-    cacheTransform(bubble);
-    restoreTransform(bubble);
-    Tween.stopAllByTarget(bubble);
-    const opacity = bubble.getComponent(UIOpacity) || bubble.addComponent(UIOpacity);
-    Tween.stopAllByTarget(opacity);
-    const cache = bubble as any;
-    const pos = cache.__adRewardBasePos as Vec3;
-    bubble.active = true;
-    bubble.setPosition(pos.x, pos.y - 6, pos.z);
-    opacity.opacity = 0;
-    tween(bubble)
-        .to(0.18, { position: new Vec3(pos.x, pos.y, pos.z) })
-        .start();
-    tween(opacity)
-        .to(0.18, { opacity: 255 })
-        .delay(4.6)
-        .to(0.2, { opacity: 0 })
-        .call(() => hideSceneBubble(bubble))
-        .start();
-    return bubble;
 }
 
 export function installGameplayAdRewardHintModule(target: any): void {
@@ -158,7 +110,7 @@ export function installGameplayAdRewardHintModule(target: any): void {
             const initialTime = Number(this._adRewardInitialTimeLimit) || Number(this.timeRemain) || 0;
             const remain = Math.floor(Number(this.timeRemain) || 0);
             if (!this._adRewardFreezeHintShown && initialTime >= FREEZE_HINT_REMAIN_SECONDS && remain <= FREEZE_HINT_REMAIN_SECONDS && remain > FREEZE_HINT_EXPIRE_SECONDS) {
-                this.showAdRewardFreezeHint?.();
+                this.armAdRewardFreezeRescue?.();
             }
             if (!this._slotAddReminderHalfTimeShown && initialTime > 0 && remain <= Math.floor(initialTime / 2)) {
                 this._slotAddReminderHalfTimeShown = true;
@@ -166,15 +118,12 @@ export function installGameplayAdRewardHintModule(target: any): void {
             }
         },
 
-        showAdRewardFreezeHint() {
+        armAdRewardFreezeRescue() {
             const skillRoot = typeof this.getGameplayBottomHudChild === 'function' ? this.getGameplayBottomHudChild('SkillArea') : null;
             const shell = skillRoot?.getChildByName('SkillFreeze');
             if (!shell?.isValid || !shell.activeInHierarchy) return false;
+            // Preserve the direct-use ad entry without a countdown bubble or scale pulse.
             this._adRewardFreezeHintShown = true;
-            removeNode(shell.getChildByName('AdRewardFreezeGlow'));
-            playScalePulse(shell, 1.1, 7, 0.34, 0.38);
-
-            this._adRewardFreezeBubbleNode = showSceneBubble(shell.getChildByName('FreezeTimeHintBubble'), FREEZE_HINT_BUBBLE_TEXT);
             return true;
         },
 

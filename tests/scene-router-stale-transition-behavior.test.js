@@ -119,6 +119,8 @@ function loadSceneRouterModule(activeSceneName = 'Game') {
             if (id === './AppSession') {
                 return {};
             }
+            if (id === './AudioMgr') return { AudioMgr: { inst: { stopVoice() {} } } };
+            if (id === './WeChatSceneSpine') return { ensureWeChatSceneSpineReady: async () => {} };
             throw new Error(`unexpected require: ${id}`);
         },
         URLSearchParams,
